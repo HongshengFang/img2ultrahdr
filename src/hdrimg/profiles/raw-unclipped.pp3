@@ -1,0 +1,83 @@
+[Version]
+AppVersion=5.13
+Version=352
+
+[Exposure]
+Auto=false
+Compensation=0
+HistogramMatching=false
+CurveFromHistogramMatching=false
+ClampOOG=false
+Curve=0;
+Curve2=0;
+
+[HLRecovery]
+Enabled=true
+Method=Coloropp
+
+[Directional Pyramid Denoising]
+Enabled=true
+Enhance=false
+Median=false
+Luma=0
+Ldetail=0
+Chroma=0
+Method=Lab
+LMethod=SLI
+CMethod=AUT
+C2Method=AUTO
+SMethod=shal
+MedMethod=soft
+RGBMethod=soft
+MethodMed=Lonly
+Redchro=0
+Bluechro=0
+Gamma=1.7
+Passes=1
+LCurve=0;
+CCCurve=0;
+
+[LensProfile]
+LcMode=lfauto
+UseDistortion=true
+UseVignette=true
+UseCA=false
+
+[Black & White]
+BeforeCurve=0;
+AfterCurve=0;
+
+[Vibrance]
+Enabled=false
+
+[Color appearance]
+Enabled=false
+
+[Film Simulation]
+Enabled=false
+
+[RGB Curves]
+LumaMode=false
+
+[Color Management]
+InputProfile=(camera)
+ToneCurve=false
+ApplyLookTable=false
+ApplyHueSatMap=false
+WorkingProfile=Rec2020
+WorkingTRC=none
+OutputProfile=Rec2020-elle-V4-g10
+OutputProfileIntent=Relative
+OutputBPC=true
+
+[RAW]
+CA=true
+CAAutoIterations=2
+HotPixelFilter=true
+DeadPixelFilter=true
+
+[RAW Bayer]
+Method=amaze
+
+[RAW X-Trans]
+Method=3-pass (best)

@@ -1,0 +1,39 @@
+[build-system]
+requires = ["setuptools>=69", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "img2ultrahdr"
+version = "0.1.0"
+description = "Convert camera RAW and standard images into natural SDR and Ultra HDR JPEGs"
+readme = "README.md"
+requires-python = ">=3.12"
+license = "MIT"
+dependencies = [
+  "numpy>=1.26,<3",
+  "tifffile>=2023.4",
+  "Pillow>=10,<13",
+  "colour-science>=0.4.4,<0.5",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8,<10"]
+
+[project.scripts]
+img2uhdr = "hdrimg.cli:main"
+hdrimg = "hdrimg.cli:main"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+include-package-data = true
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+hdrimg = ["profiles/*.pp3", "profiles/*.b64"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+markers = ["integration: exercises installed external codecs"]
