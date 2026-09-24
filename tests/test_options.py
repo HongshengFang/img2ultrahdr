@@ -16,6 +16,7 @@ from hdrimg.pipeline import RenderOptions
         ("tint", 0.1),
         ("contrast", 2.1),
         ("saturation", 0.7),
+        ("warm_color_separation", 1.1),
     ],
 )
 def test_option_ranges(field, value):

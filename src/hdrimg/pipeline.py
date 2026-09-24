@@ -36,6 +36,7 @@ class RenderOptions:
     peak_nits: int = 1000
     contrast: float | None = None
     saturation: float | None = None
+    warm_color_separation: float = 0.0
     strip_metadata: bool = False
     keep_intermediates: bool = False
     overwrite: bool = False
@@ -61,6 +62,8 @@ class RenderOptions:
             raise InputError("--contrast must be between 1.0 and 2.0")
         if self.saturation is not None and not 0.8 <= self.saturation <= 1.5:
             raise InputError("--saturation must be between 0.8 and 1.5")
+        if not 0.0 <= self.warm_color_separation <= 1.0:
+            raise InputError("--warm-color-separation must be between 0 and 1")
 
 
 @dataclass(frozen=True)
@@ -149,6 +152,7 @@ def render_raw(source_path: Path, options: RenderOptions) -> RenderResult:
             auto_look=options.auto_look,
             contrast=options.contrast,
             saturation=options.saturation,
+            warm_color_separation=options.warm_color_separation,
         )
         if not render_info.scene.has_icc_profile:
             raise ProcessingError("Developed scene TIFF is missing its linear Rec.2020 ICC profile")

@@ -66,9 +66,13 @@ def oklab_to_linear_srgb(lab: np.ndarray) -> np.ndarray:
 
 
 def adjust_oklab_chroma(
-    rgb: np.ndarray, *, target: str, amount: float
+    rgb: np.ndarray,
+    *,
+    target: str,
+    amount: float,
+    warm_color_separation: float = 0.0,
 ) -> np.ndarray:
-    """Scale OKLab chroma while preserving perceptual lightness and hue."""
+    """Adjust OKLab chroma, with optional separation of warm light and dark tones."""
     values = np.asarray(rgb, dtype=np.float32)
     if target == "srgb":
         srgb = values
@@ -80,6 +84,36 @@ def adjust_oklab_chroma(
         raise ValueError(f"Unknown target gamut: {target}")
     lab = linear_srgb_to_oklab(srgb)
     lab[..., 1:] *= np.float32(amount)
+    if warm_color_separation:
+        # Separate light skin/wood from darker auburn tones without shifting
+        # neutral pixels or cool colors. This is an optional creative look.
+        def smoothstep(value: np.ndarray) -> np.ndarray:
+            t = np.clip(value, 0.0, 1.0)
+            return t * t * (3.0 - 2.0 * t)
+
+        lightness = lab[..., 0]
+        a = lab[..., 1].copy()
+        b = lab[..., 2].copy()
+        hue = np.degrees(np.arctan2(b, a)) % 360.0
+        chroma = np.hypot(a, b)
+        warm = (
+            smoothstep((hue - 20.0) / 15.0)
+            * (1.0 - smoothstep((hue - 80.0) / 15.0))
+            * smoothstep((chroma - 0.025) / 0.03)
+        )
+        strength = np.float32(warm_color_separation)
+        light_mix = smoothstep((lightness - 0.55) / 0.20)
+        angle = np.deg2rad((-5.0 + 15.0 * light_mix) * warm * strength)
+        chroma_boost = (
+            1.0
+            + 0.16 * np.exp(-((lightness - 0.56) / 0.16) ** 2) * warm * strength
+        )
+        lab[..., 0] = (
+            lightness
+            + 0.04 * smoothstep((lightness - 0.62) / 0.16) * warm * strength
+        )
+        lab[..., 1] = (a * np.cos(angle) - b * np.sin(angle)) * chroma_boost
+        lab[..., 2] = (a * np.sin(angle) + b * np.cos(angle)) * chroma_boost
     return convert_back(oklab_to_linear_srgb(lab))
 
 

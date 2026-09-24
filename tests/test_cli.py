@@ -11,6 +11,7 @@ def test_render_defaults_to_auto_look_and_accepts_manual_overrides():
     assert automatic.exposure_ev is None
     assert automatic.contrast is None
     assert automatic.saturation is None
+    assert automatic.warm_color_separation == 0.0
 
     manual = cli._parser().parse_args(
         [
@@ -22,11 +23,14 @@ def test_render_defaults_to_auto_look_and_accepts_manual_overrides():
             "1.6",
             "--saturation",
             "1.15",
+            "--warm-color-separation",
+            "0.8",
         ]
     )
     assert manual.exposure_ev == 0.2
     assert manual.contrast == 1.6
     assert manual.saturation == 1.15
+    assert manual.warm_color_separation == 0.8
 
 
 def test_batch_continues_after_one_failure(monkeypatch, tmp_path: Path):

@@ -57,3 +57,38 @@ def test_oklab_chroma_adjustment_preserves_neutral_and_increases_chroma():
     after = linear_srgb_to_oklab(adjusted[1:])
     assert np.allclose(after[..., 0], before[..., 0], atol=2e-6)
     assert np.linalg.norm(after[..., 1:]) > np.linalg.norm(before[..., 1:])
+
+
+def test_warm_color_separation_distinguishes_skin_and_auburn_in_both_gamuts():
+    encoded = np.array(
+        [[235, 154, 114], [159, 95, 63], [110, 160, 215], [130, 130, 130]],
+        dtype=np.float32,
+    ) / 255.0
+    linear = np.where(
+        encoded <= 0.04045,
+        encoded / 12.92,
+        ((encoded + 0.055) / 1.055) ** 2.4,
+    )
+    for target, source in (
+        ("srgb", linear),
+        ("rec2020", linear_srgb_to_rec2020(linear)),
+    ):
+        result = adjust_oklab_chroma(
+            source,
+            target=target,
+            amount=1.0,
+            warm_color_separation=1.0,
+        )
+        result_srgb = result if target == "srgb" else rec2020_to_linear_srgb(result)
+        before = linear_srgb_to_oklab(linear)
+        after = linear_srgb_to_oklab(result_srgb)
+        before_gap = np.arctan2(before[0, 2], before[0, 1]) - np.arctan2(
+            before[1, 2], before[1, 1]
+        )
+        after_gap = np.arctan2(after[0, 2], after[0, 1]) - np.arctan2(
+            after[1, 2], after[1, 1]
+        )
+        assert after_gap > before_gap + 0.15
+        assert after[0, 0] > before[0, 0]
+        assert np.linalg.norm(after[1, 1:]) > np.linalg.norm(before[1, 1:])
+        assert np.allclose(result_srgb[2:], linear[2:], atol=3e-5)

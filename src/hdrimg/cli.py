@@ -45,6 +45,12 @@ def _parser() -> argparse.ArgumentParser:
     render.add_argument("--peak-nits", type=int, default=1000)
     render.add_argument("--contrast", type=float, help="override automatic contrast")
     render.add_argument("--saturation", type=float, help="override automatic saturation")
+    render.add_argument(
+        "--warm-color-separation",
+        type=float,
+        default=0.0,
+        help="separate lighter warm tones from darker auburn tones (0..1)",
+    )
     render.add_argument("--strip-metadata", action="store_true")
     render.add_argument("--keep-intermediates", action="store_true")
     render.add_argument("--overwrite", action="store_true")
@@ -77,6 +83,7 @@ def _render_command(args: argparse.Namespace) -> int:
         peak_nits=args.peak_nits,
         contrast=args.contrast,
         saturation=args.saturation,
+        warm_color_separation=args.warm_color_separation,
         strip_metadata=args.strip_metadata,
         keep_intermediates=args.keep_intermediates,
         overwrite=args.overwrite,

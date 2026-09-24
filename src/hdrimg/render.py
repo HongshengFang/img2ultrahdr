@@ -150,6 +150,7 @@ def render_pair(
     auto_look: bool = True,
     contrast: float | None = None,
     saturation: float | None = None,
+    warm_color_separation: float = 0.0,
 ) -> RenderInfo:
     scene, scene_info = open_scene(scene_path)
     base_stats = exposure_statistics(
@@ -187,6 +188,7 @@ def render_pair(
         contrast=look.contrast,
     )
     tone_mapping["saturation"] = look.saturation
+    tone_mapping["warm_color_separation"] = warm_color_separation
 
     with hdr_raw_path.open("wb") as hdr_file:
         for start in range(0, scene_info.height, chunk_rows):
@@ -207,7 +209,10 @@ def render_pair(
             sdr_2020 = scale_rgb_to_luminance(shared, sdr_curve(y))
             sdr_linear = rec2020_to_linear_srgb(sdr_2020)
             sdr_linear = adjust_oklab_chroma(
-                sdr_linear, target="srgb", amount=look.saturation
+                sdr_linear,
+                target="srgb",
+                amount=look.saturation,
+                warm_color_separation=warm_color_separation,
             )
             sdr_linear = compress_gamut(sdr_linear, target="srgb", upper=1.0)
             sdr_pixels[start:stop] = _quantize_srgb(sdr_linear)
@@ -224,7 +229,10 @@ def render_pair(
                 ),
             )
             hdr_2020 = adjust_oklab_chroma(
-                hdr_2020, target="rec2020", amount=look.saturation
+                hdr_2020,
+                target="rec2020",
+                amount=look.saturation,
+                warm_color_separation=warm_color_separation,
             )
             hdr_2020 = compress_gamut(hdr_2020, target="rec2020", upper=boost)
             alpha = np.ones((*hdr_2020.shape[:2], 1), dtype=np.float32)
