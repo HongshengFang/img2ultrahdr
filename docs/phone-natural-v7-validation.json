@@ -1,0 +1,120 @@
+{
+  "date": "2026-09-29T22:33:57.490400+00:00",
+  "style": "phone-natural",
+  "algorithm_version": 7,
+  "tests": {
+    "passed": 157,
+    "command": "python -m pytest"
+  },
+  "preset": {
+    "name": "phone-natural",
+    "midtone_lift_ev": 0.38,
+    "highlight_rolloff": 0.42,
+    "local_contrast": 0.0,
+    "vibrance": 0.23,
+    "sdr_gamut": "display-p3",
+    "algorithm_version": 7
+  },
+  "full_raw_validation": {
+    "sample": "0N6A9416.CR2",
+    "dimensions": [
+      4492,
+      6732
+    ],
+    "raw_white_balance": {
+      "requested": "style-default",
+      "resolved": "auto",
+      "temperature_k": null,
+      "tint": 1.0,
+      "stage": "raw",
+      "post_illuminant_correction": false,
+      "skin_guard": {
+        "method": "bounded camera-reference skin chroma before phone look",
+        "version": 1,
+        "strength": 1.0,
+        "applied": true,
+        "person_detection": {
+          "method": "person matte with bounded skin chroma loss",
+          "version": 1,
+          "status": "applied",
+          "person_fraction": 0.14958898723125458,
+          "face_count": 1,
+          "helper_attempts": 1
+        },
+        "mean_restore_weight": 0.013854525297944405,
+        "affected_fraction": 0.05569398082231355,
+        "max_restore_weight": 0.6290236115455627
+      }
+    },
+    "skin": {
+      "method": "person matte with bounded skin chroma loss",
+      "version": 1,
+      "status": "applied",
+      "person_fraction": 0.1498858481645584,
+      "face_count": 1,
+      "helper_attempts": 1,
+      "strength": 1.0,
+      "pale_color_protection": {
+        "version": 1,
+        "preserves_luminance": true,
+        "outside_skin_support_unchanged": true
+      },
+      "mean_skin_weight": 0.058192154005603604,
+      "supported_skin_fraction": 0.06302982551934938
+    },
+    "sdr_hdr_full_decode_passed": true,
+    "hdr_peak_luminance": 1.774853229522705,
+    "hdr_above_reference_fraction": 0.10666758068347823,
+    "tools": {
+      "rawtherapee": "RawTherapee, version 5.13, command line.",
+      "libultrahdr": "2.0.2",
+      "exiftool": "13.55"
+    }
+  },
+  "comparison_to_user_accepted_sample": {
+    "sdr_pixel_max_absolute_difference": 0,
+    "sdr_pixel_mean_absolute_difference": 0.0,
+    "sdr_pixels_changed_fraction": 0.0,
+    "raw_scene_bit_exact": true,
+    "accepted_sample_sha256": "945345689573a80e96fe7bbbacf40b44b1289af2e8d91b6a64e9f6c4788379ae",
+    "new_sample_sha256": "945345689573a80e96fe7bbbacf40b44b1289af2e8d91b6a64e9f6c4788379ae",
+    "ultrahdr_file_bit_exact": true
+  },
+  "visual_scope": {
+    "accepted_sample_user_reviewed": true,
+    "other_scenes_new_visual_review": false,
+    "night_new_visual_review": false
+  },
+  "source_sha256": {
+    "src/hdrimg/__init__.py": "4c75af2a5656017678045fbc6721f129fb4096af5ef5f5327a56ae93ef580ec5",
+    "src/hdrimg/__main__.py": "935a1c1166b0c1ea35a82256345000bf2c73ded718d77773bc27a71ecce28f7d",
+    "src/hdrimg/cli.py": "81abd49b2ed1af5f30acf953883dc6510318659bb1745b18687c310bc31bdda1",
+    "src/hdrimg/color.py": "9dfb110efef2328057fc4676e62ec6d0722b3293c050bc885c22f5b51892b045",
+    "src/hdrimg/doctor.py": "933bba4449efca113414e58c2796e6ae3f17323b7c564fd67b8653e9384970f5",
+    "src/hdrimg/errors.py": "022445fa2e56386e24f74ca6297a5392798856c3eb1825a9de08401d16c39e98",
+    "src/hdrimg/inspect.py": "084a346c799b29b551294044f0beeb9d3cf170b8965a6588c1d249a457c120c1",
+    "src/hdrimg/look.py": "824d407e93ca0a497e21e1cf338bc2925f022ad0ffa4e7927a3c28a8374cae09",
+    "src/hdrimg/metadata.py": "9c8e5ac0d0fc0475e8f7e54d9c05f6ec7074644f3e3dd839a9ebc63be26f9460",
+    "src/hdrimg/phone_color_guard.py": "adcfa73f600c1ad7da4af81bd2238442b6ca55a72e3c2586231a1ba9af3bca56",
+    "src/hdrimg/phone_deveil.py": "9e21cd982bd9822c65cbc4f69ba6f64f805b63ce7b6c959432f76a4adbd48f27",
+    "src/hdrimg/phone_edges.py": "c15f109b8c8f7285bb5cb75d0033e67b05c51cccd641e074473d411db7951547",
+    "src/hdrimg/phone_histogram.py": "09f4c735e50a97de2e0415581f4754d85486bd51b891a8d14b4707df26e7bdfe",
+    "src/hdrimg/phone_noise.py": "384ad1166b378ef1ebd7923adf7057951dfc35d68e882e5459c64978b67c2a9e",
+    "src/hdrimg/phone_raw_wb.py": "de2dd0207c2c98e39b41b90d7f6727be9eae6003cb2e772965efafacba03e165",
+    "src/hdrimg/phone_skin.py": "fdaca8a45a6b4a27532bc65ef6edac79b8369b6135e97c9bc9c63789f21f23a4",
+    "src/hdrimg/phone_sky.py": "a6a33ff07bd87a0a9f1c804f0e3f1860d327a7de9b096f70e6fa7fe4334ed46f",
+    "src/hdrimg/phone_subject.py": "a7f9869ea42c46e08b7e13dbcfdad83feafbacdcca6cb045ba79597da3e2ea4c",
+    "src/hdrimg/phone_surface.py": "4bf53c94e33ff9cd0ef8a3276d4c97350ac01966a95359e5f92aaeba71ab4f86",
+    "src/hdrimg/phone_tone.py": "594acbdf5f97e03312d1fd9e1f1efd056f1cf1a6b63a269cdf85814ba16fdddc",
+    "src/hdrimg/pipeline.py": "9037ed73006e8f8a07ad5ad3982cf0fd9ef8f153f399fd0d730ff82eac8e85bd",
+    "src/hdrimg/profiles/Rec2020-elle-V4-g10.icc.b64": "3f30cbaba8517dc56bfca4eb19003b1fb2dd2cbe56e236397882959835464373",
+    "src/hdrimg/profiles/phone-subject.swift": "8f076ee0689f5b280a4efda49da7930ab53697b7d937a50fc4ee3c2ef5168c9e",
+    "src/hdrimg/profiles/raw-unclipped.pp3": "dd3aa77849f3f50354e824b915a2cdafcdae08cfecefc18538875a4a22f47861",
+    "src/hdrimg/raw.py": "20f3547baed95c9fd5104a7ee9781a6068d3092270646c883b4996eb6669c3ea",
+    "src/hdrimg/render.py": "6d3fc62aa26170803b776143f1a6a5a64111d13f7a492bc79745c8316c9a5d80",
+    "src/hdrimg/style.py": "c099cbe618031a463d2498bf3bf152c63c29fac73bb435d342b55593150381f6",
+    "src/hdrimg/tone.py": "1d30b40c87c61176fd74da49cee7828b3c53090cad726e3eebfbc64b3ddfa7e0",
+    "src/hdrimg/tools.py": "18abee9d9f67b12740a07fdff51964cfb4cd12d638c600ce429a80071ba0436e",
+    "src/hdrimg/ultrahdr.py": "5ac1ce81214dcbe2bdaf7b9b884c0b09729afab8fd07890916530293aff6b166"
+  }
+}

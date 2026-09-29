@@ -44,7 +44,7 @@ def _parser() -> argparse.ArgumentParser:
     )
     render.add_argument(
         "--white-balance", choices=("camera", "auto", "custom"),
-        help="RAW white balance (default: auto for phone-clear, camera for other styles)",
+        help="RAW white balance (default: auto for phone-clear/phone-natural, camera for natural)",
     )
     render.add_argument("--temperature-k", type=int)
     render.add_argument("--tint", type=float, default=1.0)
@@ -66,35 +66,35 @@ def _parser() -> argparse.ArgumentParser:
     render.add_argument("--sdr-gamut", choices=("srgb", "display-p3"))
     render.add_argument(
         "--sdr-adaptation-strength", type=float,
-        help="phone-clear scene-based SDR adjustment (0..1; default: 1)",
+        help="phone-clear/phone-natural scene-based SDR adjustment (0..1; default: 1)",
     )
     render.add_argument(
         "--hdr-midtone-gain", type=float,
-        help="phone-clear HDR/SDR midtone gain (1..3; default: scene-based)",
+        help="phone-clear/phone-natural HDR/SDR midtone gain (1..3; default: scene-based)",
     )
     render.add_argument(
         "--hdr-shoulder-strength", type=float,
-        help="phone-clear HDR highlight compression (0..1; default: 0.7)",
+        help="phone-clear/phone-natural HDR highlight compression (0..1; default: 0.7)",
     )
     render.add_argument(
         "--subject-adaptation-strength", type=float,
-        help="phone-clear local subject tone using macOS Vision (0..1; default: 1)",
+        help="phone-clear/phone-natural local subject tone using macOS Vision (0..1; default: 1)",
     )
     render.add_argument(
         "--skin-protection-strength", type=float,
-        help="phone-clear skin protection during automatic white correction (0..1; default: 1)",
+        help="phone-clear/phone-natural skin protection during automatic white correction (0..1; default: 1)",
     )
     render.add_argument(
         "--raw-denoise-strength", type=float,
-        help="phone-clear RAW noise reduction (0..1; default: 1 with automatic look, otherwise 0)",
+        help="phone-clear/phone-natural RAW noise reduction (0..1; default: 1 with automatic look, otherwise 0)",
     )
     render.add_argument(
         "--raw-detail-strength", type=float,
-        help="phone-clear restrained RAW deconvolution (0..1; default: 1 with automatic look and RAW denoise)",
+        help="phone-clear/phone-natural restrained RAW deconvolution (0..1; default: 1 with automatic look and RAW denoise)",
     )
     render.add_argument(
         "--surface-denoise-strength", type=float,
-        help="phone-clear smooth blue-surface noise reduction (0..1; default: follows RAW denoise)",
+        help="phone-clear/phone-natural smooth blue-surface noise reduction (0..1; default: follows RAW denoise)",
     )
     render.add_argument(
         "--warm-color-separation",

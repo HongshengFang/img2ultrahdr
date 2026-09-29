@@ -22,7 +22,7 @@ from .phone_surface import denoise_blue_surfaces
 from .phone_raw_wb import preserve_raw_skin
 from .raw import RAW_DEVELOPMENT_EV, develop_raw, phone_denoise_overlay, phone_detail_overlay, validate_raw_input
 from .render import open_scene, render_pair
-from .style import DEFAULT_STYLE_NAME, STYLE_PRESETS, resolve_style
+from .style import DEFAULT_STYLE_NAME, RAW_PHONE_STYLES, STYLE_PRESETS, resolve_style
 from .tools import resolve_tools, tool_version, ultrahdr_version
 from .ultrahdr import encode_ultrahdr, validate_ultrahdr
 
@@ -111,33 +111,33 @@ class RenderOptions:
                 raise InputError(f"--{name} must be between 0 and 1")
         if self.hdr_midtone_gain is not None and not 1.0 <= self.hdr_midtone_gain <= 3.0:
             raise InputError("--hdr-midtone-gain must be between 1 and 3")
-        if self.raw_denoise_strength and self.style != "phone-clear":
-            raise InputError("--raw-denoise-strength requires --style phone-clear")
+        if self.raw_denoise_strength and self.style not in RAW_PHONE_STYLES:
+            raise InputError("--raw-denoise-strength requires --style phone-clear or phone-natural")
         for name, value in (("raw-detail-strength", self.raw_detail_strength),
                             ("surface-denoise-strength", self.surface_denoise_strength)):
-            if value and self.style != "phone-clear":
-                raise InputError(f"--{name} requires --style phone-clear")
+            if value and self.style not in RAW_PHONE_STYLES:
+                raise InputError(f"--{name} requires --style phone-clear or phone-natural")
 
     def resolved_white_balance(self) -> str:
         if self.white_balance is not None:
             return self.white_balance
-        return "auto" if self.style == "phone-clear" else "camera"
+        return "auto" if self.style in RAW_PHONE_STYLES else "camera"
 
     def resolved_raw_skin_strength(self) -> float:
-        if (self.style != "phone-clear" or self.resolved_white_balance() != "auto"
+        if (self.style not in RAW_PHONE_STYLES or self.resolved_white_balance() != "auto"
                 or not self.auto_look or self.contrast is not None or self.saturation is not None):
             return 0.0
         return 1.0 if self.skin_protection_strength is None else self.skin_protection_strength
 
     def resolved_raw_denoise_strength(self) -> float:
-        if self.style != "phone-clear":
+        if self.style not in RAW_PHONE_STYLES:
             return 0.0
         if self.raw_denoise_strength is not None:
             return self.raw_denoise_strength
         return float(self.auto_look and self.contrast is None and self.saturation is None)
 
     def resolved_raw_detail_strength(self) -> float:
-        if self.style != "phone-clear":
+        if self.style not in RAW_PHONE_STYLES:
             return 0.0
         if self.raw_detail_strength is not None:
             return self.raw_detail_strength
@@ -145,7 +145,7 @@ class RenderOptions:
                      and self.resolved_raw_denoise_strength() > 0)
 
     def resolved_surface_denoise_strength(self) -> float:
-        if self.style != "phone-clear":
+        if self.style not in RAW_PHONE_STYLES:
             return 0.0
         if self.surface_denoise_strength is not None:
             return self.surface_denoise_strength
@@ -330,7 +330,10 @@ def render_raw(source_path: Path, options: RenderOptions) -> RenderResult:
             hdr_shoulder_strength=options.hdr_shoulder_strength,
             subject_adaptation_strength=options.subject_adaptation_strength,
             skin_protection_strength=options.skin_protection_strength,
-            _skin_context=skin_context,
+            # V7's accepted look measures its rendering matte from the final
+            # RAW skin-guarded scene. Reuse that matte inside render_pair's
+            # SDR/HDR references, rather than the earlier WB-guard reference.
+            _skin_context=skin_context if style.algorithm_version < 7 else None,
         )
         if not render_info.scene.has_icc_profile:
             raise ProcessingError("Developed scene TIFF is missing its linear Rec.2020 ICC profile")

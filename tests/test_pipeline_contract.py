@@ -64,7 +64,8 @@ def test_raw_overlay_reserves_two_stops_and_supports_custom_white_balance():
 
 def test_denoise_default_respects_styles_and_manual_looks():
     assert RenderOptions(output=Path("out")).resolved_raw_denoise_strength() == 1
-    for extra in ({"style": "natural"}, {"style": "phone-natural"},
+    assert RenderOptions(output=Path("out"), style="phone-natural").resolved_raw_denoise_strength() == 1
+    for extra in ({"style": "natural"},
                   {"auto_look": False}, {"contrast": 1.35}, {"saturation": 1.18},
                   {"raw_denoise_strength": 0}):
         assert RenderOptions(output=Path("out"), **extra).resolved_raw_denoise_strength() == 0
@@ -87,7 +88,8 @@ def test_pipeline_passes_denoise_overlay_only_when_requested(monkeypatch, tmp_pa
         with pytest.raises(ProcessingError, match="inspection complete"):
             pipeline.render_raw(source, RenderOptions(output=tmp_path/"out", **extra))
     assert "Luma=15\nLdetail=30\nChroma=60" in observed[0]
-    assert observed[1:] == [None] * 4
+    assert observed[2] == observed[0]  # Both current phone presets use RAW denoise.
+    assert [observed[i] for i in (1, 3, 4)] == [None] * 3
 
 
 def test_adaptive_denoise_redevelops_only_when_residual_noise_requires_it(monkeypatch, tmp_path):
@@ -130,14 +132,14 @@ def test_detail_and_surface_defaults_preserve_legacy_and_manual_looks():
     options = RenderOptions(output=Path("out"))
     assert options.resolved_raw_detail_strength() == 1
     assert options.resolved_surface_denoise_strength() == 1
-    for extra in ({"style":"natural"}, {"style":"phone-natural"},
+    for extra in ({"style":"natural"},
                   {"auto_look":False}, {"contrast":1.35}, {"saturation":1.18},
                   {"raw_denoise_strength":0}):
         options = RenderOptions(output=Path("out"), **extra)
         assert options.resolved_raw_detail_strength() == 0
         assert options.resolved_surface_denoise_strength() == 0
     for parameter in ("raw_detail_strength", "surface_denoise_strength"):
-        for style in ("natural", "phone-natural"):
+        for style in ("natural",):
             with pytest.raises(InputError, match="requires --style phone-clear"):
                 RenderOptions(output=Path("out"), style=style, **{parameter:1}).validate()
         with pytest.raises(InputError, match="between 0 and 1"):

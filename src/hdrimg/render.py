@@ -25,7 +25,7 @@ from .color import (
 from .errors import ProcessingError
 from .look import resolve_look
 from .phone_subject import detect_subject_fields
-from .phone_skin import build_skin_context, protect_skin_illuminant
+from .phone_skin import build_skin_context, protect_skin_illuminant, refine_phone_skin_color
 from .phone_edges import person_boundary_protection
 from .phone_tone import (
     apply_local_contrast,
@@ -310,6 +310,7 @@ def render_pair(
     _skin_context: tuple[Image.Image | None, dict] | None = None,
 ) -> RenderInfo:
     style = style or DEFAULT_STYLE
+    refine_color = refine_phone_skin_color if style.algorithm_version >= 7 else refine_phone_color
     scene, scene_info = open_scene(scene_path)
     base_stats = exposure_statistics(
         scene,
@@ -417,6 +418,11 @@ def render_pair(
         }
     if skin_enabled:
         tone_mapping["phone_skin"] = {**_skin_context[1], "strength": float(skin_strength)}
+        if style.algorithm_version >= 7:
+            tone_mapping["phone_skin"]["pale_color_protection"] = {
+                "version": 1, "preserves_luminance": True,
+                "outside_skin_support_unchanged": True,
+            }
     elif style.algorithm_version >= 5:
         tone_mapping["phone_skin"] = {"status": "disabled", "strength": 0.0}
     base_image: Image.Image | None = None
@@ -568,7 +574,7 @@ def render_pair(
                 vibrance=style.vibrance,
             )
             if style.algorithm_version >= 2:
-                sdr_linear = refine_phone_color(
+                sdr_linear = refine_color(
                     sdr_linear, target=style.sdr_gamut,
                     dark_weight=tone_mapping["phone_dark_weight"],
                     indoor_weight=tone_mapping["phone_indoor_weight"],
@@ -631,7 +637,7 @@ def render_pair(
                         warm_color_separation=warm_color_separation,
                         vibrance=style.vibrance,
                     )
-                    reference_linear = refine_phone_color(
+                    reference_linear = refine_color(
                         reference_linear, target=style.sdr_gamut,
                         dark_weight=tone_mapping["phone_dark_weight"],
                         indoor_weight=tone_mapping["phone_indoor_weight"],
@@ -698,7 +704,7 @@ def render_pair(
                     vibrance=style.vibrance,
                 )
                 if style.algorithm_version >= 2:
-                    hdr_2020 = refine_phone_color(
+                    hdr_2020 = refine_color(
                         hdr_2020, target="rec2020",
                         dark_weight=tone_mapping["phone_dark_weight"],
                         indoor_weight=tone_mapping["phone_indoor_weight"],

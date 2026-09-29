@@ -28,8 +28,8 @@ def test_raw_wb_default_is_style_specific_and_manual_wb_is_respected():
     args = cli._parser().parse_args(['render', 'photo.CR2'])
     assert args.white_balance is None
     assert RenderOptions(output=Path('out')).resolved_white_balance() == 'auto'
-    for style in ['natural', 'phone-natural']:
-        assert RenderOptions(output=Path('out'), style=style).resolved_white_balance() == 'camera'
+    assert RenderOptions(output=Path('out'), style='natural').resolved_white_balance() == 'camera'
+    assert RenderOptions(output=Path('out'), style='phone-natural').resolved_white_balance() == 'auto'
     for wb in ['camera', 'auto', 'custom']:
         options = RenderOptions(output=Path('out'), white_balance=wb, temperature_k=5600)
         options.validate()
@@ -119,7 +119,8 @@ def test_guard_skips_no_person_and_dark_scenes_and_bounds_detector_fallback(monk
 
 
 @pytest.mark.parametrize('wb,guard', [(None, True), ('auto', True), ('camera', False), ('custom', False)])
-def test_pipeline_wb_reference_is_shared_by_denoise_and_color_passes(monkeypatch, tmp_path, wb, guard):
+@pytest.mark.parametrize('style', ['phone-clear', 'phone-natural'])
+def test_pipeline_wb_reference_is_shared_by_denoise_and_color_passes(monkeypatch, tmp_path, wb, guard, style):
     source = tmp_path/'photo.CR2'
     source.write_bytes(b'fixture')
     monkeypatch.setattr(pipeline, 'resolve_tools', lambda **kw: ToolPaths(Path('raw'), Path('hdr'), Path('exif')))
@@ -136,11 +137,11 @@ def test_pipeline_wb_reference_is_shared_by_denoise_and_color_passes(monkeypatch
     monkeypatch.setattr(pipeline, 'preserve_raw_skin', guard_scene)
     def capture(scene, *args, **kwargs):
         assert (scene.name == 'scene-raw-skin.tif') == guard
-        assert (kwargs['_skin_context'] is not None) == guard
+        assert (kwargs['_skin_context'] is not None) == (guard and style == 'phone-clear')
         raise ProcessingError('captured')
     monkeypatch.setattr(pipeline, 'render_pair', capture)
     with pytest.raises(ProcessingError, match='captured'):
-        pipeline.render_raw(source, RenderOptions(output=tmp_path/'out', white_balance=wb,
+        pipeline.render_raw(source, RenderOptions(output=tmp_path/'out', style=style, white_balance=wb,
             temperature_k=5600, surface_denoise_strength=0))
     expected = wb or 'auto'
     assert [c[0] for c in calls] == [expected] * 3 + (['camera'] if guard else [])

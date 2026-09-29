@@ -19,7 +19,7 @@
 - `--white-balance camera`：明确沿用相机设置，跳过相机参考回退；不会再叠加 V4/V5 的全局去暖色。
 - `--white-balance custom --temperature-k 5600 --tint 1.0`：尊重用户指定的显影白平衡，同样不叠加全局去暖色。
 - `--skin-protection-strength 0..1`：默认 1；同时控制早期相机参考肤色约束与后续肤色去色保护。0 关闭保护，仍保留 RAW 优先流程。
-- `natural`、`phone-natural` 默认保持相机白平衡和原有风格。Python `RenderOptions.white_balance=None` 表示由风格决定默认值，实际选择由 `resolved_white_balance()` 返回。
+- `natural` 默认保持相机白平衡和原有风格；`phone-natural` 后续已更新为 [V7 RAW 优先方案](phone-natural-v7.md)。Python `RenderOptions.white_balance=None` 表示由风格决定默认值，实际选择由 `resolved_white_balance()` 返回。
 - 关闭自动观感、显式覆盖对比度或饱和度、暗夜场景不启用自动肤色约束。人物未检出时不回退颜色；检测不可用时使用较弱的颜色保护并记录降级原因。
 
 默认自动处理通常增加一次相机参考显影和一份临时浮点图像。`--skin-protection-strength 0` 可关闭此额外显影。现有照片不会因升级代码自动重新生成。

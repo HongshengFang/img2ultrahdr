@@ -16,7 +16,10 @@ from pathlib import Path
 import numpy as np
 from PIL import Image, ImageCms, ImageFilter
 
-from .color import linear_srgb_to_oklab, rec2020_to_linear_srgb, srgb_oetf
+from .color import (
+    DISPLAY_P3_TO_XYZ, REC2020_TO_XYZ, SRGB_TO_XYZ,
+    linear_srgb_to_oklab, rec2020_to_linear_srgb, refine_phone_color, srgb_oetf,
+)
 from .phone_subject import _vision_helper
 from .tone import luminance_rec2020, scale_rgb_to_luminance
 
@@ -69,6 +72,33 @@ def protect_skin_illuminant(
     ) * confidence
     protected = corrected + (values - corrected) * restore[..., None]
     return protected, confidence
+
+
+def refine_phone_skin_color(
+    rgb: np.ndarray, *, target: str, dark_weight: float, indoor_weight: float,
+    neutral_protection: bool = False, skin_protection: np.ndarray | None = None,
+) -> np.ndarray:
+    """Retain pale skin through color refinement without changing luminance.
+
+    The RAW-first renderer uses unit illuminant gains, so its pre/post-WB skin
+    confidence is squared. Restore that confidence and soften desaturation of
+    supported pale skin. This only prevents color removal: it neither paints a
+    region nor changes the existing correction outside the skin support.
+    """
+    common = dict(target=target, dark_weight=dark_weight, indoor_weight=indoor_weight,
+                  neutral_protection=neutral_protection)
+    before = refine_phone_color(rgb, skin_protection=skin_protection, **common)
+    if skin_protection is None or not neutral_protection or not np.any(skin_protection > 0):
+        return before
+    confidence = np.sqrt(np.clip(skin_protection, 0, 1))
+    protected = 1 - (1 - confidence) ** 3
+    after = refine_phone_color(rgb, skin_protection=protected, **common)
+    coefficients = {"srgb": SRGB_TO_XYZ[1], "display-p3": DISPLAY_P3_TO_XYZ[1],
+                    "rec2020": REC2020_TO_XYZ[1]}[target]
+    old_y, new_y = before @ coefficients, after @ coefficients
+    ratio = np.divide(old_y, new_y, out=np.ones_like(old_y), where=new_y > 1e-8)
+    after *= ratio[..., None]
+    return np.where((skin_protection > 0)[..., None], after, before)
 
 
 def build_skin_context(

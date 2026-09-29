@@ -1,5 +1,7 @@
 # 手机样本校准记录
 
+本文保留初始版本的校准历史。当前 `phone-natural` 已更新为 [V7 自然人像方案](phone-natural-v7.md)，下文旧参数不代表当前默认值。
+
 ## 样本和方法
 
 `jpg_hdr_sample_effect/` 的 12 组 Pixel 9 DNG／Ultra HDR JPEG 以同一文件名前缀配对，全部带有效的 Display P3 ICC 和 HDR gain map。样本跨室内外、日夜、白色衣物人像、蓝天绿植、明亮白色物体和室外明暗反差。原始照片已加入 `.gitignore`，本记录只保存统计和处理方法。

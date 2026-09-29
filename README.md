@@ -32,6 +32,12 @@ img2uhdr render photo.CR2 --output outputs
 img2uhdr render photo.RAF --output outputs
 ```
 
+选择已确认的自然人像效果：
+
+```bash
+img2uhdr render photo.CR2 --style phone-natural --output outputs/phone-natural
+```
+
 自动结果不合审美时，可以只覆盖需要改变的项目，其余项目继续自动计算：
 
 ```bash
@@ -47,7 +53,7 @@ img2uhdr render *.CR2 \
 
 如果暖色肤色与棕红色头发显得过于接近，可使用 `--warm-color-separation 1`，让亮部暖色略亮、偏金黄，暗部暖色略偏红。它是可选的观感控制，默认值为 `0`。
 
-手机风格参考 12 组同拍手机 DNG／Ultra HDR JPEG。**`phone-clear` 是默认版本**：SDR 会根据场景明暗调整底图，HDR 则独立提高普通中间调或局部光源，并分别控制高光肩部；蓝色和暖色还会进行轻微的选择性校准。`phone-natural` 保留原来较温和的处理。两者都会真正转换为 Display P3 并嵌入对应 ICC；只更改输出色域不会自动产生这种影调。需要原来的自然风格与 sRGB 输出时，显式使用 `--style natural`。
+手机风格参考 12 组同拍手机 DNG／Ultra HDR JPEG。**`phone-clear` 是默认版本**：SDR 会根据场景明暗调整底图，HDR 则独立提高普通中间调或局部光源，并分别控制高光肩部；蓝色和暖色还会进行轻微的选择性校准。`phone-natural` 已更新为经过人像样片确认的 V7：沿用 RAW 优先白平衡，默认关闭会放大人物轮廓阴影的局部增强，加强脚踝等浅肤色区域的颜色保护，并保留自然的明暗与 HDR。详见 [phone-natural V7](docs/phone-natural-v7.md)。两者都会真正转换为 Display P3 并嵌入对应 ICC；只更改输出色域不会自动产生这种影调。需要原来的自然风格与 sRGB 输出时，显式使用 `--style natural`。
 
 ```bash
 img2uhdr render pics/0N6A9479.CR2 \
@@ -57,13 +63,13 @@ img2uhdr render pics/0N6A9479.CR2 \
   --contrast 1.35 --saturation 1.18
 ```
 
-这组固定参数用于和此前成片直接比较。`phone-clear` 保留 `--midtone-lift-ev 0.38`、`--highlight-rolloff 0.42`、`--local-contrast 0.22`、`--vibrance 0.23`、`--sdr-gamut display-p3`，并加入场景自适应 SDR/HDR 处理。原来的 `phone-natural` 参数保持 `0.30 / 0.35 / 0.12 / 0.15 / Display P3`。每一项都可单独覆盖，例如 `--vibrance 0.18` 或 `--sdr-gamut srgb`。新旧处理使用同一个 `phone-clear` 名称，manifest 中的 `algorithm_version` 可区分版本。当前版本为 6，新增内容见 [RAW 优先说明](docs/phone-clear-v6-raw-wb.md)；[v4 复核记录](docs/phone-clear-v4-validation.md)、[空间影调复核](docs/phone-clear-spatial-calibration.md)、[自适应校准记录](docs/phone-clear-adaptive-calibration.md)和[先前的校准记录](docs/phone-natural-calibration.md)保留作为历史基准。
+这组固定参数用于和此前成片直接比较。`phone-clear` 保留 `--midtone-lift-ev 0.38`、`--highlight-rolloff 0.42`、`--local-contrast 0.22`、`--vibrance 0.23`、`--sdr-gamut display-p3`，并加入场景自适应 SDR/HDR 处理。新版 `phone-natural` 参数为 `0.38 / 0.42 / 0 / 0.23 / Display P3`，`algorithm_version` 为 7；关闭局部对比也会跳过宽范围显示细节恢复、局部直方图与去雾式材质反差，仍保留 RAW 细节与独立的人像影调。每一项都可单独覆盖，例如 `--vibrance 0.18` 或 `--sdr-gamut srgb`。两种风格的版本都写入 manifest：`phone-clear` 为 6，`phone-natural` 为 7，分别见 [RAW 优先说明](docs/phone-clear-v6-raw-wb.md)和 [自然人像说明](docs/phone-natural-v7.md)；[v4 复核记录](docs/phone-clear-v4-validation.md)、[空间影调复核](docs/phone-clear-spatial-calibration.md)、[自适应校准记录](docs/phone-clear-adaptive-calibration.md)和[先前的校准记录](docs/phone-natural-calibration.md)保留作为历史基准。
 
-`--exposure-ev` 是自动曝光之上的观感补偿；显式传入它会覆盖自动观感给出的补偿。在 `phone-clear` 中，显式的正曝光还会给 RAW 最亮的一小部分保留额外 HDR 余量。`--contrast` 的范围是 `1.0..2.0`，`--saturation` 的范围是 `0.8..1.5`，显式传入时同样覆盖各自的自动结果。使用 `--no-auto-look` 可关闭自动观感，未指定项目会回到固定基线 `0 EV / 1.35 / 1.10`；`--no-auto-exposure` 则关闭曝光自动计算。
+`--exposure-ev` 是自动曝光之上的观感补偿；显式传入它会覆盖自动观感给出的补偿。在两种手机风格中，显式的正曝光还会给 RAW 最亮的一小部分保留额外 HDR 余量。`--contrast` 的范围是 `1.0..2.0`，`--saturation` 的范围是 `0.8..1.5`，显式传入时同样覆盖各自的自动结果。使用 `--no-auto-look` 可关闭自动观感，未指定项目会回到固定基线 `0 EV / 1.35 / 1.10`；`--no-auto-exposure` 则关闭曝光自动计算。
 
-`--sdr-exposure-ev` 可在场景判断结果之上单独调节 SDR 亮度，范围为 `-2..+2 EV`。例如 `--exposure-ev 0.95 --sdr-exposure-ev -0.45` 可以让 SDR 的人脸和浅色衣服少一些发白，随后重新计算 gain map。`phone-clear` 还提供三个独立控制：`--sdr-adaptation-strength 0..1`（默认 1，设为 0 可关闭新增的场景 SDR 调整）、`--hdr-midtone-gain 1..3`（默认按场景计算）和 `--hdr-shoulder-strength 0..1`（默认 0.7）。这三个新控制不会改变 `natural` 与 `phone-natural` 的默认处理。
+`--sdr-exposure-ev` 可在场景判断结果之上单独调节 SDR 亮度，范围为 `-2..+2 EV`。例如 `--exposure-ev 0.95 --sdr-exposure-ev -0.45` 可以让 SDR 的人脸和浅色衣服少一些发白，随后重新计算 gain map。`phone-clear` 与新版 `phone-natural` 提供三个独立控制：`--sdr-adaptation-strength 0..1`（默认 1，设为 0 可关闭新增的场景 SDR 调整）、`--hdr-midtone-gain 1..3`（默认按场景计算）和 `--hdr-shoulder-strength 0..1`（默认 0.7）。这些控制不改变 `natural` 的原有处理。
 
-v4 的自动 `phone-clear` 会先做适量 RAW 色彩降噪；只有平坦暗部的实测残留噪声足够高时，才增加亮度降噪并重新显影。`--raw-denoise-strength 0` 可关闭，`0..1` 可调强度。显式指定对比度或饱和度、或关闭自动观感时，默认不启用这一层；显式传入正强度可重新启用。显影决定和实际配置会记录在 manifest 中。
+两种手机风格的自动处理都会先做适量 RAW 色彩降噪；只有平坦暗部的实测残留噪声足够高时，才增加亮度降噪并重新显影。`--raw-denoise-strength 0` 可关闭，`0..1` 可调强度。显式指定对比度或饱和度、或关闭自动观感时，默认不启用这一层；显式传入正强度可重新启用。显影决定和实际配置会记录在 manifest 中。
 
 默认自动处理还会在降噪后加入适量反卷积锐化，并对结构平缓的蓝色区域做额外降噪。`--raw-detail-strength 0..1` 控制前者，`--surface-denoise-strength 0..1` 控制后者；设为 `0` 可分别关闭。锐化默认在自动观感和 RAW 降噪启用时生效，蓝色区域降噪默认跟随 RAW 降噪强度。蓝色区域由颜色、纹理与噪声估计产生，并非精确天空分割；细云纹可能略平滑。两项处理的实际决定也会记录在 manifest 中。平滑蓝色区域另从同参数、未降噪RAW参考中保留色度，以减少降噪可能引入的天空色带；仍使用降噪后的亮度，这会增加一次显影开销。参考处理也记入 manifest。
 
@@ -73,9 +79,9 @@ v4 的自动 `phone-clear` 会先做适量 RAW 色彩降噪；只有平坦暗部
 
 自动 HDR 使用独立于 `--sdr-exposure-ev` 的参考影调和色彩，避免单独调暗 SDR 时连带改变 HDR。峰值仍受 `--peak-nits` 限制。样张对照用于逐步接近手机观感，不代表复原手机的私有处理流程；DNG 校准脚本也不等于生产命令已开放 DNG 输入支持。
 
-`--skin-protection-strength 0..1` 控制自动肤色保护，默认 1。V6 在 RAW 自动白平衡显影后，用匹配降噪与锐化设置的相机白平衡参考，有限保留人物浅肤色的颜色；仅使用平滑颜色参考，维持主图亮度与细节。后续继续减少肤色区域的淡暖色去色。明显偏橙的原始颜色仍允许较大的校正。人物区域来自本机 Apple Vision，肤色由连续颜色权重估计，并非精确皮肤分割；暖色衣物与皮肤相近时仍可能被部分保护。检测不可用时使用较弱的纯颜色保护，并记录原因。肤色保护用于自动观感下的非暗夜场景；显式覆盖对比度或饱和度、或关闭自动观感时不启用。SDR 与 HDR 共用同一底稿和人物判断。设为 0 关闭两处肤色保护，但继续使用 RAW 自动白平衡，不恢复 V4/V5 的整体去暖色。
+`--skin-protection-strength 0..1` 控制自动肤色保护，默认 1。V6 在 RAW 自动白平衡显影后，用匹配降噪与锐化设置的相机白平衡参考，有限保留人物浅肤色的颜色；仅使用平滑颜色参考，维持主图亮度与细节。后续继续减少肤色区域的淡暖色去色；`phone-natural` V7 对浅肤色进一步加强保护，同时保持这一步的亮度与肤色支持区外的处理结果。明显偏橙的原始颜色仍允许较大的校正。人物区域来自本机 Apple Vision，肤色由连续颜色权重估计，并非精确皮肤分割；暖色衣物与皮肤相近时仍可能被部分保护。检测不可用时使用较弱的纯颜色保护，并记录原因。肤色保护用于自动观感下的非暗夜场景；显式覆盖对比度或饱和度、或关闭自动观感时不启用。SDR 与 HDR 共用同一底稿和人物判断。设为 0 关闭两处肤色保护，但继续使用 RAW 自动白平衡，不恢复 V4/V5 的整体去暖色。
 
-`phone-clear` 默认采用 RAW 自动白平衡；`natural` 与 `phone-natural` 仍默认沿用相机白平衡。`--white-balance camera` 或 `custom` 会尊重明确指定的 RAW 白平衡，跳过相机参考肤色回退，V6 后续也不会再做整体光源校正。默认 RAW 肤色保护会增加一次参考显影的时间和临时磁盘开销。manifest 的 `raw_development.white_balance` 记录请求值、实际模式与肤色保护决定；自动估计的具体色温不由当前命令行工具返回，因此不会虚构数值。
+`phone-clear` 与新版 `phone-natural` 默认采用 RAW 自动白平衡；`natural` 默认沿用相机白平衡。`--white-balance camera` 或 `custom` 会尊重明确指定的 RAW 白平衡，跳过相机参考肤色回退，V6 后续也不会再做整体光源校正。默认 RAW 肤色保护会增加一次参考显影的时间和临时磁盘开销。manifest 的 `raw_development.white_balance` 记录请求值、实际模式与肤色保护决定；自动估计的具体色温不由当前命令行工具返回，因此不会虚构数值。
 
 自定义白平衡：
 
@@ -123,9 +129,9 @@ pytest
 
 ## 工作流程
 
-1. RawTherapee 使用 Unclipped 配置和 gamma 1.0 Rec.2020 ICC 显影为 32-bit float TIFF。默认 `phone-clear` 在此阶段自动校正白平衡，再从匹配的相机白平衡参考检查肤色损失。显影时预留 2 EV 高光余量，后续在线性曝光计算中精确补回，避免 ICC 输出阶段先把高光压到 1.0。
+1. RawTherapee 使用 Unclipped 配置和 gamma 1.0 Rec.2020 ICC 显影为 32-bit float TIFF。两种手机风格在此阶段自动校正白平衡，再从匹配的相机白平衡参考检查肤色损失。显影时预留 2 EV 高光余量，后续在线性曝光计算中精确补回，避免 ICC 输出阶段先把高光压到 1.0。
 2. Python 先估算基础曝光，再从缩小预览测量中央亮度、亮部/暗部跨度和 OKLab 色度，自动决定观感曝光补偿、对比度和饱和度；每个决定及其测量依据都会写入 manifest。随后为 SDR 加入以 18% 灰为锚点的黑位和中段对比，并从同一底稿生成 sRGB 或 Display P3 SDR 和线性 Rec.2020 HDR rendition。手机风格的中间调、亮部、局部对比和选择性鲜艳度步骤也在这里执行。
-3. 默认 `phone-clear` 根据 RAW 场景分布调整 SDR 底图；HDR 中间调增益独立计算，在暗景中还参考 RAW 高光层次，让亮度主要留给真正的光源。实际峰值与增益图上限随场景变化；`--peak-nits` 是输出的物理亮度上限，而非每张照片的目标峰值。其他风格沿用原来的影调曲线。
+3. 两种手机风格根据 RAW 场景分布调整 SDR 底图；HDR 中间调增益独立计算，在暗景中还参考 RAW 高光层次，让亮度主要留给真正的光源。实际峰值与增益图上限随场景变化；`--peak-nits` 是输出的物理亮度上限，而非每张照片的目标峰值。`natural` 沿用原来的影调曲线。
 4. libultrahdr 从两份 rendition 计算彩色 gain map 并封装 Ultra HDR JPEG。
 5. 每张成品都经过 probe、SDR decode 和线性 HDR decode；`inspect` 还会报告解码后是否真的存在超过 SDR 白的像素。
 

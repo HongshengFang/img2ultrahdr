@@ -88,7 +88,7 @@ def test_manual_look_and_legacy_styles_do_not_invoke_subject_helper(tmp_path, mo
                   hdr_strength=1, peak_nits=1000)
     for i, extra in enumerate(({"contrast": 1.35, "saturation": 1.18},
                                {"style": STYLE_PRESETS["natural"]},
-                               {"style": STYLE_PRESETS["phone-natural"]})):
+                               {"style": STYLE_PRESETS["phone-natural"], "auto_look": False})):
         render_pair(source, tmp_path/f"{i}.jpg", tmp_path/f"{i}.raw", **common, **extra)
 
 

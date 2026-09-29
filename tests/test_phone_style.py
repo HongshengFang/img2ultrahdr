@@ -59,7 +59,11 @@ def test_style_defaults_and_overrides():
         local_contrast=None, vibrance=None, sdr_gamut=None,
     )
     assert natural == NATURAL_STYLE
-    assert phone.midtone_lift_ev == 0.30
+    assert phone.midtone_lift_ev == 0.38
+    assert phone.highlight_rolloff == 0.42
+    assert phone.local_contrast == 0
+    assert phone.vibrance == 0.23
+    assert phone.algorithm_version == 7
     assert phone.sdr_gamut == "display-p3"
     clear = resolve_style(
         "phone-clear", midtone_lift_ev=None, highlight_rolloff=None,
@@ -70,6 +74,7 @@ def test_style_defaults_and_overrides():
     assert clear.local_contrast == 0.22
     assert clear.vibrance == 0.23
     assert clear.sdr_gamut == "display-p3"
+    assert clear.algorithm_version == 6
     assert DEFAULT_STYLE_NAME == "phone-clear"
     assert DEFAULT_STYLE == clear
     assert RenderOptions(output=Path("out")).style == DEFAULT_STYLE_NAME

@@ -13,7 +13,7 @@ from hdrimg.color import (
     rec2020_to_linear_srgb, refine_phone_color,
 )
 from hdrimg.phone_skin import build_skin_context, protect_skin_illuminant
-from hdrimg.style import DEFAULT_STYLE
+from hdrimg.style import DEFAULT_STYLE, STYLE_PRESETS
 from hdrimg.tone import luminance_rec2020, scale_rgb_to_luminance
 
 
@@ -133,7 +133,8 @@ def test_same_independent_reference_reuses_matte_without_sharing_mutable_state(m
     module._PERSON_CACHE.clear()
 
 
-def test_renderer_reuses_independent_person_mask_and_preserves_hdr_contract(tmp_path, monkeypatch):
+@pytest.mark.parametrize("style", [DEFAULT_STYLE, STYLE_PRESETS["phone-natural"]])
+def test_renderer_reuses_independent_person_mask_and_preserves_hdr_contract(tmp_path, monkeypatch, style):
     scene = np.broadcast_to(skin_samples()[0], (48, 64, 3)).copy()
     scene *= np.linspace(.3, 2, 64, dtype=np.float32)[None, :, None]
     source = tmp_path / "scene.tif"
@@ -152,10 +153,16 @@ def test_renderer_reuses_independent_person_mask_and_preserves_hdr_contract(tmp_
     for name, sdr_ev in [("base", 0), ("darker", -.5)]:
         before = len(calls)
         info = render.render_pair(source, tmp_path/(name+".jpg"), tmp_path/(name+".raw"),
-            sdr_exposure_ev=sdr_ev, **common)
+            sdr_exposure_ev=sdr_ev, style=style, **common)
         assert len(calls) == before + 1
         assert info.tone_mapping["phone_skin"]["status"] == "applied"
-        assert info.tone_mapping["phone_edge_protection"]["status"] == "applied"
+        if style.name == "phone-natural":
+            assert info.tone_mapping["phone_edge_protection"]["status"] == "inactive"
+            assert info.tone_mapping["phone_display_detail_strength"] == 0
+            assert "phone_histogram" not in info.tone_mapping
+            assert info.tone_mapping["phone_skin"]["pale_color_protection"]["preserves_luminance"]
+        else:
+            assert info.tone_mapping["phone_edge_protection"]["status"] == "applied"
     hdr = np.fromfile(tmp_path/"base.raw", dtype="<f2").astype(np.float32)
     darker = np.fromfile(tmp_path/"darker.raw", dtype="<f2").astype(np.float32)
     np.testing.assert_allclose(hdr, darker, atol=.004)
