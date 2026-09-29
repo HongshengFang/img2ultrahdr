@@ -65,7 +65,8 @@ def test_guard_excludes_neutral_clothing_and_has_no_change_without_chroma_loss()
     np.testing.assert_allclose(dark, actual / 4, atol=1e-7)
 
 
-def test_scene_guard_preserves_icc_geometry_detail_and_chunk_independence(monkeypatch, tmp_path):
+@pytest.mark.parametrize('pale_boundaries', [False, True])
+def test_scene_guard_preserves_icc_geometry_detail_and_chunk_independence(monkeypatch, tmp_path, pale_boundaries):
     import hdrimg.phone_raw_wb as wb
     h, w = 32, 48
     noise = np.linspace(.8, 1.2, w, dtype=np.float32)[None, :, None]
@@ -80,7 +81,9 @@ def test_scene_guard_preserves_icc_geometry_detail_and_chunk_independence(monkey
     results = []
     for chunk in [7, 32]:
         destination = tmp_path / f'out-{chunk}.tif'
-        record, context = preserve_raw_skin(source, reference, destination, chunk_rows=chunk)
+        record, context = preserve_raw_skin(source, reference, destination, chunk_rows=chunk,
+                                            pale_boundaries=pale_boundaries)
+        assert record['version'] == (2 if pale_boundaries else 1)
         assert record['applied'] and record['affected_fraction'] > .9
         assert context[1]['status'] == 'applied'
         with tifffile.TiffFile(destination) as tif:
@@ -93,6 +96,25 @@ def test_scene_guard_preserves_icc_geometry_detail_and_chunk_independence(monkey
     tifffile.imwrite(reference, camera[:10], photometric='rgb')
     with pytest.raises(ValueError, match='geometry'):
         preserve_raw_skin(source, reference, tmp_path/'bad.tif')
+
+
+def test_raw_boundary_guard_includes_faint_skin_without_changing_neutrals_or_background():
+    automatic = colors([.018, .025, .04, .0, .012, .018])
+    camera = colors([.045, .05, .06, .065, .09, .045])
+    person = np.array([1, 1, 1, 1, 1, 0], np.float32)
+    old, old_weight = guard_skin_chroma(automatic, camera, person, strength=1)
+    new, weight = guard_skin_chroma(automatic, camera, person, strength=1, pale_boundaries=True)
+    assert old_weight[0] == 0 and weight[0] > .1
+    assert np.all(weight[:3] > old_weight[:3])
+    np.testing.assert_allclose(new[3:], automatic[3:], atol=1e-7)
+    np.testing.assert_allclose(luminance_rec2020(new), luminance_rec2020(automatic), atol=1e-7)
+    for scale in [.05, .5, 4.]:
+        scaled, scaled_weight = guard_skin_chroma(automatic*scale, camera*scale, person,
+            strength=1, pale_boundaries=True)
+        np.testing.assert_allclose(scaled/scale, new, atol=1e-6)
+        np.testing.assert_allclose(scaled_weight, weight, atol=1e-5)
+    disabled, _ = guard_skin_chroma(automatic, camera, person, strength=0, pale_boundaries=True)
+    np.testing.assert_array_equal(disabled, automatic)
 
 
 def test_guard_skips_no_person_and_dark_scenes_and_bounds_detector_fallback(monkeypatch, tmp_path):
@@ -132,6 +154,7 @@ def test_pipeline_wb_reference_is_shared_by_denoise_and_color_passes(monkeypatch
     monkeypatch.setattr(pipeline, 'phone_denoise_decision', lambda *a, **kw: {'extra_denoise_weight': 0})
     def guard_scene(source, reference, destination, **kwargs):
         assert guard
+        assert kwargs['pale_boundaries'] == (style == 'phone-natural')
         shutil.copy2(source, destination)
         return {'applied': True}, (None, {'status': 'color_only_fallback'})
     monkeypatch.setattr(pipeline, 'preserve_raw_skin', guard_scene)

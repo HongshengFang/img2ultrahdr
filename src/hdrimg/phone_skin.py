@@ -32,16 +32,19 @@ def _smooth(value: np.ndarray) -> np.ndarray:
     return value * value * (3 - 2 * value)
 
 
-def skin_confidence(lab: np.ndarray) -> np.ndarray:
+def skin_confidence(lab: np.ndarray, *, pale_boundaries: bool = False) -> np.ndarray:
     """Soft, brightness-independent warm-skin plausibility, including pale skin."""
     lightness = np.maximum(lab[..., 0], .02)
     relative = np.hypot(lab[..., 1], lab[..., 2]) / lightness
     hue = np.degrees(np.arctan2(lab[..., 2], lab[..., 1])) % 360
+    chroma_low, chroma_span, red_low, red_span = (
+        (.012, .012, .002, .010) if pale_boundaries else (.025, .025, .008, .017)
+    )
     return (
         _smooth((hue - 8) / 17) * (1 - _smooth((hue - 72) / 23))
-        * _smooth((relative - .025) / .025)
+        * _smooth((relative - chroma_low) / chroma_span)
         * (1 - _smooth((relative - .30) / .15))
-        * _smooth((lab[..., 1] / lightness - .008) / .017)
+        * _smooth((lab[..., 1] / lightness - red_low) / red_span)
     ).astype(np.float32)
 
 
@@ -77,28 +80,35 @@ def protect_skin_illuminant(
 def refine_phone_skin_color(
     rgb: np.ndarray, *, target: str, dark_weight: float, indoor_weight: float,
     neutral_protection: bool = False, skin_protection: np.ndarray | None = None,
+    person_protection: np.ndarray | None = None,
 ) -> np.ndarray:
     """Retain pale skin through color refinement without changing luminance.
 
     The RAW-first renderer uses unit illuminant gains, so its pre/post-WB skin
     confidence is squared. Restore that confidence and soften desaturation of
-    supported pale skin. This only prevents color removal: it neither paints a
-    region nor changes the existing correction outside the skin support.
+    supported pale skin. V8 also accepts independent person coverage: pale
+    boundary pixels can have zero skin confidence and must not undergo extra
+    warm-neutral cleanup simply because their original color was faint.
+    This only prevents color removal; it never adds a replacement skin color.
     """
     common = dict(target=target, dark_weight=dark_weight, indoor_weight=indoor_weight,
                   neutral_protection=neutral_protection)
     before = refine_phone_color(rgb, skin_protection=skin_protection, **common)
-    if skin_protection is None or not neutral_protection or not np.any(skin_protection > 0):
+    if not neutral_protection:
         return before
-    confidence = np.sqrt(np.clip(skin_protection, 0, 1))
+    confidence = np.sqrt(np.clip(0 if skin_protection is None else skin_protection, 0, 1))
     protected = 1 - (1 - confidence) ** 3
+    if person_protection is not None:
+        protected = np.maximum(protected, np.clip(person_protection, 0, 1))
+    if not np.any(protected > 0):
+        return before
     after = refine_phone_color(rgb, skin_protection=protected, **common)
     coefficients = {"srgb": SRGB_TO_XYZ[1], "display-p3": DISPLAY_P3_TO_XYZ[1],
                     "rec2020": REC2020_TO_XYZ[1]}[target]
     old_y, new_y = before @ coefficients, after @ coefficients
     ratio = np.divide(old_y, new_y, out=np.ones_like(old_y), where=new_y > 1e-8)
     after *= ratio[..., None]
-    return np.where((skin_protection > 0)[..., None], after, before)
+    return np.where((protected > 0)[..., None], after, before)
 
 
 def build_skin_context(

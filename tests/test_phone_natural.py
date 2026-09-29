@@ -46,6 +46,46 @@ def test_pale_skin_transition_is_continuous_and_black_stays_black():
     np.testing.assert_array_equal(refine_phone_skin_color(np.zeros_like(rgb), skin_protection=mask, **kwargs), 0)
 
 
+@pytest.mark.parametrize("target", ["srgb", "display-p3", "rec2020"])
+def test_person_coverage_preserves_faint_boundary_color_with_zero_skin_confidence(target):
+    # At the reported leg boundary, skin confidence was exactly zero while
+    # person coverage was high. Boosting the old skin weight cannot fix this.
+    lab = np.array([[.6, .013, .008]] * 3 + [[.6, 0, 0]], np.float32)
+    matrix = {"srgb": np.eye(3, dtype=np.float32),
+              "display-p3": color.SRGB_TO_DISPLAY_P3,
+              "rec2020": color.SRGB_TO_REC2020}[target]
+    coefficients = {"srgb": color.SRGB_TO_XYZ[1], "display-p3": color.DISPLAY_P3_TO_XYZ[1],
+                    "rec2020": color.REC2020_TO_XYZ[1]}[target]
+    rgb = color.oklab_to_linear_srgb(lab) @ matrix.T
+    kwargs = dict(target=target, dark_weight=0, indoor_weight=0, neutral_protection=True,
+                  skin_protection=np.zeros(4, np.float32))
+    old = refine_phone_skin_color(rgb, **kwargs)
+    new = refine_phone_skin_color(rgb, person_protection=np.array([1, .5, 0, 1]), **kwargs)
+    converted = color.linear_srgb_to_oklab(new @ np.linalg.inv(matrix).T)
+    old_lab = color.linear_srgb_to_oklab(old @ np.linalg.inv(matrix).T)
+    chroma = np.linalg.norm(converted[:, 1:], axis=-1)
+    assert chroma[0] > chroma[1] > chroma[2]
+    assert chroma[0] > 2 * np.linalg.norm(old_lab[0, 1:])
+    np.testing.assert_array_equal(new[2], old[2])  # identical background color
+    np.testing.assert_allclose(new @ coefficients, old @ coefficients, atol=1e-7)
+    np.testing.assert_allclose(new[3], old[3], atol=1e-6)  # truly neutral clothing
+    for absent in [None, np.zeros(4)]:
+        np.testing.assert_array_equal(refine_phone_skin_color(rgb, person_protection=absent, **kwargs), old)
+
+
+def test_person_coverage_is_smooth_and_does_not_change_other_color_adjustments():
+    ramp = np.linspace(0, 1, 10001, dtype=np.float32)
+    rgb = np.broadcast_to([.26, .21, .20], (len(ramp), 3)).astype(np.float32)
+    kwargs = dict(target="srgb", dark_weight=0, indoor_weight=0, neutral_protection=True,
+                  skin_protection=np.zeros_like(ramp))
+    result = refine_phone_skin_color(rgb, person_protection=ramp, **kwargs)
+    assert np.max(np.abs(np.diff(result, axis=0))) < 1e-5
+    np.testing.assert_array_equal(refine_phone_skin_color(np.zeros_like(rgb), person_protection=ramp, **kwargs), 0)
+    kwargs["neutral_protection"] = False
+    np.testing.assert_array_equal(refine_phone_skin_color(rgb, person_protection=ramp, **kwargs),
+                                  refine_phone_skin_color(rgb, **kwargs))
+
+
 def test_phone_natural_raw_defaults_and_explicit_controls():
     options = RenderOptions(output=Path("out"), style="phone-natural")
     assert options.resolved_white_balance() == "auto"

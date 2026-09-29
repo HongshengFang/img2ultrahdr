@@ -17,6 +17,7 @@ from .tone import exposure_statistics, luminance_rec2020, scale_rgb_to_luminance
 
 def guard_skin_chroma(
     automatic: np.ndarray, camera: np.ndarray, person: np.ndarray | float, *, strength: float,
+    pale_boundaries: bool = False,
 ) -> tuple[np.ndarray, np.ndarray]:
     """Retain some plausible skin color without restoring a strong camera cast."""
     target = np.asarray(automatic, dtype=np.float32)
@@ -28,7 +29,11 @@ def guard_skin_chroma(
     after_c = np.hypot(after[..., 1], after[..., 2]) / np.maximum(after[..., 0], .02)
     floor = .80 * np.minimum(before_c, .11)
     restore = np.clip((floor - after_c) / np.maximum(before_c - after_c, 1e-6), 0, .85)
-    weight = (restore * skin_confidence(before) * skin_confidence(after)
+    # Automatic WB can move pale skin below the old color threshold. V8
+    # admits faint warm colors on both sides while keeping truly neutral
+    # pixels excluded and retaining the same capped camera-color reference.
+    weight = (restore * skin_confidence(before, pale_boundaries=pale_boundaries)
+              * skin_confidence(after, pale_boundaries=pale_boundaries)
               * np.clip(person, 0, 1) * strength)
     # Both versions have the automatic development's luminance. Background,
     # neutral clothing and pixels without chroma loss therefore stay unchanged.
@@ -38,6 +43,7 @@ def guard_skin_chroma(
 def preserve_raw_skin(
     source: Path, camera_reference: Path, destination: Path, *, strength: float = 1.0,
     development_ev: float = -2.0, chunk_rows: int = 256,
+    pale_boundaries: bool = False,
 ) -> tuple[dict, tuple[Image.Image | None, dict] | None]:
     if not np.isfinite(strength) or not 0 <= strength <= 1:
         raise ValueError("RAW skin protection strength must be 0..1")
@@ -46,7 +52,8 @@ def preserve_raw_skin(
     if destination.exists():
         raise FileExistsError(destination)
     record = {"method": "bounded camera-reference skin chroma before phone look",
-              "version": 1, "strength": strength, "applied": False}
+              "version": 2 if pale_boundaries else 1,
+              "strength": strength, "applied": False}
     if strength == 0:
         return {**record, "reason": "disabled"}, None
     scene = tifffile.memmap(source)
@@ -90,7 +97,8 @@ def preserve_raw_skin(
                               for im in reference_images], axis=-1)
         person = (resize_base_rows(person_image, width=w, full_height=h, start=start, stop=stop)
                   if person_image is not None else .35)
-        guarded, weight = guard_skin_chroma(target, reference, person, strength=strength)
+        guarded, weight = guard_skin_chroma(target, reference, person, strength=strength,
+                                           pale_boundaries=pale_boundaries)
         output[start:stop] = guarded
         weight_sum += float(np.sum(weight, dtype=np.float64))
         affected += int(np.count_nonzero(weight > .01))

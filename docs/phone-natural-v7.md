@@ -1,5 +1,7 @@
 # phone-natural V7：自然人像与浅肤色保留
 
+本文保留 V7 的样片确认与验证记录。当前预设已加入 [V8 人物边缘淡暖色修复](phone-natural-v8.md)。
+
 `--style phone-natural` 更新为 2026-09-29 确认的人像样片方案，替换该选项原来的 V1 处理。CLI 名称仍为 `phone-natural`。默认选项仍为 `phone-clear` V6；`natural` 保留 V1。
 
 ```bash

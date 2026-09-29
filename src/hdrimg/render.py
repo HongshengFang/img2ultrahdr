@@ -420,8 +420,10 @@ def render_pair(
         tone_mapping["phone_skin"] = {**_skin_context[1], "strength": float(skin_strength)}
         if style.algorithm_version >= 7:
             tone_mapping["phone_skin"]["pale_color_protection"] = {
-                "version": 1, "preserves_luminance": True,
-                "outside_skin_support_unchanged": True,
+                "version": 2 if style.algorithm_version >= 8 else 1,
+                "preserves_luminance": True,
+                ("outside_person_support_unchanged" if style.algorithm_version >= 8
+                 else "outside_skin_support_unchanged"): True,
             }
     elif style.algorithm_version >= 5:
         tone_mapping["phone_skin"] = {"status": "disabled", "strength": 0.0}
@@ -496,6 +498,15 @@ def render_pair(
                 skin_supported_pixels += int(np.count_nonzero(skin_rows > .25))
             elif not np.array_equal(illuminant_gains, np.ones(3, dtype=np.float32)):
                 shared = scale_rgb_to_luminance(shared * illuminant_gains, y)
+            color_protection = {"skin_protection": skin_rows}
+            if style.algorithm_version >= 8:
+                # Retain the RAW color of faint warm pixels on a detected
+                # person, even where chroma-based skin confidence is zero.
+                # No detector means no extra person-wide protection.
+                color_protection["person_protection"] = (
+                    person_rows * skin_strength
+                    if skin_enabled and person_image is not None else None
+                )
             if style.midtone_lift_ev:
                 mapped = lift_midtones(
                     y,
@@ -579,7 +590,7 @@ def render_pair(
                     dark_weight=tone_mapping["phone_dark_weight"],
                     indoor_weight=tone_mapping["phone_indoor_weight"],
                     neutral_protection=neutral_protection,
-                    skin_protection=skin_rows,
+                    **color_protection,
                 )
             sdr_linear = compress_gamut(sdr_linear, target=style.sdr_gamut, upper=1.0)
             sdr_pixels[start:stop] = _quantize_sdr(sdr_linear)
@@ -642,7 +653,7 @@ def render_pair(
                         dark_weight=tone_mapping["phone_dark_weight"],
                         indoor_weight=tone_mapping["phone_indoor_weight"],
                         neutral_protection=neutral_protection,
-                        skin_protection=skin_rows,
+                        **color_protection,
                     )
                     reference_linear = compress_gamut(reference_linear, target=style.sdr_gamut, upper=1.0)
                     hdr_reference_color = reference_linear
@@ -709,7 +720,7 @@ def render_pair(
                         dark_weight=tone_mapping["phone_dark_weight"],
                         indoor_weight=tone_mapping["phone_indoor_weight"],
                         neutral_protection=neutral_protection,
-                        skin_protection=skin_rows,
+                        **color_protection,
                     )
             hdr_2020 = compress_gamut(
                 hdr_2020, target="rec2020",

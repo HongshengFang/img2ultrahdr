@@ -21,7 +21,7 @@ NATURAL_STYLE = StyleSettings("natural", 0.0, 0.0, 0.0, 0.0, "srgb")
 
 STYLE_PRESETS = {
     "natural": NATURAL_STYLE,
-    "phone-natural": StyleSettings("phone-natural", 0.38, 0.42, 0.0, 0.23, "display-p3", 7),
+    "phone-natural": StyleSettings("phone-natural", 0.38, 0.42, 0.0, 0.23, "display-p3", 8),
     "phone-clear": StyleSettings("phone-clear", 0.38, 0.42, 0.22, 0.23, "display-p3", 6),
 }
 

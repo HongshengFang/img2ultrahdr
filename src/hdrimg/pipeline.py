@@ -306,7 +306,8 @@ def render_raw(source_path: Path, options: RenderOptions) -> RenderResult:
             guarded_scene = work / "scene-raw-skin.tif"
             raw_skin_record, skin_context = preserve_raw_skin(
                 scene, camera_reference, guarded_scene, strength=raw_skin_strength,
-                development_ev=RAW_DEVELOPMENT_EV)
+                development_ev=RAW_DEVELOPMENT_EV,
+                pale_boundaries=style.algorithm_version >= 8)
             if raw_skin_record["applied"]:
                 scene = guarded_scene
         render_info = render_pair(

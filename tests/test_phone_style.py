@@ -63,7 +63,7 @@ def test_style_defaults_and_overrides():
     assert phone.highlight_rolloff == 0.42
     assert phone.local_contrast == 0
     assert phone.vibrance == 0.23
-    assert phone.algorithm_version == 7
+    assert phone.algorithm_version == 8
     assert phone.sdr_gamut == "display-p3"
     clear = resolve_style(
         "phone-clear", midtone_lift_ev=None, highlight_rolloff=None,

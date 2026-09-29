@@ -1,0 +1,76 @@
+{
+  "style": "phone-natural",
+  "algorithm_version": 8,
+  "samples": {
+    "0N6A9406": {
+      "sha256": "dcc869df16ed73db6fff02a5d4e63bd20720cb0ef5e352816cab9d668b727244",
+      "dimensions": [
+        4492,
+        6732
+      ],
+      "validation": {
+        "passed": true
+      },
+      "hdr_peak": 1.5425058603286743,
+      "hdr_fraction_above_reference": 0.031695351715256385,
+      "raw_skin_guard": {
+        "method": "bounded camera-reference skin chroma before phone look",
+        "version": 2,
+        "strength": 1.0,
+        "applied": true,
+        "person_detection": {
+          "method": "person matte with bounded skin chroma loss",
+          "version": 1,
+          "status": "applied",
+          "person_fraction": 0.1559712290763855,
+          "face_count": 1,
+          "helper_attempts": 1
+        },
+        "mean_restore_weight": 0.02049771900054928,
+        "affected_fraction": 0.05292478104601618,
+        "max_restore_weight": 0.7116901278495789
+      },
+      "pale_color_protection": {
+        "version": 2,
+        "preserves_luminance": true,
+        "outside_person_support_unchanged": true
+      },
+      "metrics": {
+        "leg_edge": {
+          "before": {
+            "relative_chroma": 0.013003017753362656,
+            "luminance": 0.30915799736976624
+          },
+          "after": {
+            "relative_chroma": 0.0439739003777504,
+            "luminance": 0.3101681172847748
+          }
+        },
+        "leg_center": {
+          "before": {
+            "relative_chroma": 0.05061644688248634,
+            "luminance": 0.20565186440944672
+          },
+          "after": {
+            "relative_chroma": 0.05473172664642334,
+            "luminance": 0.20752020180225372
+          }
+        },
+        "background": {
+          "before": {
+            "relative_chroma": 0.006360395811498165,
+            "luminance": 0.18806715309619904
+          },
+          "after": {
+            "relative_chroma": 0.006360395811498165,
+            "luminance": 0.18806715309619904
+          }
+        }
+      }
+    }
+  },
+  "test_suite": {
+    "passed": 163
+  },
+  "created_at": "2026-09-29T23:17:19.920247+00:00"
+}

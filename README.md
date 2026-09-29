@@ -53,7 +53,7 @@ img2uhdr render *.CR2 \
 
 如果暖色肤色与棕红色头发显得过于接近，可使用 `--warm-color-separation 1`，让亮部暖色略亮、偏金黄，暗部暖色略偏红。它是可选的观感控制，默认值为 `0`。
 
-手机风格参考 12 组同拍手机 DNG／Ultra HDR JPEG。**`phone-clear` 是默认版本**：SDR 会根据场景明暗调整底图，HDR 则独立提高普通中间调或局部光源，并分别控制高光肩部；蓝色和暖色还会进行轻微的选择性校准。`phone-natural` 已更新为经过人像样片确认的 V7：沿用 RAW 优先白平衡，默认关闭会放大人物轮廓阴影的局部增强，加强脚踝等浅肤色区域的颜色保护，并保留自然的明暗与 HDR。详见 [phone-natural V7](docs/phone-natural-v7.md)。两者都会真正转换为 Display P3 并嵌入对应 ICC；只更改输出色域不会自动产生这种影调。需要原来的自然风格与 sRGB 输出时，显式使用 `--style natural`。
+手机风格参考 12 组同拍手机 DNG／Ultra HDR JPEG。**`phone-clear` 是默认版本**：SDR 会根据场景明暗调整底图，HDR 则独立提高普通中间调或局部光源，并分别控制高光肩部；蓝色和暖色还会进行轻微的选择性校准。`phone-natural` 已更新为基于已确认自然影调的 V8：沿用 RAW 优先白平衡，默认关闭会放大人物轮廓阴影的局部增强，加强脚踝等浅肤色区域的颜色保护，并保留自然的明暗与 HDR。详见 [phone-natural V8](docs/phone-natural-v8.md)。两者都会真正转换为 Display P3 并嵌入对应 ICC；只更改输出色域不会自动产生这种影调。需要原来的自然风格与 sRGB 输出时，显式使用 `--style natural`。
 
 ```bash
 img2uhdr render pics/0N6A9479.CR2 \
@@ -63,7 +63,7 @@ img2uhdr render pics/0N6A9479.CR2 \
   --contrast 1.35 --saturation 1.18
 ```
 
-这组固定参数用于和此前成片直接比较。`phone-clear` 保留 `--midtone-lift-ev 0.38`、`--highlight-rolloff 0.42`、`--local-contrast 0.22`、`--vibrance 0.23`、`--sdr-gamut display-p3`，并加入场景自适应 SDR/HDR 处理。新版 `phone-natural` 参数为 `0.38 / 0.42 / 0 / 0.23 / Display P3`，`algorithm_version` 为 7；关闭局部对比也会跳过宽范围显示细节恢复、局部直方图与去雾式材质反差，仍保留 RAW 细节与独立的人像影调。每一项都可单独覆盖，例如 `--vibrance 0.18` 或 `--sdr-gamut srgb`。两种风格的版本都写入 manifest：`phone-clear` 为 6，`phone-natural` 为 7，分别见 [RAW 优先说明](docs/phone-clear-v6-raw-wb.md)和 [自然人像说明](docs/phone-natural-v7.md)；[v4 复核记录](docs/phone-clear-v4-validation.md)、[空间影调复核](docs/phone-clear-spatial-calibration.md)、[自适应校准记录](docs/phone-clear-adaptive-calibration.md)和[先前的校准记录](docs/phone-natural-calibration.md)保留作为历史基准。
+这组固定参数用于和此前成片直接比较。`phone-clear` 保留 `--midtone-lift-ev 0.38`、`--highlight-rolloff 0.42`、`--local-contrast 0.22`、`--vibrance 0.23`、`--sdr-gamut display-p3`，并加入场景自适应 SDR/HDR 处理。新版 `phone-natural` 参数为 `0.38 / 0.42 / 0 / 0.23 / Display P3`，`algorithm_version` 为 8；关闭局部对比也会跳过宽范围显示细节恢复、局部直方图与去雾式材质反差，仍保留 RAW 细节与独立的人像影调。每一项都可单独覆盖，例如 `--vibrance 0.18` 或 `--sdr-gamut srgb`。两种风格的版本都写入 manifest：`phone-clear` 为 6，`phone-natural` 为 8，分别见 [RAW 优先说明](docs/phone-clear-v6-raw-wb.md)和 [自然人像说明](docs/phone-natural-v8.md)；[v4 复核记录](docs/phone-clear-v4-validation.md)、[空间影调复核](docs/phone-clear-spatial-calibration.md)、[自适应校准记录](docs/phone-clear-adaptive-calibration.md)和[先前的校准记录](docs/phone-natural-calibration.md)保留作为历史基准。
 
 `--exposure-ev` 是自动曝光之上的观感补偿；显式传入它会覆盖自动观感给出的补偿。在两种手机风格中，显式的正曝光还会给 RAW 最亮的一小部分保留额外 HDR 余量。`--contrast` 的范围是 `1.0..2.0`，`--saturation` 的范围是 `0.8..1.5`，显式传入时同样覆盖各自的自动结果。使用 `--no-auto-look` 可关闭自动观感，未指定项目会回到固定基线 `0 EV / 1.35 / 1.10`；`--no-auto-exposure` 则关闭曝光自动计算。
 
@@ -79,7 +79,7 @@ img2uhdr render pics/0N6A9479.CR2 \
 
 自动 HDR 使用独立于 `--sdr-exposure-ev` 的参考影调和色彩，避免单独调暗 SDR 时连带改变 HDR。峰值仍受 `--peak-nits` 限制。样张对照用于逐步接近手机观感，不代表复原手机的私有处理流程；DNG 校准脚本也不等于生产命令已开放 DNG 输入支持。
 
-`--skin-protection-strength 0..1` 控制自动肤色保护，默认 1。V6 在 RAW 自动白平衡显影后，用匹配降噪与锐化设置的相机白平衡参考，有限保留人物浅肤色的颜色；仅使用平滑颜色参考，维持主图亮度与细节。后续继续减少肤色区域的淡暖色去色；`phone-natural` V7 对浅肤色进一步加强保护，同时保持这一步的亮度与肤色支持区外的处理结果。明显偏橙的原始颜色仍允许较大的校正。人物区域来自本机 Apple Vision，肤色由连续颜色权重估计，并非精确皮肤分割；暖色衣物与皮肤相近时仍可能被部分保护。检测不可用时使用较弱的纯颜色保护，并记录原因。肤色保护用于自动观感下的非暗夜场景；显式覆盖对比度或饱和度、或关闭自动观感时不启用。SDR 与 HDR 共用同一底稿和人物判断。设为 0 关闭两处肤色保护，但继续使用 RAW 自动白平衡，不恢复 V4/V5 的整体去暖色。
+`--skin-protection-strength 0..1` 控制自动肤色保护，默认 1。V6 在 RAW 自动白平衡显影后，用匹配降噪与锐化设置的相机白平衡参考，有限保留人物浅肤色的颜色；仅使用平滑颜色参考，维持主图亮度与细节。后续继续减少肤色区域的淡暖色去色；`phone-natural` V8 在 RAW 阶段扩大淡肤色的连续保护范围，后期独立使用人物覆盖率保护淡暖色，避免浅肤色置信度降为零后出现灰边，同时保持这一步的亮度与人物范围外的处理结果。人物身上的淡暖色衣物也可能保留更多颜色。明显偏橙的原始颜色仍允许较大的校正。人物区域来自本机 Apple Vision，肤色由连续颜色权重估计，并非精确皮肤分割；暖色衣物与皮肤相近时仍可能被部分保护。检测不可用时使用较弱的纯颜色保护，并记录原因。肤色保护用于自动观感下的非暗夜场景；显式覆盖对比度或饱和度、或关闭自动观感时不启用。SDR 与 HDR 共用同一底稿和人物判断。设为 0 关闭两处肤色保护，但继续使用 RAW 自动白平衡，不恢复 V4/V5 的整体去暖色。
 
 `phone-clear` 与新版 `phone-natural` 默认采用 RAW 自动白平衡；`natural` 默认沿用相机白平衡。`--white-balance camera` 或 `custom` 会尊重明确指定的 RAW 白平衡，跳过相机参考肤色回退，V6 后续也不会再做整体光源校正。默认 RAW 肤色保护会增加一次参考显影的时间和临时磁盘开销。manifest 的 `raw_development.white_balance` 记录请求值、实际模式与肤色保护决定；自动估计的具体色温不由当前命令行工具返回，因此不会虚构数值。
 
