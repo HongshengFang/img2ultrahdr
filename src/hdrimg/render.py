@@ -26,6 +26,7 @@ from .errors import ProcessingError
 from .look import resolve_look
 from .phone_subject import detect_subject_fields
 from .phone_skin import build_skin_context, protect_skin_illuminant
+from .phone_edges import person_boundary_protection
 from .phone_tone import (
     apply_local_contrast,
     correct_phone_shadow_red,
@@ -400,9 +401,21 @@ def render_pair(
     skin_strength = 1.0 if skin_protection_strength is None else skin_protection_strength
     skin_enabled = (style.algorithm_version >= 5 and shared_hdr_chroma
                     and skin_strength > 0 and tone_mapping["phone_dark_weight"] < .5)
-    if skin_enabled:
+    edge_enabled = (style.algorithm_version >= 6 and shared_hdr_chroma
+                    and style.local_contrast > 0 and tone_mapping["phone_dark_weight"] < .5)
+    edge_image = None
+    if skin_enabled or edge_enabled:
         if _skin_context is None:
             _skin_context = build_skin_context(scene, exposure_ev=stats.scene_adjustment_ev)
+    if edge_enabled:
+        edge_image = person_boundary_protection(_skin_context[0])
+    if style.algorithm_version >= 6:
+        tone_mapping["phone_edge_protection"] = {
+            "method": "feathered person boundary local contrast attenuation", "version": 1,
+            "status": "applied" if edge_image is not None else "inactive",
+            "mean_weight": float(np.mean(edge_image)) if edge_image is not None else 0.0,
+        }
+    if skin_enabled:
         tone_mapping["phone_skin"] = {**_skin_context[1], "strength": float(skin_strength)}
     elif style.algorithm_version >= 5:
         tone_mapping["phone_skin"] = {"status": "disabled", "strength": 0.0}
@@ -462,6 +475,9 @@ def render_pair(
                 pivot=tone_mapping["contrast_pivot"],
             )
             y = luminance_rec2020(shared)
+            edge_rows = (resize_base_rows(edge_image, width=scene_info.width,
+                full_height=scene_info.height, start=start, stop=stop)
+                if edge_image is not None else None)
             skin_rows = None
             if skin_enabled:
                 person_image = _skin_context[0]
@@ -493,7 +509,7 @@ def render_pair(
                     stop=stop,
                 )
                 mapped = apply_local_contrast(
-                    y, base_log=base_rows, strength=style.local_contrast
+                    y, base_log=base_rows, strength=style.local_contrast, protection=edge_rows
                 )
                 shared = scale_rgb_to_luminance(shared, mapped)
                 y = mapped
@@ -536,7 +552,8 @@ def render_pair(
                     full_height=scene_info.height, start=start, stop=stop,
                 )
                 sdr_target = restore_display_detail(
-                    sdr_target, source_y=y, base_log=detail_rows, strength=detail_strength
+                    sdr_target, source_y=y, base_log=detail_rows, strength=detail_strength,
+                    protection=edge_rows,
                 )
             sdr_2020 = scale_rgb_to_luminance(shared, sdr_target)
             if style.sdr_gamut == "display-p3":
@@ -601,7 +618,7 @@ def render_pair(
                     if detail_rows is not None:
                         reference_target = restore_display_detail(
                             reference_target, source_y=y, base_log=detail_rows,
-                            strength=detail_strength,
+                            strength=detail_strength, protection=edge_rows,
                         )
                     reference_2020 = scale_rgb_to_luminance(shared, reference_target)
                     if style.sdr_gamut == "display-p3":

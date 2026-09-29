@@ -1,0 +1,60 @@
+{
+  "date": "2026-09-29T21:44:56.839951+00:00",
+  "style": "phone-clear",
+  "algorithm_version": 6,
+  "edge_protection_version": 1,
+  "tests": {
+    "passed": 147,
+    "command": "python -m pytest"
+  },
+  "diagnosis": {
+    "sample": "0N6A9416",
+    "raw_skin_max_luminance_error": 5.960464477539063e-08,
+    "ablations": [
+      "no_skin: dark boundary remains",
+      "no_display_detail: dark boundary substantially reduced",
+      "no_local: further reduction"
+    ]
+  },
+  "full_resolution_sample": {
+    "sample": "0N6A9416",
+    "dimensions": [
+      4492,
+      6732
+    ],
+    "full_sdr_and_hdr_decode_passed": true,
+    "hdr_peak": 1.9818545579910278,
+    "edge_protection": {
+      "method": "feathered person boundary local contrast attenuation",
+      "version": 1,
+      "status": "applied",
+      "mean_weight": 0.1693629026412964
+    }
+  },
+  "visual_review": {
+    "sdr_reviewed": true,
+    "hdr_display_reviewed": false,
+    "full_resolution_sample": "0N6A9416",
+    "reduced_samples": [
+      "0N6A9169",
+      "0N6A9479",
+      "DSCF8111"
+    ],
+    "observations": [
+      "Dark leg contour reduced while warm skin retained.",
+      "No obvious new bright outline in reviewed samples.",
+      "Existing physical shadows remain."
+    ],
+    "limitations": [
+      "Person boundary accuracy depends on local Vision matte.",
+      "HDR display appearance not visually verified."
+    ]
+  },
+  "source_sha256": {
+    "src/hdrimg/render.py": "a1a581e061f0a0164e13714d21693db2a163ed4fce5a0ef74164f3d2262e2c02",
+    "src/hdrimg/phone_tone.py": "594acbdf5f97e03312d1fd9e1f1efd056f1cf1a6b63a269cdf85814ba16fdddc",
+    "src/hdrimg/phone_edges.py": "c15f109b8c8f7285bb5cb75d0033e67b05c51cccd641e074473d411db7951547",
+    "src/hdrimg/phone_skin.py": "7c5c424edc93cb30d1662dc8394d4f945f6530668b2443aad129f63fe69096e5",
+    "src/hdrimg/phone_raw_wb.py": "de2dd0207c2c98e39b41b90d7f6727be9eae6003cb2e772965efafacba03e165"
+  }
+}

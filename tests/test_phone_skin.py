@@ -141,7 +141,9 @@ def test_renderer_reuses_independent_person_mask_and_preserves_hdr_contract(tmp_
     calls = []
     def detect(array, **kwargs):
         calls.append(1)
-        return Image.fromarray(np.ones((48, 64), np.float32)), {"status": "applied"}
+        person = np.zeros((48, 64), np.float32)
+        person[:, 16:48] = 1
+        return Image.fromarray(person), {"status": "applied"}
     monkeypatch.setattr(render, "build_skin_context", detect)
     monkeypatch.setattr(render, "detect_subject_fields",
         lambda *a, **k: (None, None, {"status": "no_reliable_subject"}))
@@ -153,6 +155,7 @@ def test_renderer_reuses_independent_person_mask_and_preserves_hdr_contract(tmp_
             sdr_exposure_ev=sdr_ev, **common)
         assert len(calls) == before + 1
         assert info.tone_mapping["phone_skin"]["status"] == "applied"
+        assert info.tone_mapping["phone_edge_protection"]["status"] == "applied"
     hdr = np.fromfile(tmp_path/"base.raw", dtype="<f2").astype(np.float32)
     darker = np.fromfile(tmp_path/"darker.raw", dtype="<f2").astype(np.float32)
     np.testing.assert_allclose(hdr, darker, atol=.004)

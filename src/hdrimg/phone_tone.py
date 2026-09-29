@@ -372,18 +372,21 @@ def resize_base_rows(
 
 
 def apply_local_contrast(
-    luminance: np.ndarray, *, base_log: np.ndarray, strength: float
+    luminance: np.ndarray, *, base_log: np.ndarray, strength: float,
+    protection: np.ndarray | None = None,
 ) -> np.ndarray:
     y = np.maximum(np.asarray(luminance, dtype=np.float32), 0.0)
     if strength <= 0.0:
         return y
     detail = np.clip(np.log2(np.maximum(y, 1e-4)) - base_log, -0.6, 0.6)
+    if protection is not None:
+        detail *= 1 - np.clip(protection, 0, 1)
     return y * np.exp2(np.float32(strength) * detail)
 
 
 def restore_display_detail(
     display_y: np.ndarray, *, source_y: np.ndarray, base_log: np.ndarray,
-    strength: float,
+    strength: float, protection: np.ndarray | None = None,
 ) -> np.ndarray:
     """Restore restrained source detail after display highlight compression.
 
@@ -395,6 +398,8 @@ def restore_display_detail(
         return display_y
     y = np.clip(np.asarray(display_y, dtype=np.float32), 0.0, 1.0)
     detail = np.clip(np.log2(np.maximum(source_y, 1e-4)) - base_log, -0.75, 0.75)
+    if protection is not None:
+        detail *= 1 - np.clip(protection, 0, 1)
     reliability = _smoothstep((y - 0.04) / 0.20)
     gain = np.exp2(np.float32(strength) * reliability * detail)
     return y * gain / (1.0 - y + y * gain)
