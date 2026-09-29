@@ -93,6 +93,7 @@ def test_style_defaults_and_overrides():
     ("hdr_midtone_gain", 0.9),
     ("hdr_shoulder_strength", -0.1),
     ("subject_adaptation_strength", 1.1),
+    ("skin_protection_strength", 1.1),
     ("raw_denoise_strength", 1.1),
 ])
 def test_phone_options_reject_invalid_values(field, value):

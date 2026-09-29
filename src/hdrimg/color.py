@@ -155,6 +155,7 @@ def adjust_oklab_chroma(
 def refine_phone_color(
     rgb: np.ndarray, *, target: str, dark_weight: float, indoor_weight: float,
     neutral_protection: bool = False,
+    skin_protection: np.ndarray | None = None,
 ) -> np.ndarray:
     """Apply small, hue-selective corrections measured from paired phone scenes.
 
@@ -208,7 +209,8 @@ def refine_phone_color(
         warm_neutral = _smoothstep((hue + 5.0) / 20.0) * (
             1.0 - _smoothstep((hue - 90.0) / 30.0)
         )
-        gain *= 1.0 - 0.60 * weak_color * warm_neutral
+        skin = 0.0 if skin_protection is None else np.clip(skin_protection, 0, 1)
+        gain *= 1.0 - 0.60 * weak_color * warm_neutral * (1.0 - skin)
     adjusted_chroma = chroma * gain
     lab[..., 1] = adjusted_chroma * np.cos(np.deg2rad(hue) + angle)
     lab[..., 2] = adjusted_chroma * np.sin(np.deg2rad(hue) + angle)

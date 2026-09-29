@@ -1,0 +1,227 @@
+{
+  "version": 6,
+  "date": "2026-09-29T21:11:08.431499+00:00",
+  "style": "phone-clear",
+  "tests": {
+    "passed": 141,
+    "command": "python -m pytest"
+  },
+  "full_resolution_samples": [
+    {
+      "sample": "0N6A9169",
+      "camera": "Canon EOS 5D Mark IV",
+      "dimensions": [
+        4492,
+        6732
+      ],
+      "raw_white_balance": "auto",
+      "duplicate_global_correction": false,
+      "raw_skin_guard": {
+        "method": "bounded camera-reference skin chroma before phone look",
+        "version": 1,
+        "strength": 1.0,
+        "applied": true,
+        "person_detection": {
+          "method": "person matte with bounded skin chroma loss",
+          "version": 1,
+          "status": "applied",
+          "person_fraction": 0.10224741697311401,
+          "face_count": 1,
+          "helper_attempts": 1
+        },
+        "mean_restore_weight": 0.008708174380020193,
+        "affected_fraction": 0.06236676650746108,
+        "max_restore_weight": 0.633503258228302
+      },
+      "hdr_peak_luminance": 2.3345861434936523,
+      "hdr_fraction_above_reference": 0.16103137604106646,
+      "sdr_hdr_full_decode_passed": true,
+      "tools": {
+        "rawtherapee": "RawTherapee, version 5.13, command line.",
+        "libultrahdr": "2.0.2",
+        "exiftool": "13.55"
+      }
+    },
+    {
+      "sample": "0N6A9416",
+      "camera": "Canon EOS 5D Mark IV",
+      "dimensions": [
+        4492,
+        6732
+      ],
+      "raw_white_balance": "auto",
+      "duplicate_global_correction": false,
+      "raw_skin_guard": {
+        "method": "bounded camera-reference skin chroma before phone look",
+        "version": 1,
+        "strength": 1.0,
+        "applied": true,
+        "person_detection": {
+          "method": "person matte with bounded skin chroma loss",
+          "version": 1,
+          "status": "applied",
+          "person_fraction": 0.14958898723125458,
+          "face_count": 1,
+          "helper_attempts": 1
+        },
+        "mean_restore_weight": 0.013854525297944405,
+        "affected_fraction": 0.05569398082231355,
+        "max_restore_weight": 0.6290236115455627
+      },
+      "hdr_peak_luminance": 1.9901481866836548,
+      "hdr_fraction_above_reference": 0.18550348172945208,
+      "sdr_hdr_full_decode_passed": true,
+      "tools": {
+        "rawtherapee": "RawTherapee, version 5.13, command line.",
+        "libultrahdr": "2.0.2",
+        "exiftool": "13.55"
+      }
+    },
+    {
+      "sample": "0N6A9479",
+      "camera": "Canon EOS 5D Mark IV",
+      "dimensions": [
+        4492,
+        6732
+      ],
+      "raw_white_balance": "auto",
+      "duplicate_global_correction": false,
+      "raw_skin_guard": {
+        "method": "bounded camera-reference skin chroma before phone look",
+        "version": 1,
+        "strength": 1.0,
+        "applied": true,
+        "person_detection": {
+          "method": "person matte with bounded skin chroma loss",
+          "version": 1,
+          "status": "applied",
+          "person_fraction": 0.1772613525390625,
+          "face_count": 1,
+          "helper_attempts": 1
+        },
+        "mean_restore_weight": 0.00038901136089844636,
+        "affected_fraction": 0.0024726072732986987,
+        "max_restore_weight": 0.6307476162910461
+      },
+      "hdr_peak_luminance": 1.8559682369232178,
+      "hdr_fraction_above_reference": 0.06062272719336257,
+      "sdr_hdr_full_decode_passed": true,
+      "tools": {
+        "rawtherapee": "RawTherapee, version 5.13, command line.",
+        "libultrahdr": "2.0.2",
+        "exiftool": "13.55"
+      }
+    },
+    {
+      "sample": "DSCF8111",
+      "camera": "X-T30",
+      "dimensions": [
+        4156,
+        6232
+      ],
+      "raw_white_balance": "auto",
+      "duplicate_global_correction": false,
+      "raw_skin_guard": {
+        "method": "bounded camera-reference skin chroma before phone look",
+        "version": 1,
+        "strength": 1.0,
+        "applied": true,
+        "person_detection": {
+          "method": "person matte with bounded skin chroma loss",
+          "version": 1,
+          "status": "applied",
+          "person_fraction": 0.09197919815778732,
+          "face_count": 1,
+          "helper_attempts": 1
+        },
+        "mean_restore_weight": 2.920164017338882e-06,
+        "affected_fraction": 2.4555802520691737e-05,
+        "max_restore_weight": 0.45762380957603455
+      },
+      "hdr_peak_luminance": 2.4058384895324707,
+      "hdr_fraction_above_reference": 0.22011809796622356,
+      "sdr_hdr_full_decode_passed": true,
+      "tools": {
+        "rawtherapee": "RawTherapee, version 5.13, command line.",
+        "libultrahdr": "2.0.2",
+        "exiftool": "13.55"
+      }
+    }
+  ],
+  "region_comparison_0N6A9416": {
+    "v5": {
+      "knee": {
+        "L": 0.6394444108009338,
+        "a": 0.029937533661723137,
+        "b": 0.030657527968287468,
+        "C": 0.042850203812122345
+      },
+      "calf": {
+        "L": 0.5884730219841003,
+        "a": 0.025486692786216736,
+        "b": 0.029978644102811813,
+        "C": 0.03934832289814949
+      },
+      "wall": {
+        "L": 0.7376229763031006,
+        "a": 0.0006602450739592314,
+        "b": 0.003752118209376931,
+        "C": 0.0038097656797617674
+      },
+      "dress": {
+        "L": 0.7454196810722351,
+        "a": -0.00550428731366992,
+        "b": 0.0001552413305034861,
+        "C": 0.005506475921720266
+      }
+    },
+    "v6": {
+      "knee": {
+        "L": 0.6357650756835938,
+        "a": 0.029931293800473213,
+        "b": 0.03159754350781441,
+        "C": 0.043523408472537994
+      },
+      "calf": {
+        "L": 0.5852175354957581,
+        "a": 0.025795482099056244,
+        "b": 0.030761100351810455,
+        "C": 0.0401453897356987
+      },
+      "wall": {
+        "L": 0.7329954504966736,
+        "a": -6.250132719287649e-05,
+        "b": 0.00571609428152442,
+        "C": 0.005716436076909304
+      },
+      "dress": {
+        "L": 0.7388308048248291,
+        "a": -0.007521696854382753,
+        "b": 0.004536543507128954,
+        "C": 0.008783857338130474
+      }
+    }
+  },
+  "visual_review": {
+    "sdr_reviewed": true,
+    "observations": [
+      "Outdoor skin retained while yellow cast reduced.",
+      "Pale legs retained similar chroma to V5; white wall remains close to neutral.",
+      "Indoor skin is warmer than V5, with no obvious orange wall cast.",
+      "Fujifilm skin and light clothing reviewed against V5."
+    ],
+    "hdr_display_reviewed": false,
+    "night_and_other_illuminants_reviewed": false,
+    "reference_is_colorimetric_ground_truth": false
+  },
+  "source_sha256": {
+    "src/hdrimg/pipeline.py": "0012b638bf81d8b38fd51a64076c3232d174dc648416787be9ddd2fe25f0b54d",
+    "src/hdrimg/render.py": "8d9046b1df68d742f4676b312062d05fc1248a383d86fd1bc5678d1a3707efb2",
+    "src/hdrimg/raw.py": "20f3547baed95c9fd5104a7ee9781a6068d3092270646c883b4996eb6669c3ea",
+    "src/hdrimg/style.py": "d7e4b2237879cbaf94af259fcc14f655653cbee5cb56ee033ac5cb0d920b4f18",
+    "src/hdrimg/color.py": "9dfb110efef2328057fc4676e62ec6d0722b3293c050bc885c22f5b51892b045",
+    "src/hdrimg/phone_skin.py": "7c5c424edc93cb30d1662dc8394d4f945f6530668b2443aad129f63fe69096e5",
+    "src/hdrimg/phone_raw_wb.py": "de2dd0207c2c98e39b41b90d7f6727be9eae6003cb2e772965efafacba03e165",
+    "src/hdrimg/profiles/raw-unclipped.pp3": "dd3aa77849f3f50354e824b915a2cdafcdae08cfecefc18538875a4a22f47861"
+  }
+}

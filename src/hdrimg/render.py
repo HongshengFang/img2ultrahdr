@@ -25,6 +25,7 @@ from .color import (
 from .errors import ProcessingError
 from .look import resolve_look
 from .phone_subject import detect_subject_fields
+from .phone_skin import build_skin_context, protect_skin_illuminant
 from .phone_tone import (
     apply_local_contrast,
     correct_phone_shadow_red,
@@ -302,8 +303,10 @@ def render_pair(
     hdr_midtone_gain: float | None = None,
     hdr_shoulder_strength: float | None = None,
     subject_adaptation_strength: float | None = None,
+    skin_protection_strength: float | None = None,
     _allow_subject: bool = True,
     _allow_histogram: bool = True,
+    _skin_context: tuple[Image.Image | None, dict] | None = None,
 ) -> RenderInfo:
     style = style or DEFAULT_STYLE
     scene, scene_info = open_scene(scene_path)
@@ -358,7 +361,7 @@ def render_pair(
     measured_gain_max = 1.0
     illuminant_gains = np.ones(3, dtype=np.float32)
     shadow_red_offset = 0.0
-    if (style.algorithm_version >= 4 and look.saturation_source == "auto"
+    if (4 <= style.algorithm_version < 6 and look.saturation_source == "auto"
             and look.contrast_source == "auto"):
         color_step = max(1, int(np.ceil(max(scene_info.height, scene_info.width) / 1024)))
         shadow_red_offset = phone_shadow_red_offset(
@@ -368,7 +371,7 @@ def render_pair(
             dark_fraction=tone_mapping["phone_dark_fraction"],
         )
         tone_mapping["phone_shadow_red_offset"] = shadow_red_offset
-    if style.algorithm_version >= 4 and look.saturation_source == "auto":
+    if 4 <= style.algorithm_version < 6 and look.saturation_source == "auto":
         color_step = max(1, int(np.ceil(max(scene_info.height, scene_info.width) / 1024)))
         illuminant_gains, illuminant_strength = phone_illuminant_gains(
             np.asarray(scene[::color_step, ::color_step], dtype=np.float32)
@@ -382,8 +385,27 @@ def render_pair(
             **{f"phone_illuminant_{channel}_gain": float(gain)
                for channel, gain in zip(("red", "green", "blue"), illuminant_gains)},
         })
+    if style.algorithm_version >= 6:
+        # V6 receives a white-balanced RAW scene, including explicit camera or
+        # custom choices. Never estimate another global illuminant here.
+        tone_mapping.update({
+            "phone_white_balance_stage": "raw",
+            "phone_shadow_red_offset": 0.0,
+            "phone_illuminant_strength": 0.0,
+            **{f"phone_illuminant_{channel}_gain": 1.0
+               for channel in ("red", "green", "blue")},
+        })
     shared_hdr_chroma = (style.algorithm_version >= 4 and look.contrast_source == "auto"
                          and look.saturation_source == "auto")
+    skin_strength = 1.0 if skin_protection_strength is None else skin_protection_strength
+    skin_enabled = (style.algorithm_version >= 5 and shared_hdr_chroma
+                    and skin_strength > 0 and tone_mapping["phone_dark_weight"] < .5)
+    if skin_enabled:
+        if _skin_context is None:
+            _skin_context = build_skin_context(scene, exposure_ev=stats.scene_adjustment_ev)
+        tone_mapping["phone_skin"] = {**_skin_context[1], "strength": float(skin_strength)}
+    elif style.algorithm_version >= 5:
+        tone_mapping["phone_skin"] = {"status": "disabled", "strength": 0.0}
     base_image: Image.Image | None = None
     detail_base_image: Image.Image | None = None
     illumination_image: Image.Image | None = None
@@ -422,6 +444,8 @@ def render_pair(
                 preview_y, radius_fraction=0.06, epsilon=0.60
             ), mode="F")
 
+    skin_weight_sum = 0.0
+    skin_supported_pixels = 0
     with hdr_raw_path.open("wb") as hdr_file:
         for start in range(0, scene_info.height, chunk_rows):
             stop = min(scene_info.height, start + chunk_rows)
@@ -438,7 +462,17 @@ def render_pair(
                 pivot=tone_mapping["contrast_pivot"],
             )
             y = luminance_rec2020(shared)
-            if not np.array_equal(illuminant_gains, np.ones(3, dtype=np.float32)):
+            skin_rows = None
+            if skin_enabled:
+                person_image = _skin_context[0]
+                person_rows = (resize_base_rows(person_image, width=scene_info.width,
+                    full_height=scene_info.height, start=start, stop=stop)
+                    if person_image is not None else .35)
+                shared, skin_rows = protect_skin_illuminant(
+                    shared, illuminant_gains, person_rows, strength=skin_strength)
+                skin_weight_sum += float(np.sum(skin_rows, dtype=np.float64))
+                skin_supported_pixels += int(np.count_nonzero(skin_rows > .25))
+            elif not np.array_equal(illuminant_gains, np.ones(3, dtype=np.float32)):
                 shared = scale_rgb_to_luminance(shared * illuminant_gains, y)
             if style.midtone_lift_ev:
                 mapped = lift_midtones(
@@ -522,6 +556,7 @@ def render_pair(
                     dark_weight=tone_mapping["phone_dark_weight"],
                     indoor_weight=tone_mapping["phone_indoor_weight"],
                     neutral_protection=neutral_protection,
+                    skin_protection=skin_rows,
                 )
             sdr_linear = compress_gamut(sdr_linear, target=style.sdr_gamut, upper=1.0)
             sdr_pixels[start:stop] = _quantize_sdr(sdr_linear)
@@ -584,6 +619,7 @@ def render_pair(
                         dark_weight=tone_mapping["phone_dark_weight"],
                         indoor_weight=tone_mapping["phone_indoor_weight"],
                         neutral_protection=neutral_protection,
+                        skin_protection=skin_rows,
                     )
                     reference_linear = compress_gamut(reference_linear, target=style.sdr_gamut, upper=1.0)
                     hdr_reference_color = reference_linear
@@ -650,6 +686,7 @@ def render_pair(
                         dark_weight=tone_mapping["phone_dark_weight"],
                         indoor_weight=tone_mapping["phone_indoor_weight"],
                         neutral_protection=neutral_protection,
+                        skin_protection=skin_rows,
                     )
             hdr_2020 = compress_gamut(
                 hdr_2020, target="rec2020",
@@ -665,6 +702,12 @@ def render_pair(
             rgba = np.concatenate((hdr_2020, alpha), axis=-1).astype("<f2")
             hdr_file.write(rgba.tobytes(order="C"))
 
+    if skin_enabled:
+        pixels = scene_info.width * scene_info.height
+        tone_mapping["phone_skin"].update({
+            "mean_skin_weight": skin_weight_sum / pixels,
+            "supported_skin_fraction": skin_supported_pixels / pixels,
+        })
     subject_strength = 1.0 if subject_adaptation_strength is None else subject_adaptation_strength
     if (style.algorithm_version >= 4 and _allow_subject and subject_strength > 0
             and look.contrast_source == "auto" and look.saturation_source == "auto"
@@ -692,6 +735,7 @@ def render_pair(
                 sdr_adaptation_strength=sdr_adaptation_strength,
                 hdr_midtone_gain=hdr_midtone_gain, hdr_shoulder_strength=hdr_shoulder_strength,
                 subject_adaptation_strength=0, _allow_subject=False, _allow_histogram=False,
+                skin_protection_strength=skin_protection_strength, _skin_context=_skin_context,
             )
             hdr_field, sdr_field, subject_record = detect_subject_fields(
                 reference, high_key_weight=tone_mapping["phone_high_key_weight"],
@@ -753,6 +797,7 @@ def render_pair(
                 sdr_adaptation_strength=sdr_adaptation_strength,
                 hdr_midtone_gain=hdr_midtone_gain, hdr_shoulder_strength=hdr_shoulder_strength,
                 subject_adaptation_strength=subject_adaptation_strength, _allow_subject=True, _allow_histogram=False,
+                skin_protection_strength=skin_protection_strength, _skin_context=_skin_context,
             )
             from .phone_histogram import local_histogram_fields
             encoded = np.asarray(Image.open(reference).convert("RGB"),dtype=np.float32)/255

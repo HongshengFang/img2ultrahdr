@@ -43,7 +43,8 @@ def _parser() -> argparse.ArgumentParser:
         help="adjust SDR brightness independently of HDR (default: 0 EV)",
     )
     render.add_argument(
-        "--white-balance", choices=("camera", "auto", "custom"), default="camera"
+        "--white-balance", choices=("camera", "auto", "custom"),
+        help="RAW white balance (default: auto for phone-clear, camera for other styles)",
     )
     render.add_argument("--temperature-k", type=int)
     render.add_argument("--tint", type=float, default=1.0)
@@ -78,6 +79,10 @@ def _parser() -> argparse.ArgumentParser:
     render.add_argument(
         "--subject-adaptation-strength", type=float,
         help="phone-clear local subject tone using macOS Vision (0..1; default: 1)",
+    )
+    render.add_argument(
+        "--skin-protection-strength", type=float,
+        help="phone-clear skin protection during automatic white correction (0..1; default: 1)",
     )
     render.add_argument(
         "--raw-denoise-strength", type=float,
@@ -141,6 +146,7 @@ def _render_command(args: argparse.Namespace) -> int:
         hdr_midtone_gain=args.hdr_midtone_gain,
         hdr_shoulder_strength=args.hdr_shoulder_strength,
         subject_adaptation_strength=args.subject_adaptation_strength,
+        skin_protection_strength=args.skin_protection_strength,
         raw_denoise_strength=args.raw_denoise_strength,
         raw_detail_strength=args.raw_detail_strength,
         surface_denoise_strength=args.surface_denoise_strength,

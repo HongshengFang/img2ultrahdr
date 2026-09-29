@@ -1,8 +1,11 @@
-"""Audit phone-clear against paired Pixel DNG/Ultra HDR JPEG references.
+"""Audit phone-clear rendering against paired Pixel DNG/Ultra HDR references.
 
 The optional scene cache contains reduced, temporary RAW developments. DNG is
 not a production input format. All reports and contact sheets belong in the
 ignored outputs directory; original photographs are never copied into Git.
+This calls render_pair on cached scenes, bypassing production RAW development
+and the V6 camera-reference skin guard. It is a render-stage audit, not a full
+V6 RAW-first validation; use production CR2/RAF renders for that validation.
 """
 
 from __future__ import annotations
@@ -433,7 +436,10 @@ def audit(
         print(f"Audited {number:02} {stem}", flush=True)
     for start in range(0, len(sheets), 6):
         _contact_sheet(sheets[start:start + 6], output / f"contact_{start + 1:02}_{min(start + 6, len(sheets)):02}.png")
-    report: dict[str, object] = {"pair_count": len(records), "pairs": records}
+    report: dict[str, object] = {
+        "scope": "render-stage-only; production RAW WB and camera-reference skin guard bypassed",
+        "pair_count": len(records), "pairs": records,
+    }
     if reference_audit is not None:
         report["comparison_to_reference"] = compare_audits(
             report, json.loads(reference_audit.read_text())

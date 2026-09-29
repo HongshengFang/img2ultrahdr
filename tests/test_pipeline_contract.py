@@ -112,7 +112,8 @@ def test_adaptive_denoise_redevelops_only_when_residual_noise_requires_it(monkey
         monkeypatch.setattr(pipeline, "phone_denoise_decision", lambda *a, **k: {"extra_denoise_weight": weight})
         with pytest.raises(ProcessingError, match="development verified"):
             pipeline.render_raw(source, RenderOptions(output=tmp_path/"out",
-                raw_detail_strength=detail, surface_denoise_strength=0))
+                raw_detail_strength=detail, surface_denoise_strength=0,
+                skin_protection_strength=0))
         assert len(calls) == expected + 1
         assert calls[-1] == ("scene-color-reference.tif", None)
         assert "Luma=15\nLdetail=30" in calls[0][1]

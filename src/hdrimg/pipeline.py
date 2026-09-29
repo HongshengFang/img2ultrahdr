@@ -19,6 +19,7 @@ from .metadata import copy_metadata, read_output_metadata, read_source_metadata
 from .phone_noise import phone_denoise_decision
 from .phone_color_guard import preserve_blue_chroma
 from .phone_surface import denoise_blue_surfaces
+from .phone_raw_wb import preserve_raw_skin
 from .raw import RAW_DEVELOPMENT_EV, develop_raw, phone_denoise_overlay, phone_detail_overlay, validate_raw_input
 from .render import open_scene, render_pair
 from .style import DEFAULT_STYLE_NAME, STYLE_PRESETS, resolve_style
@@ -33,7 +34,7 @@ class RenderOptions:
     auto_exposure: bool = True
     exposure_ev: float | None = None
     sdr_exposure_ev: float = 0.0
-    white_balance: str = "camera"
+    white_balance: str | None = None
     temperature_k: int | None = None
     tint: float = 1.0
     highlight_ev: float = 0.0
@@ -52,6 +53,7 @@ class RenderOptions:
     hdr_midtone_gain: float | None = None
     hdr_shoulder_strength: float | None = None
     subject_adaptation_strength: float | None = None
+    skin_protection_strength: float | None = None
     raw_denoise_strength: float | None = None
     raw_detail_strength: float | None = None
     surface_denoise_strength: float | None = None
@@ -64,7 +66,7 @@ class RenderOptions:
             raise InputError("--exposure-ev must be between -5 and +5")
         if not -2.0 <= self.sdr_exposure_ev <= 2.0:
             raise InputError("--sdr-exposure-ev must be between -2 and +2")
-        if self.white_balance not in {"camera", "auto", "custom"}:
+        if self.white_balance not in {None, "camera", "auto", "custom"}:
             raise InputError("--white-balance must be camera, auto, or custom")
         if self.white_balance == "custom" and self.temperature_k is None:
             raise InputError("--temperature-k is required for custom white balance")
@@ -100,6 +102,7 @@ class RenderOptions:
             ("sdr-adaptation-strength", self.sdr_adaptation_strength),
             ("hdr-shoulder-strength", self.hdr_shoulder_strength),
             ("subject-adaptation-strength", self.subject_adaptation_strength),
+            ("skin-protection-strength", self.skin_protection_strength),
             ("raw-denoise-strength", self.raw_denoise_strength),
             ("raw-detail-strength", self.raw_detail_strength),
             ("surface-denoise-strength", self.surface_denoise_strength),
@@ -114,6 +117,17 @@ class RenderOptions:
                             ("surface-denoise-strength", self.surface_denoise_strength)):
             if value and self.style != "phone-clear":
                 raise InputError(f"--{name} requires --style phone-clear")
+
+    def resolved_white_balance(self) -> str:
+        if self.white_balance is not None:
+            return self.white_balance
+        return "auto" if self.style == "phone-clear" else "camera"
+
+    def resolved_raw_skin_strength(self) -> float:
+        if (self.style != "phone-clear" or self.resolved_white_balance() != "auto"
+                or not self.auto_look or self.contrast is not None or self.saturation is not None):
+            return 0.0
+        return 1.0 if self.skin_protection_strength is None else self.skin_protection_strength
 
     def resolved_raw_denoise_strength(self) -> float:
         if self.style != "phone-clear":
@@ -214,6 +228,7 @@ def render_raw(source_path: Path, options: RenderOptions) -> RenderResult:
         detail_strength = options.resolved_raw_detail_strength()
         surface_strength = options.resolved_surface_denoise_strength()
         development_overlay = None
+        white_balance = options.resolved_white_balance()
         if denoise_strength > 0:
             development_overlay = work / "phone-denoise.pp3"
             development_overlay.write_text(phone_denoise_overlay(denoise_strength))
@@ -222,7 +237,7 @@ def render_raw(source_path: Path, options: RenderOptions) -> RenderResult:
             source,
             scene,
             tools=tools,
-            white_balance=options.white_balance,
+            white_balance=white_balance,
             temperature_k=options.temperature_k,
             tint=options.tint,
             work_dir=work,
@@ -247,7 +262,7 @@ def render_raw(source_path: Path, options: RenderOptions) -> RenderResult:
             adaptive_work.mkdir()
             scene = work / "scene-adaptive.tif"
             develop_raw(
-                source, scene, tools=tools, white_balance=options.white_balance,
+                source, scene, tools=tools, white_balance=white_balance,
                 temperature_k=options.temperature_k, tint=options.tint,
                 work_dir=adaptive_work, profile_overlay=development_overlay,
             )
@@ -267,7 +282,7 @@ def render_raw(source_path: Path, options: RenderOptions) -> RenderResult:
             color_reference = work / "scene-color-reference.tif"
             develop_raw(
                 source, color_reference, tools=tools,
-                white_balance=options.white_balance,
+                white_balance=white_balance,
                 temperature_k=options.temperature_k, tint=options.tint,
                 work_dir=reference_work,
             )
@@ -276,6 +291,24 @@ def render_raw(source_path: Path, options: RenderOptions) -> RenderResult:
                 strength=denoise_strength, development_ev=RAW_DEVELOPMENT_EV)
             if color_record["applied"]:
                 scene = color_scene
+        raw_skin_record = {"applied": False, "reason": "disabled_or_explicit_white_balance"}
+        skin_context = None
+        raw_skin_strength = options.resolved_raw_skin_strength()
+        if raw_skin_strength > 0:
+            # The main development already uses automatic RAW WB. A matching
+            # camera-WB reference only bounds skin chroma loss before the look.
+            camera_work = work / "camera-white-balance-reference"
+            camera_work.mkdir()
+            camera_reference = work / "scene-camera-reference.tif"
+            develop_raw(source, camera_reference, tools=tools,
+                white_balance="camera", temperature_k=None, tint=1.0,
+                work_dir=camera_work, profile_overlay=development_overlay)
+            guarded_scene = work / "scene-raw-skin.tif"
+            raw_skin_record, skin_context = preserve_raw_skin(
+                scene, camera_reference, guarded_scene, strength=raw_skin_strength,
+                development_ev=RAW_DEVELOPMENT_EV)
+            if raw_skin_record["applied"]:
+                scene = guarded_scene
         render_info = render_pair(
             scene,
             sdr,
@@ -296,6 +329,8 @@ def render_raw(source_path: Path, options: RenderOptions) -> RenderResult:
             hdr_midtone_gain=options.hdr_midtone_gain,
             hdr_shoulder_strength=options.hdr_shoulder_strength,
             subject_adaptation_strength=options.subject_adaptation_strength,
+            skin_protection_strength=options.skin_protection_strength,
+            _skin_context=skin_context,
         )
         if not render_info.scene.has_icc_profile:
             raise ProcessingError("Developed scene TIFF is missing its linear Rec.2020 ICC profile")
@@ -348,6 +383,15 @@ def render_raw(source_path: Path, options: RenderOptions) -> RenderResult:
             },
             "render": asdict(render_info),
             "raw_development": {
+                "white_balance": {
+                    "requested": options.white_balance or "style-default",
+                    "resolved": white_balance,
+                    "temperature_k": options.temperature_k if white_balance == "custom" else None,
+                    "tint": options.tint,
+                    "stage": "raw",
+                    "post_illuminant_correction": style.algorithm_version in (4, 5),
+                    "skin_guard": raw_skin_record,
+                },
                 "denoise_strength": denoise_strength,
                 "denoise_profile": development_overlay.read_text() if development_overlay else None,
                 "denoise_decision": denoise_decision,

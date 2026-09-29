@@ -8,6 +8,7 @@ dist/
 *.egg-info/
 samples/
 outputs/
+result/
 jpg_hdr_sample_effect/
 *.[Cc][Rr]2
 *.[Cc][Rr]3
