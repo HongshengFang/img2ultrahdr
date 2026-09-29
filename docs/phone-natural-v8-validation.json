@@ -72,5 +72,14 @@
   "test_suite": {
     "passed": 163
   },
-  "created_at": "2026-09-29T23:17:19.920247+00:00"
+  "created_at": "2026-09-29T23:17:19.920247+00:00",
+  "visual_acceptance": {
+    "status": "approved",
+    "date": "2026-09-29",
+    "sample": "0N6A9406",
+    "sha256": "dcc869df16ed73db6fff02a5d4e63bd20720cb0ef5e352816cab9d668b727244",
+    "implementation_commit": "e620da367648564ee5c113552e5ede0aec0b15b8",
+    "scope": "Final RAW boundary protection and late color protection sample; 37-photo batch not yet visually accepted.",
+    "preset": "phone-natural"
+  }
 }

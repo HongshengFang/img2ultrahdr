@@ -53,7 +53,7 @@ img2uhdr render *.CR2 \
 
 如果暖色肤色与棕红色头发显得过于接近，可使用 `--warm-color-separation 1`，让亮部暖色略亮、偏金黄，暗部暖色略偏红。它是可选的观感控制，默认值为 `0`。
 
-手机风格参考 12 组同拍手机 DNG／Ultra HDR JPEG。**`phone-clear` 是默认版本**：SDR 会根据场景明暗调整底图，HDR 则独立提高普通中间调或局部光源，并分别控制高光肩部；蓝色和暖色还会进行轻微的选择性校准。`phone-natural` 已更新为基于已确认自然影调的 V8：沿用 RAW 优先白平衡，默认关闭会放大人物轮廓阴影的局部增强，加强脚踝等浅肤色区域的颜色保护，并保留自然的明暗与 HDR。详见 [phone-natural V8](docs/phone-natural-v8.md)。两者都会真正转换为 Display P3 并嵌入对应 ICC；只更改输出色域不会自动产生这种影调。需要原来的自然风格与 sRGB 输出时，显式使用 `--style natural`。
+手机风格参考 12 组同拍手机 DNG／Ultra HDR JPEG。**`phone-clear` 是默认版本**：SDR 会根据场景明暗调整底图，HDR 则独立提高普通中间调或局部光源，并分别控制高光肩部；蓝色和暖色还会进行轻微的选择性校准。**Phone Natural**（`phone-natural`）已由视觉确认后的 V8 替换原版：沿用 RAW 优先白平衡，默认关闭会放大人物轮廓阴影的局部增强，加强脚踝等浅肤色区域的颜色保护，并保留自然的明暗与 HDR。详见 [phone-natural V8](docs/phone-natural-v8.md)。两者都会真正转换为 Display P3 并嵌入对应 ICC；只更改输出色域不会自动产生这种影调。需要原来的自然风格与 sRGB 输出时，显式使用 `--style natural`。
 
 ```bash
 img2uhdr render pics/0N6A9479.CR2 \
