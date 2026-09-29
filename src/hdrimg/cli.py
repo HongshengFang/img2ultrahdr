@@ -8,6 +8,7 @@ from .doctor import checks_as_json, run_doctor
 from .errors import DependencyError, HdrImgError, InputError
 from .inspect import inspect_file, inspection_as_json
 from .pipeline import RenderOptions, render_raw
+from .style import DEFAULT_STYLE_NAME, STYLE_PRESETS
 
 
 def _parser() -> argparse.ArgumentParser:
@@ -36,6 +37,12 @@ def _parser() -> argparse.ArgumentParser:
         "--exposure-ev", type=float, help="override automatic look exposure compensation"
     )
     render.add_argument(
+        "--sdr-exposure-ev",
+        type=float,
+        default=0.0,
+        help="adjust SDR brightness independently of HDR (default: 0 EV)",
+    )
+    render.add_argument(
         "--white-balance", choices=("camera", "auto", "custom"), default="camera"
     )
     render.add_argument("--temperature-k", type=int)
@@ -45,6 +52,45 @@ def _parser() -> argparse.ArgumentParser:
     render.add_argument("--peak-nits", type=int, default=1000)
     render.add_argument("--contrast", type=float, help="override automatic contrast")
     render.add_argument("--saturation", type=float, help="override automatic saturation")
+    render.add_argument(
+        "--style",
+        choices=tuple(STYLE_PRESETS),
+        default=DEFAULT_STYLE_NAME,
+        help=f"rendering style (default: {DEFAULT_STYLE_NAME})",
+    )
+    render.add_argument("--midtone-lift-ev", type=float)
+    render.add_argument("--highlight-rolloff", type=float)
+    render.add_argument("--local-contrast", type=float)
+    render.add_argument("--vibrance", type=float)
+    render.add_argument("--sdr-gamut", choices=("srgb", "display-p3"))
+    render.add_argument(
+        "--sdr-adaptation-strength", type=float,
+        help="phone-clear scene-based SDR adjustment (0..1; default: 1)",
+    )
+    render.add_argument(
+        "--hdr-midtone-gain", type=float,
+        help="phone-clear HDR/SDR midtone gain (1..3; default: scene-based)",
+    )
+    render.add_argument(
+        "--hdr-shoulder-strength", type=float,
+        help="phone-clear HDR highlight compression (0..1; default: 0.7)",
+    )
+    render.add_argument(
+        "--subject-adaptation-strength", type=float,
+        help="phone-clear local subject tone using macOS Vision (0..1; default: 1)",
+    )
+    render.add_argument(
+        "--raw-denoise-strength", type=float,
+        help="phone-clear RAW noise reduction (0..1; default: 1 with automatic look, otherwise 0)",
+    )
+    render.add_argument(
+        "--raw-detail-strength", type=float,
+        help="phone-clear restrained RAW deconvolution (0..1; default: 1 with automatic look and RAW denoise)",
+    )
+    render.add_argument(
+        "--surface-denoise-strength", type=float,
+        help="phone-clear smooth blue-surface noise reduction (0..1; default: follows RAW denoise)",
+    )
     render.add_argument(
         "--warm-color-separation",
         type=float,
@@ -75,6 +121,7 @@ def _render_command(args: argparse.Namespace) -> int:
         auto_look=args.auto_look,
         auto_exposure=args.auto_exposure,
         exposure_ev=args.exposure_ev,
+        sdr_exposure_ev=args.sdr_exposure_ev,
         white_balance=args.white_balance,
         temperature_k=args.temperature_k,
         tint=args.tint,
@@ -84,6 +131,19 @@ def _render_command(args: argparse.Namespace) -> int:
         contrast=args.contrast,
         saturation=args.saturation,
         warm_color_separation=args.warm_color_separation,
+        style=args.style,
+        midtone_lift_ev=args.midtone_lift_ev,
+        highlight_rolloff=args.highlight_rolloff,
+        local_contrast=args.local_contrast,
+        vibrance=args.vibrance,
+        sdr_gamut=args.sdr_gamut,
+        sdr_adaptation_strength=args.sdr_adaptation_strength,
+        hdr_midtone_gain=args.hdr_midtone_gain,
+        hdr_shoulder_strength=args.hdr_shoulder_strength,
+        subject_adaptation_strength=args.subject_adaptation_strength,
+        raw_denoise_strength=args.raw_denoise_strength,
+        raw_detail_strength=args.raw_detail_strength,
+        surface_denoise_strength=args.surface_denoise_strength,
         strip_metadata=args.strip_metadata,
         keep_intermediates=args.keep_intermediates,
         overwrite=args.overwrite,

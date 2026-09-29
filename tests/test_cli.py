@@ -9,9 +9,11 @@ def test_render_defaults_to_auto_look_and_accepts_manual_overrides():
     automatic = cli._parser().parse_args(["render", "photo.RAF"])
     assert automatic.auto_look is True
     assert automatic.exposure_ev is None
+    assert automatic.sdr_exposure_ev == 0.0
     assert automatic.contrast is None
     assert automatic.saturation is None
     assert automatic.warm_color_separation == 0.0
+    assert automatic.style == "phone-clear"
 
     manual = cli._parser().parse_args(
         [
@@ -31,6 +33,9 @@ def test_render_defaults_to_auto_look_and_accepts_manual_overrides():
     assert manual.contrast == 1.6
     assert manual.saturation == 1.15
     assert manual.warm_color_separation == 0.8
+
+    legacy = cli._parser().parse_args(["render", "photo.RAF", "--style", "natural"])
+    assert legacy.style == "natural"
 
 
 def test_batch_continues_after_one_failure(monkeypatch, tmp_path: Path):

@@ -16,8 +16,12 @@ from PIL import Image
 from . import __version__
 from .errors import InputError, ProcessingError
 from .metadata import copy_metadata, read_output_metadata, read_source_metadata
-from .raw import RAW_DEVELOPMENT_EV, develop_raw, validate_raw_input
-from .render import render_pair
+from .phone_noise import phone_denoise_decision
+from .phone_color_guard import preserve_blue_chroma
+from .phone_surface import denoise_blue_surfaces
+from .raw import RAW_DEVELOPMENT_EV, develop_raw, phone_denoise_overlay, phone_detail_overlay, validate_raw_input
+from .render import open_scene, render_pair
+from .style import DEFAULT_STYLE_NAME, STYLE_PRESETS, resolve_style
 from .tools import resolve_tools, tool_version, ultrahdr_version
 from .ultrahdr import encode_ultrahdr, validate_ultrahdr
 
@@ -28,6 +32,7 @@ class RenderOptions:
     auto_look: bool = True
     auto_exposure: bool = True
     exposure_ev: float | None = None
+    sdr_exposure_ev: float = 0.0
     white_balance: str = "camera"
     temperature_k: int | None = None
     tint: float = 1.0
@@ -37,6 +42,19 @@ class RenderOptions:
     contrast: float | None = None
     saturation: float | None = None
     warm_color_separation: float = 0.0
+    style: str = DEFAULT_STYLE_NAME
+    midtone_lift_ev: float | None = None
+    highlight_rolloff: float | None = None
+    local_contrast: float | None = None
+    vibrance: float | None = None
+    sdr_gamut: str | None = None
+    sdr_adaptation_strength: float | None = None
+    hdr_midtone_gain: float | None = None
+    hdr_shoulder_strength: float | None = None
+    subject_adaptation_strength: float | None = None
+    raw_denoise_strength: float | None = None
+    raw_detail_strength: float | None = None
+    surface_denoise_strength: float | None = None
     strip_metadata: bool = False
     keep_intermediates: bool = False
     overwrite: bool = False
@@ -44,6 +62,8 @@ class RenderOptions:
     def validate(self) -> None:
         if self.exposure_ev is not None and not -5.0 <= self.exposure_ev <= 5.0:
             raise InputError("--exposure-ev must be between -5 and +5")
+        if not -2.0 <= self.sdr_exposure_ev <= 2.0:
+            raise InputError("--sdr-exposure-ev must be between -2 and +2")
         if self.white_balance not in {"camera", "auto", "custom"}:
             raise InputError("--white-balance must be camera, auto, or custom")
         if self.white_balance == "custom" and self.temperature_k is None:
@@ -64,6 +84,58 @@ class RenderOptions:
             raise InputError("--saturation must be between 0.8 and 1.5")
         if not 0.0 <= self.warm_color_separation <= 1.0:
             raise InputError("--warm-color-separation must be between 0 and 1")
+        if self.style not in STYLE_PRESETS:
+            raise InputError("--style must be natural, phone-natural, or phone-clear")
+        for name, value, upper in (
+            ("midtone-lift-ev", self.midtone_lift_ev, 1.0),
+            ("highlight-rolloff", self.highlight_rolloff, 1.0),
+            ("local-contrast", self.local_contrast, 0.3),
+            ("vibrance", self.vibrance, 0.3),
+        ):
+            if value is not None and not 0.0 <= value <= upper:
+                raise InputError(f"--{name} must be between 0 and {upper:g}")
+        if self.sdr_gamut not in {None, "srgb", "display-p3"}:
+            raise InputError("--sdr-gamut must be srgb or display-p3")
+        for name, value in (
+            ("sdr-adaptation-strength", self.sdr_adaptation_strength),
+            ("hdr-shoulder-strength", self.hdr_shoulder_strength),
+            ("subject-adaptation-strength", self.subject_adaptation_strength),
+            ("raw-denoise-strength", self.raw_denoise_strength),
+            ("raw-detail-strength", self.raw_detail_strength),
+            ("surface-denoise-strength", self.surface_denoise_strength),
+        ):
+            if value is not None and not 0.0 <= value <= 1.0:
+                raise InputError(f"--{name} must be between 0 and 1")
+        if self.hdr_midtone_gain is not None and not 1.0 <= self.hdr_midtone_gain <= 3.0:
+            raise InputError("--hdr-midtone-gain must be between 1 and 3")
+        if self.raw_denoise_strength and self.style != "phone-clear":
+            raise InputError("--raw-denoise-strength requires --style phone-clear")
+        for name, value in (("raw-detail-strength", self.raw_detail_strength),
+                            ("surface-denoise-strength", self.surface_denoise_strength)):
+            if value and self.style != "phone-clear":
+                raise InputError(f"--{name} requires --style phone-clear")
+
+    def resolved_raw_denoise_strength(self) -> float:
+        if self.style != "phone-clear":
+            return 0.0
+        if self.raw_denoise_strength is not None:
+            return self.raw_denoise_strength
+        return float(self.auto_look and self.contrast is None and self.saturation is None)
+
+    def resolved_raw_detail_strength(self) -> float:
+        if self.style != "phone-clear":
+            return 0.0
+        if self.raw_detail_strength is not None:
+            return self.raw_detail_strength
+        return float(self.auto_look and self.contrast is None and self.saturation is None
+                     and self.resolved_raw_denoise_strength() > 0)
+
+    def resolved_surface_denoise_strength(self) -> float:
+        if self.style != "phone-clear":
+            return 0.0
+        if self.surface_denoise_strength is not None:
+            return self.surface_denoise_strength
+        return self.resolved_raw_denoise_strength()
 
 
 @dataclass(frozen=True)
@@ -115,6 +187,14 @@ def _publish(staged: dict[str, Path], final: dict[str, Path]) -> None:
 
 def render_raw(source_path: Path, options: RenderOptions) -> RenderResult:
     options.validate()
+    style = resolve_style(
+        options.style,
+        midtone_lift_ev=options.midtone_lift_ev,
+        highlight_rolloff=options.highlight_rolloff,
+        local_contrast=options.local_contrast,
+        vibrance=options.vibrance,
+        sdr_gamut=options.sdr_gamut,
+    )
     source = validate_raw_input(source_path)
     output = options.output.expanduser().resolve()
     output.mkdir(parents=True, exist_ok=True)
@@ -130,6 +210,14 @@ def render_raw(source_path: Path, options: RenderOptions) -> RenderResult:
         ultrahdr = work / "ultrahdr.jpg"
         manifest = work / "render.json"
 
+        denoise_strength = options.resolved_raw_denoise_strength()
+        detail_strength = options.resolved_raw_detail_strength()
+        surface_strength = options.resolved_surface_denoise_strength()
+        development_overlay = None
+        if denoise_strength > 0:
+            development_overlay = work / "phone-denoise.pp3"
+            development_overlay.write_text(phone_denoise_overlay(denoise_strength))
+
         develop_raw(
             source,
             scene,
@@ -138,13 +226,63 @@ def render_raw(source_path: Path, options: RenderOptions) -> RenderResult:
             temperature_k=options.temperature_k,
             tint=options.tint,
             work_dir=work,
+            profile_overlay=development_overlay,
         )
+        denoise_decision = None
+        extra_luma = 0.0
+        if denoise_strength > 0:
+            first_scene, _ = open_scene(scene)
+            denoise_decision = phone_denoise_decision(first_scene, development_ev=RAW_DEVELOPMENT_EV)
+            del first_scene
+            extra_luma = denoise_decision["extra_denoise_weight"]
+        # Measure noise before sharpening. The final development composes the
+        # selected denoise and detail profiles in a single second pass.
+        if extra_luma > 0 or detail_strength > 0:
+            development_overlay = work / "phone-denoise-adaptive.pp3"
+            profile = phone_denoise_overlay(denoise_strength, extra_luma=extra_luma) if denoise_strength > 0 else ""
+            if detail_strength > 0:
+                profile += "\n" + phone_detail_overlay(detail_strength)
+            development_overlay.write_text(profile)
+            adaptive_work = work / "adaptive-development"
+            adaptive_work.mkdir()
+            scene = work / "scene-adaptive.tif"
+            develop_raw(
+                source, scene, tools=tools, white_balance=options.white_balance,
+                temperature_k=options.temperature_k, tint=options.tint,
+                work_dir=adaptive_work, profile_overlay=development_overlay,
+            )
+        surface_record = None
+        if surface_strength > 0:
+            surface_scene = work / "scene-surface.tif"
+            surface_record = denoise_blue_surfaces(scene, surface_scene,
+                strength=surface_strength, development_ev=RAW_DEVELOPMENT_EV)
+            if surface_record["applied"]:
+                scene = surface_scene
+        color_record = None
+        if denoise_strength > 0:
+            # Keep matching RAW color before thresholded denoiser chroma boosts.
+            # The reference uses the same geometry, white balance and headroom.
+            reference_work = work / "color-reference-development"
+            reference_work.mkdir()
+            color_reference = work / "scene-color-reference.tif"
+            develop_raw(
+                source, color_reference, tools=tools,
+                white_balance=options.white_balance,
+                temperature_k=options.temperature_k, tint=options.tint,
+                work_dir=reference_work,
+            )
+            color_scene = work / "scene-color-preserved.tif"
+            color_record = preserve_blue_chroma(scene, color_reference, color_scene,
+                strength=denoise_strength, development_ev=RAW_DEVELOPMENT_EV)
+            if color_record["applied"]:
+                scene = color_scene
         render_info = render_pair(
             scene,
             sdr,
             hdr_raw,
             auto_exposure=options.auto_exposure,
             exposure_ev=options.exposure_ev,
+            sdr_exposure_ev=options.sdr_exposure_ev,
             development_ev=RAW_DEVELOPMENT_EV,
             highlight_ev=options.highlight_ev,
             hdr_strength=options.hdr_strength,
@@ -153,12 +291,17 @@ def render_raw(source_path: Path, options: RenderOptions) -> RenderResult:
             contrast=options.contrast,
             saturation=options.saturation,
             warm_color_separation=options.warm_color_separation,
+            style=style,
+            sdr_adaptation_strength=options.sdr_adaptation_strength,
+            hdr_midtone_gain=options.hdr_midtone_gain,
+            hdr_shoulder_strength=options.hdr_shoulder_strength,
+            subject_adaptation_strength=options.subject_adaptation_strength,
         )
         if not render_info.scene.has_icc_profile:
             raise ProcessingError("Developed scene TIFF is missing its linear Rec.2020 ICC profile")
         source_metadata = read_source_metadata(source, tools)
         if not options.strip_metadata:
-            copy_metadata(source, sdr, tools)
+            copy_metadata(source, sdr, tools, sdr_gamut=style.sdr_gamut)
         encode_ultrahdr(
             sdr,
             hdr_raw,
@@ -168,6 +311,7 @@ def render_raw(source_path: Path, options: RenderOptions) -> RenderResult:
             peak_nits=render_info.peak_nits,
             max_boost=render_info.max_content_boost,
             gainmap_quality=render_info.gainmap_quality,
+            sdr_gamut=style.sdr_gamut,
             tools=tools,
         )
         validation = validate_ultrahdr(
@@ -203,11 +347,20 @@ def render_raw(source_path: Path, options: RenderOptions) -> RenderResult:
                 "output": os.fspath(output),
             },
             "render": asdict(render_info),
+            "raw_development": {
+                "denoise_strength": denoise_strength,
+                "denoise_profile": development_overlay.read_text() if development_overlay else None,
+                "denoise_decision": denoise_decision,
+                "detail_strength": detail_strength,
+                "surface_denoise": surface_record,
+                "color_preservation": color_record,
+            },
             "outputs": {
                 "sdr": {
                     "filename": final["sdr"].name,
                     "dimensions": sdr_size,
                     "icc_profile_present": has_srgb_icc,
+                    "gamut": style.sdr_gamut,
                     "size_bytes": sdr.stat().st_size,
                 },
                 "ultrahdr": {

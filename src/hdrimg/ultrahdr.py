@@ -30,6 +30,7 @@ def encode_ultrahdr(
     peak_nits: float,
     max_boost: float,
     gainmap_quality: int,
+    sdr_gamut: str = "srgb",
     tools: ToolPaths,
 ) -> None:
     run_checked(
@@ -49,6 +50,8 @@ def encode_ultrahdr(
             "4",
             "-C",
             "2",
+            "-c",
+            "1" if sdr_gamut == "display-p3" else "0",
             "-t",
             "0",
             "-R",

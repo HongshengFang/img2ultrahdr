@@ -178,7 +178,7 @@ def hdr_curve_with_highlight_expansion(
     highlight_anchor: float,
     highlight_lift: float,
 ) -> np.ndarray:
-    """Expand only the brightest scene tones into display HDR headroom."""
+    """Map all scene tones into HDR headroom, with optional extra highlight lift."""
     values = np.maximum(np.asarray(y, dtype=np.float32), 0.0)
     peak = np.float32(peak_nits / SDR_WHITE_NITS)
     full = peak * -np.expm1(-values / peak)

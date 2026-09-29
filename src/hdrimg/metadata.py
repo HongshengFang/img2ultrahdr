@@ -35,7 +35,10 @@ def read_source_metadata(source: Path, tools: ToolPaths) -> dict[str, Any]:
     return record
 
 
-def copy_metadata(source: Path, jpeg: Path, tools: ToolPaths) -> None:
+def copy_metadata(
+    source: Path, jpeg: Path, tools: ToolPaths, *, sdr_gamut: str = "srgb"
+) -> None:
+    colorspace = "65535" if sdr_gamut == "display-p3" else "1"
     run_checked(
         [
             tools.exiftool,
@@ -45,6 +48,9 @@ def copy_metadata(source: Path, jpeg: Path, tools: ToolPaths) -> None:
             "-EXIF:all",
             "-IPTC:all",
             "-XMP:all",
+            # EXIF value 1 means sRGB. A P3 JPEG is identified by its ICC
+            # profile and must use the EXIF Uncalibrated marker instead.
+            f"-EXIF:ColorSpace#={colorspace}",
             # The trailing # forces numeric assignment. Without it ExifTool treats
             # "1" as a print-converted label and can resolve it to Rotate 180.
             "-Orientation#=1",

@@ -1,0 +1,173 @@
+{
+  "schema_version": 1,
+  "style_name": "phone-clear",
+  "algorithm_version": 4,
+  "default": true,
+  "selected_candidate": "round57_native",
+  "optimization_started_utc": "2026-09-29T06:33:12Z",
+  "optimization_completed_utc": "2026-09-29T13:50:35Z",
+  "previous_git_head": "ec75a7edc9f6ebaa2741a5e9546a368a1a9f05eb",
+  "runtime_source_sha256": {
+    "src/hdrimg/__init__.py": "4c75af2a5656017678045fbc6721f129fb4096af5ef5f5327a56ae93ef580ec5",
+    "src/hdrimg/__main__.py": "935a1c1166b0c1ea35a82256345000bf2c73ded718d77773bc27a71ecce28f7d",
+    "src/hdrimg/cli.py": "683548717565216fffb06e7a6293200cb7cb0a42d69518c6cef5e0b6354828a7",
+    "src/hdrimg/color.py": "e694d65a16279d6483772b170fbeb9cd5dbf5ab864f8a1e102f289dba653422c",
+    "src/hdrimg/doctor.py": "933bba4449efca113414e58c2796e6ae3f17323b7c564fd67b8653e9384970f5",
+    "src/hdrimg/errors.py": "022445fa2e56386e24f74ca6297a5392798856c3eb1825a9de08401d16c39e98",
+    "src/hdrimg/inspect.py": "084a346c799b29b551294044f0beeb9d3cf170b8965a6588c1d249a457c120c1",
+    "src/hdrimg/look.py": "824d407e93ca0a497e21e1cf338bc2925f022ad0ffa4e7927a3c28a8374cae09",
+    "src/hdrimg/metadata.py": "9c8e5ac0d0fc0475e8f7e54d9c05f6ec7074644f3e3dd839a9ebc63be26f9460",
+    "src/hdrimg/phone_color_guard.py": "adcfa73f600c1ad7da4af81bd2238442b6ca55a72e3c2586231a1ba9af3bca56",
+    "src/hdrimg/phone_deveil.py": "9e21cd982bd9822c65cbc4f69ba6f64f805b63ce7b6c959432f76a4adbd48f27",
+    "src/hdrimg/phone_histogram.py": "09f4c735e50a97de2e0415581f4754d85486bd51b891a8d14b4707df26e7bdfe",
+    "src/hdrimg/phone_noise.py": "384ad1166b378ef1ebd7923adf7057951dfc35d68e882e5459c64978b67c2a9e",
+    "src/hdrimg/phone_sky.py": "a6a33ff07bd87a0a9f1c804f0e3f1860d327a7de9b096f70e6fa7fe4334ed46f",
+    "src/hdrimg/phone_subject.py": "a7f9869ea42c46e08b7e13dbcfdad83feafbacdcca6cb045ba79597da3e2ea4c",
+    "src/hdrimg/phone_surface.py": "4bf53c94e33ff9cd0ef8a3276d4c97350ac01966a95359e5f92aaeba71ab4f86",
+    "src/hdrimg/phone_tone.py": "acfe3b1bf43c38d09775c6783dee8888bb381ed1a828866e6715fcc781736908",
+    "src/hdrimg/pipeline.py": "62df4509dbf082df015054eaf3ff4063be19a5d25907e426b14e9c238893ad1e",
+    "src/hdrimg/profiles/Rec2020-elle-V4-g10.icc.b64": "3f30cbaba8517dc56bfca4eb19003b1fb2dd2cbe56e236397882959835464373",
+    "src/hdrimg/profiles/phone-subject.swift": "8f076ee0689f5b280a4efda49da7930ab53697b7d937a50fc4ee3c2ef5168c9e",
+    "src/hdrimg/profiles/raw-unclipped.pp3": "dd3aa77849f3f50354e824b915a2cdafcdae08cfecefc18538875a4a22f47861",
+    "src/hdrimg/raw.py": "20f3547baed95c9fd5104a7ee9781a6068d3092270646c883b4996eb6669c3ea",
+    "src/hdrimg/render.py": "614ec587efba0cebf191f252b6e0dc432535bad425bddde726a25c2eed671b7f",
+    "src/hdrimg/style.py": "4bacdfa894b031e10619b801d8982b80c7ee65c7faaacd895153e28d302b787c",
+    "src/hdrimg/tone.py": "1d30b40c87c61176fd74da49cee7828b3c53090cad726e3eebfbc64b3ddfa7e0",
+    "src/hdrimg/tools.py": "18abee9d9f67b12740a07fdff51964cfb4cd12d638c600ce429a80071ba0436e",
+    "src/hdrimg/ultrahdr.py": "5ac1ce81214dcbe2bdaf7b9b884c0b09729afab8fd07890916530293aff6b166",
+    "src/hdrimg.egg-info/PKG-INFO": "ac8ac84d8c292db3afa8f96d553978eca04db18f4c2158b0ea50578bedada107",
+    "src/hdrimg.egg-info/SOURCES.txt": "5380900b2def74295be082f6be033925c7ef56ea39d61be0fe585634512731ac",
+    "src/hdrimg.egg-info/dependency_links.txt": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b",
+    "src/hdrimg.egg-info/entry_points.txt": "c4efb1bdf2cb9fde82cda567392c5b5d2bfb89e11e2b172e5a9568fadaad21db",
+    "src/hdrimg.egg-info/requires.txt": "6d98c2b796ce89f224db64d4e466b2c97d1fde1c6c16df9ec929cec9d9fb1cf3",
+    "src/hdrimg.egg-info/top_level.txt": "8977c52918bad529486441beb409a6af263f34ff75604332f273680c6ebf7d52",
+    "src/img2ultrahdr.egg-info/PKG-INFO": "a1ae690edff7e00bf317891ef36c2f3ea49b51bd7b354433afe3c9cca381078e",
+    "src/img2ultrahdr.egg-info/SOURCES.txt": "8c7c1aa69dd79cceee357f0ca14b1ea8736c708823b4e7e6e6e5fecf78945261",
+    "src/img2ultrahdr.egg-info/dependency_links.txt": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b",
+    "src/img2ultrahdr.egg-info/entry_points.txt": "8358b57f6758c1478101d2aac208df3877b15ad4a6eb86491e4dda4fc310056a",
+    "src/img2ultrahdr.egg-info/requires.txt": "6d98c2b796ce89f224db64d4e466b2c97d1fde1c6c16df9ec929cec9d9fb1cf3",
+    "src/img2ultrahdr.egg-info/top_level.txt": "8977c52918bad529486441beb409a6af263f34ff75604332f273680c6ebf7d52"
+  },
+  "validation": {
+    "checked_utc": "2026-09-29T13:48:55.946000+00:00",
+    "selected_best": "round57_native",
+    "source_files_unchanged_since_checkpoint": 80,
+    "tests_passed": 121,
+    "full12_ultrahdr_checks": 12,
+    "max_decoded_luma_mae_ev": 0.026056654751300812,
+    "old_styles_exact": 28,
+    "sdr_exposure_independence_scenes": 12,
+    "fixed_canon_exact_sdr": 2,
+    "documentation_links_checked": 144,
+    "git_diff_check": true,
+    "errors": []
+  },
+  "scenes": [
+    {
+      "id": 1,
+      "scene": "狭缝峡谷",
+      "improvements": "彩色噪声大幅下降；蓝天从发白恢复为蓝色，橙色岩纹层次明显增强。",
+      "regressions_and_remaining": "较强降噪损失部分细纹；浅岩仍偏粉，暗岩比手机亮，HDR暖岩色彩仍偏淡。"
+    },
+    {
+      "id": 2,
+      "scene": "黄昏砂岩人像",
+      "improvements": "HDR天空不自然的固定过渡消失；脸部过亮和发丝彩噪减轻，天空亮度较中期方案恢复。",
+      "regressions_and_remaining": "天空比手机更蓝；砂岩HDR暖色偏淡，头发与皮肤仍软；部分颜色比起点更灰。"
+    },
+    {
+      "id": 3,
+      "scene": "标牌座椅人像",
+      "improvements": "天空亮度与过渡更接近，标牌粉暖偏色减轻，地面颗粒更清楚。",
+      "regressions_and_remaining": "小脸与地面仍偏暗；座椅青色偏强，皮肤/头发微细节不足，标牌略灰。"
+    },
+    {
+      "id": 4,
+      "scene": "岩壁人像",
+      "improvements": "岩壁偏黄减轻，细沟纹增强；SDR/HDR脸部过亮明显收敛。",
+      "regressions_and_remaining": "白袖仍带粉灰且织物反差不够；HDR衣料部分亮度取舍保留，头发偏软。"
+    },
+    {
+      "id": 5,
+      "scene": "洞口剪影",
+      "improvements": "HDR过渡连续，岩顶纹理略增强，彩色噪声下降。",
+      "regressions_and_remaining": "总体改善有限：洞顶、暗地面仍亮，洞口偏白而手机偏暖，天空蓝紫偏色仍在。"
+    },
+    {
+      "id": 6,
+      "scene": "夜间加油站",
+      "improvements": "夜空红偏与彩色噪声明显减轻，顶棚和路面比起点少黄，明亮灯源与中间层次分离更好。",
+      "regressions_and_remaining": "顶棚、路面和加油机仍黄；天空偏黑，灯条颜色与增益分布不一致，原尺寸纹理较手机粗。"
+    },
+    {
+      "id": 7,
+      "scene": "室内人像",
+      "improvements": "脸部过亮、偏粉与头发彩噪减少，毛衣层次稍增强。",
+      "regressions_and_remaining": "肤色仍偏黄灰，头发偏棕和软；天花板缺少手机冷色，木框局部更黄。"
+    },
+    {
+      "id": 8,
+      "scene": "荒漠标牌",
+      "improvements": "天空亮度更接近；地面从偏黄移向橙色，砂砾和标牌边缘层次增强。",
+      "regressions_and_remaining": "印刷蓝色仍灰、远景平淡；灌木过亮且软，缺少手机的细碎纹理。"
+    },
+    {
+      "id": 9,
+      "scene": "逆光峡谷白裙",
+      "improvements": "白裙从灰暗变为更接近手机的浅白；脸部噪声降低，峡谷、灌木与云层层次增加。",
+      "regressions_and_remaining": "亮峡谷仍发白，白裙部分HDR增益偏强；发丝软，肤色偏红，天空与云的局部反差仍不足。"
+    },
+    {
+      "id": 10,
+      "scene": "山谷树林",
+      "improvements": "RAW降噪引入的弧形天空色带消除，蓝天颗粒降低；岩层细节增加。",
+      "regressions_and_remaining": "晒亮岩壁与树冠仍偏亮、偏淡，阴影树林太暗且颜色偏灰；降噪牺牲部分叶片细节。"
+    },
+    {
+      "id": 11,
+      "scene": "黄昏白外套",
+      "improvements": "人脸过亮与头发彩噪减轻，云层HDR亮度恢复，远山边缘稍清楚。",
+      "regressions_and_remaining": "外套/黑衣褶皱与发丝仍软；灌木比手机灰，云层反差不够，部分暖色比起点减少。"
+    },
+    {
+      "id": 12,
+      "scene": "雪人与秋叶",
+      "improvements": "白裙与雪人粉黄偏色显著减轻，雪人结构更清楚，秋叶从黄向橙色移动，小脸过亮收敛。",
+      "regressions_and_remaining": "地面比起点更灰，绿叶仍亮；头发偏棕且软，雪人/衣料缺少手机细纹，HDR局部增益偏强。"
+    }
+  ],
+  "local_evidence_root": "outputs/phone_clear_goal_20260928_233312",
+  "local_artifacts_not_in_git": [
+    "raw/reference photographs",
+    "outputs: experimental renders, comparisons, metrics and rollback archives"
+  ],
+  "preserved_styles": {
+    "natural": 1,
+    "phone-natural": 1
+  },
+  "canon_fixed_parameters": {
+    "common": {
+      "white_balance": "custom",
+      "temperature_k": 5500,
+      "tint": 1,
+      "contrast": 1.35,
+      "saturation": 1.18,
+      "highlight_ev": 0,
+      "hdr_strength": 1,
+      "peak_nits": 1000
+    },
+    "0N6A9479.CR2": {
+      "exposure_ev": 1.0,
+      "sdr_exposure_ev": 0
+    },
+    "0N6A9480.CR2": {
+      "exposure_ev": 0.95,
+      "sdr_exposure_ev": -0.45
+    }
+  },
+  "limitations": [
+    "Common SDR-mapped HDR previews inspected; true HDR display unverified.",
+    "Twelve calibration pairs are not an independent held-out validation set.",
+    "Remaining skin/hair/foliage detail, material color and mixed night illumination differences."
+  ]
+}

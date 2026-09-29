@@ -15,6 +15,35 @@ LINEAR_REC2020_PROFILE_NAME = "Rec2020-elle-V4-g10"
 RAW_DEVELOPMENT_EV = -2.0
 
 
+def phone_denoise_overlay(strength: float, *, extra_luma: float = 0.0) -> str:
+    """RAW denoise calibrated on native hair, cloth and shadow crops.
+
+    Chroma suppression carries most of the correction; restrained luminance
+    smoothing avoids the waxy foliage and cloth seen with stronger settings.
+    Zero is handled by the caller, which retains the original development.
+    """
+    if not 0 < strength <= 1:
+        raise InputError("RAW denoise strength must be greater than 0 and at most 1")
+    if not 0 <= extra_luma <= 1:
+        raise InputError("Extra luminance denoise must be between 0 and 1")
+    return (
+        "[Directional Pyramid Denoising]\nEnabled=true\n"
+        f"Luma={(15+25*extra_luma) * strength:g}\nLdetail={30*(1-extra_luma):g}\nChroma={60 * strength:g}\n"
+        "CMethod=MAN\nC2Method=MANU\nGamma=1.0\n"
+    )
+
+
+def phone_detail_overlay(strength: float) -> str:
+    """Restrained damped deconvolution after RAW denoise, native-crop calibrated."""
+    if not 0 < strength <= 1:
+        raise InputError("RAW detail strength must be greater than 0 and at most 1")
+    return (
+        "[Sharpening]\nEnabled=true\nMethod=rld\nContrast=20\nBlurRadius=0.2\n"
+        f"DeconvRadius=0.65\nDeconvAmount={round(65*strength)}\n"
+        "DeconvDamping=20\nDeconvIterations=20\n"
+    )
+
+
 def validate_raw_input(path: Path) -> Path:
     source = path.expanduser().resolve()
     if not source.is_file():
@@ -48,6 +77,7 @@ def develop_raw(
     temperature_k: int | None,
     tint: float,
     work_dir: Path,
+    profile_overlay: Path | None = None,
 ) -> None:
     profile = Path(str(files("hdrimg").joinpath("profiles/raw-unclipped.pp3")))
     profile_data = Path(
@@ -73,6 +103,7 @@ def develop_raw(
             destination,
             "-p",
             profile,
+            *(["-p", profile_overlay.resolve()] if profile_overlay is not None else []),
             "-p",
             overlay,
             "-t",

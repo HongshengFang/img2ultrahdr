@@ -2,11 +2,11 @@
 
 **Img2UltraHDR** is a free, open-source image-processing tool that converts camera RAW files and standard images into natural, ready-to-use SDR JPEGs and Ultra HDR JPEGs with gain maps. It automatically analyzes exposure, contrast, saturation, color gamut, and recoverable highlights while preserving full manual control and reproducible rendering records. It currently supports Canon CR2 and Fujifilm RAF files, with plans to expand support to JPEG, PNG, TIFF, HEIF, and other formats.
 
-Img2UltraHDR 目前把 Canon CR2 或 Fujifilm RAF 显影为一张独立可用的 SDR JPEG，以及一张包含 HDR gain map 的 Ultra HDR JPEG。SDR 和 HDR 从同一份线性浮点底稿生成，因此白平衡、曝光和主体观感保持一致，HDR 主要扩展真实高光。
+Img2UltraHDR 目前把 Canon CR2 或 Fujifilm RAF 显影为一张独立可用的 SDR JPEG，以及一张包含 HDR gain map 的 Ultra HDR JPEG。SDR 和 HDR 从同一份线性浮点底稿生成，白平衡与主体颜色一致；需要时可单独调整 SDR 亮度，HDR 曲线则利用显示器的额外亮度空间。
 
 ## 安装
 
-目前支持 Apple Silicon macOS。所有依赖均为免费开源软件。
+目前支持 Apple Silicon macOS。核心显影、色彩处理和 Ultra HDR 编解码依赖为免费开源软件；默认 `phone-clear` 的可选人像局部调整还会调用 macOS 自带的 Apple Vision 框架。
 
 ```bash
 brew bundle
@@ -17,13 +17,15 @@ python -m pip install --no-deps -e .
 img2uhdr doctor
 ```
 
-主命令是 `img2uhdr`；同时保留 `hdrimg` 作为兼容别名。`doctor` 会检查 RawTherapee、libultrahdr、ExifTool、线性 Rec.2020 profile 和临时目录，并完成一次小型 Ultra HDR 编解码。
+主命令是 `img2uhdr`；同时保留 `hdrimg` 作为兼容别名。`doctor` 会检查 RawTherapee、libultrahdr、ExifTool、线性 Rec.2020 与 Display P3 profile 和临时目录，并完成一次小型 Ultra HDR 编解码。
 
 全尺寸 RAW 会让 RawTherapee 和 libultrahdr 分配整帧缓冲。实测 30.2MP 文件在 libultrahdr 编码阶段约占 1.29 GB；建议运行前留出至少 3 GB 可用内存。Python 色彩与亮度渲染本身按 512 行分块处理。
 
 ## 使用
 
-自然风格默认处理。默认开启自动观感，会根据每张照片的中央亮度、动态范围和颜色浓度分别决定曝光补偿、对比度和饱和度：
+默认使用 `phone-clear` 手机自然明快风格。自动观感仍会根据每张照片的中央亮度、动态范围和颜色浓度分别决定曝光补偿、对比度和饱和度：
+
+当前默认已采用第 57 轮验证的 `phone-clear` V4，替代旧版同名处理。[恢复记录](docs/phone-clear-v4-checkpoint.json)保存源码校验值、验证结果和逐场景结论，供后续继续优化；原始样本及 `outputs/` 实验成片只保留在本地，不随 Git 同步。
 
 ```bash
 img2uhdr render photo.CR2 --output outputs
@@ -45,7 +47,31 @@ img2uhdr render *.CR2 \
 
 如果暖色肤色与棕红色头发显得过于接近，可使用 `--warm-color-separation 1`，让亮部暖色略亮、偏金黄，暗部暖色略偏红。它是可选的观感控制，默认值为 `0`。
 
-`--exposure-ev` 是自动曝光之上的观感补偿；显式传入它会覆盖自动观感给出的补偿。`--contrast` 的范围是 `1.0..2.0`，`--saturation` 的范围是 `0.8..1.5`，显式传入时同样覆盖各自的自动结果。使用 `--no-auto-look` 可关闭自动观感，未指定项目会回到固定基线 `0 EV / 1.35 / 1.10`；`--no-auto-exposure` 则关闭曝光自动计算。
+手机风格参考 12 组同拍手机 DNG／Ultra HDR JPEG。**`phone-clear` 是默认版本**：SDR 会根据场景明暗调整底图，HDR 则独立提高普通中间调或局部光源，并分别控制高光肩部；蓝色和暖色还会进行轻微的选择性校准。`phone-natural` 保留原来较温和的处理。两者都会真正转换为 Display P3 并嵌入对应 ICC；只更改输出色域不会自动产生这种影调。需要原来的自然风格与 sRGB 输出时，显式使用 `--style natural`。
+
+```bash
+img2uhdr render pics/0N6A9479.CR2 \
+  --output outputs/phone-clear \
+  --exposure-ev 1.0 \
+  --white-balance custom --temperature-k 5500 --tint 1.0 \
+  --contrast 1.35 --saturation 1.18
+```
+
+这组固定参数用于和此前成片直接比较。`phone-clear` 保留 `--midtone-lift-ev 0.38`、`--highlight-rolloff 0.42`、`--local-contrast 0.22`、`--vibrance 0.23`、`--sdr-gamut display-p3`，并加入场景自适应 SDR/HDR 处理。原来的 `phone-natural` 参数保持 `0.30 / 0.35 / 0.12 / 0.15 / Display P3`。每一项都可单独覆盖，例如 `--vibrance 0.18` 或 `--sdr-gamut srgb`。新旧处理使用同一个 `phone-clear` 名称，manifest 中的 `algorithm_version` 可区分版本。当前版本为 4，方法与验证范围见 [v4 复核记录](docs/phone-clear-v4-validation.md)；[空间影调复核](docs/phone-clear-spatial-calibration.md)、[自适应校准记录](docs/phone-clear-adaptive-calibration.md)和[先前的校准记录](docs/phone-natural-calibration.md)保留作为历史基准。
+
+`--exposure-ev` 是自动曝光之上的观感补偿；显式传入它会覆盖自动观感给出的补偿。在 `phone-clear` 中，显式的正曝光还会给 RAW 最亮的一小部分保留额外 HDR 余量。`--contrast` 的范围是 `1.0..2.0`，`--saturation` 的范围是 `0.8..1.5`，显式传入时同样覆盖各自的自动结果。使用 `--no-auto-look` 可关闭自动观感，未指定项目会回到固定基线 `0 EV / 1.35 / 1.10`；`--no-auto-exposure` 则关闭曝光自动计算。
+
+`--sdr-exposure-ev` 可在场景判断结果之上单独调节 SDR 亮度，范围为 `-2..+2 EV`。例如 `--exposure-ev 0.95 --sdr-exposure-ev -0.45` 可以让 SDR 的人脸和浅色衣服少一些发白，随后重新计算 gain map。`phone-clear` 还提供三个独立控制：`--sdr-adaptation-strength 0..1`（默认 1，设为 0 可关闭新增的场景 SDR 调整）、`--hdr-midtone-gain 1..3`（默认按场景计算）和 `--hdr-shoulder-strength 0..1`（默认 0.7）。这三个新控制不会改变 `natural` 与 `phone-natural` 的默认处理。
+
+v4 的自动 `phone-clear` 会先做适量 RAW 色彩降噪；只有平坦暗部的实测残留噪声足够高时，才增加亮度降噪并重新显影。`--raw-denoise-strength 0` 可关闭，`0..1` 可调强度。显式指定对比度或饱和度、或关闭自动观感时，默认不启用这一层；显式传入正强度可重新启用。显影决定和实际配置会记录在 manifest 中。
+
+默认自动处理还会在降噪后加入适量反卷积锐化，并对结构平缓的蓝色区域做额外降噪。`--raw-detail-strength 0..1` 控制前者，`--surface-denoise-strength 0..1` 控制后者；设为 `0` 可分别关闭。锐化默认在自动观感和 RAW 降噪启用时生效，蓝色区域降噪默认跟随 RAW 降噪强度。蓝色区域由颜色、纹理与噪声估计产生，并非精确天空分割；细云纹可能略平滑。两项处理的实际决定也会记录在 manifest 中。平滑蓝色区域另从同参数、未降噪RAW参考中保留色度，以减少降噪可能引入的天空色带；仍使用降噪后的亮度，这会增加一次显影开销。参考处理也记入 manifest。
+
+自动局部反差还会保护检测到的头部，并限制局部平均亮度的漂移，帮助保留岩纹、织物和植被层次。`--local-contrast 0` 可关闭这部分局部反差；继续保留单独的 `--subject-adaptation-strength` 人像影调控制。
+
+`--subject-adaptation-strength 0..1` 控制自动人像局部调整，默认 1。它使用本机 Apple Vision 检测脸部和人物区域，限制过亮的脸部与头发，并在符合条件的逆光场景调整浅色衣物。照片不上传；首次使用会在本地缓存编译辅助程序。检测暂时不可用时重试一次；同一独立参考图的成功结果在当前进程内有限复用，避免单独调SDR曝光时重复检测不一致。框架、编译器或检测持续不可用时自动回退，并记录原因；设为 0 可关闭。显式覆盖对比度或饱和度时不执行自动人像调整。
+
+自动 HDR 使用独立于 `--sdr-exposure-ev` 的参考影调和色彩，避免单独调暗 SDR 时连带改变 HDR。峰值仍受 `--peak-nits` 限制。样张对照用于逐步接近手机观感，不代表复原手机的私有处理流程；DNG 校准脚本也不等于生产命令已开放 DNG 输入支持。
 
 自定义白平衡：
 
@@ -73,7 +99,7 @@ open -a "Google Chrome" outputs/photo_ultrahdr.jpg
 
 每个输入默认输出：
 
-- `photo_sdr.jpg`：sRGB、质量 95、4:4:4 的 SDR JPEG。
+- `photo_sdr.jpg`：默认 Display P3；`--style natural` 使用 sRGB。两者均为质量 95、4:4:4 的 SDR JPEG，带匹配的 ICC。
 - `photo_ultrahdr.jpg`：SDR base + 彩色 gain map。
 - `photo_render.json`：完整参数、工具版本、曝光统计和验证结果。
 
@@ -81,7 +107,7 @@ open -a "Google Chrome" outputs/photo_ultrahdr.jpg
 
 ## 画质检查
 
-建议在 HDR 屏幕上分别用 Safari、Chrome 和 macOS 照片查看 Ultra HDR，同时单独检查 SDR JPEG。HDR 成片应保持中间调和肤色稳定，只让阳光、灯光、反射与明亮云层获得额外亮度。
+建议在 HDR 屏幕上分别用 Safari、Chrome 和 macOS 照片查看 Ultra HDR，同时单独检查 SDR JPEG。HDR 成片应检查中间调和肤色是否自然，以及阳光、灯光、反射与明亮云层是否获得合适的额外亮度。
 
 真实 RAW 回归样片放在未跟踪的 `samples/` 目录。自动测试可通过以下命令运行：
 
@@ -94,8 +120,8 @@ pytest
 ## 工作流程
 
 1. RawTherapee 使用 Unclipped 配置和 gamma 1.0 Rec.2020 ICC 显影为 32-bit float TIFF。显影时预留 2 EV 高光余量，后续在线性曝光计算中精确补回，避免 ICC 输出阶段先把高光压到 1.0。
-2. Python 先估算基础曝光，再从缩小预览测量中央亮度、亮部/暗部跨度和 OKLab 色度，自动决定观感曝光补偿、对比度和饱和度；每个决定及其测量依据都会写入 manifest。随后为 SDR 加入以 18% 灰为锚点的黑位和中段对比，并从同一底稿生成 sRGB SDR 和线性 Rec.2020 HDR rendition。
-3. HDR rendition 只对最亮约 5% 的画面逐渐使用显示器 headroom；默认把 99.5 百分位高光放在约 440 nits，同时保持中间调接近 SDR。
+2. Python 先估算基础曝光，再从缩小预览测量中央亮度、亮部/暗部跨度和 OKLab 色度，自动决定观感曝光补偿、对比度和饱和度；每个决定及其测量依据都会写入 manifest。随后为 SDR 加入以 18% 灰为锚点的黑位和中段对比，并从同一底稿生成 sRGB 或 Display P3 SDR 和线性 Rec.2020 HDR rendition。手机风格的中间调、亮部、局部对比和选择性鲜艳度步骤也在这里执行。
+3. 默认 `phone-clear` 根据 RAW 场景分布调整 SDR 底图；HDR 中间调增益独立计算，在暗景中还参考 RAW 高光层次，让亮度主要留给真正的光源。实际峰值与增益图上限随场景变化；`--peak-nits` 是输出的物理亮度上限，而非每张照片的目标峰值。其他风格沿用原来的影调曲线。
 4. libultrahdr 从两份 rendition 计算彩色 gain map 并封装 Ultra HDR JPEG。
 5. 每张成品都经过 probe、SDR decode 和线性 HDR decode；`inspect` 还会报告解码后是否真的存在超过 SDR 白的像素。
 

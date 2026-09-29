@@ -31,7 +31,7 @@ include-package-data = true
 where = ["src"]
 
 [tool.setuptools.package-data]
-hdrimg = ["profiles/*.pp3", "profiles/*.b64"]
+hdrimg = ["profiles/*.pp3", "profiles/*.b64", "profiles/*.swift"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

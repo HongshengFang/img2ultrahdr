@@ -19,9 +19,22 @@ SRGB_TO_XYZ = np.array(
     ],
     dtype=np.float32,
 )
+DISPLAY_P3_TO_XYZ = np.array(
+    [
+        [0.48657095, 0.26566769, 0.19821729],
+        [0.22897456, 0.69173852, 0.07928691],
+        [0.00000000, 0.04511338, 1.04394437],
+    ],
+    dtype=np.float32,
+)
 XYZ_TO_SRGB = np.linalg.inv(SRGB_TO_XYZ).astype(np.float32)
 SRGB_TO_REC2020 = (np.linalg.inv(REC2020_TO_XYZ) @ SRGB_TO_XYZ).astype(np.float32)
 REC2020_TO_SRGB = (XYZ_TO_SRGB @ REC2020_TO_XYZ).astype(np.float32)
+REC2020_TO_DISPLAY_P3 = (
+    np.linalg.inv(DISPLAY_P3_TO_XYZ) @ REC2020_TO_XYZ
+).astype(np.float32)
+DISPLAY_P3_TO_SRGB = (XYZ_TO_SRGB @ DISPLAY_P3_TO_XYZ).astype(np.float32)
+SRGB_TO_DISPLAY_P3 = np.linalg.inv(DISPLAY_P3_TO_SRGB).astype(np.float32)
 
 _M1 = np.array(
     [
@@ -55,6 +68,10 @@ def linear_srgb_to_rec2020(rgb: np.ndarray) -> np.ndarray:
     return _matmul(rgb, SRGB_TO_REC2020)
 
 
+def rec2020_to_linear_display_p3(rgb: np.ndarray) -> np.ndarray:
+    return _matmul(rgb, REC2020_TO_DISPLAY_P3)
+
+
 def linear_srgb_to_oklab(rgb: np.ndarray) -> np.ndarray:
     lms = _matmul(rgb, _M1)
     return _matmul(np.cbrt(lms), _M2)
@@ -71,6 +88,7 @@ def adjust_oklab_chroma(
     target: str,
     amount: float,
     warm_color_separation: float = 0.0,
+    vibrance: float = 0.0,
 ) -> np.ndarray:
     """Adjust OKLab chroma, with optional separation of warm light and dark tones."""
     values = np.asarray(rgb, dtype=np.float32)
@@ -80,29 +98,46 @@ def adjust_oklab_chroma(
     elif target == "rec2020":
         srgb = rec2020_to_linear_srgb(values)
         convert_back = linear_srgb_to_rec2020
+    elif target == "display-p3":
+        srgb = _matmul(values, DISPLAY_P3_TO_SRGB)
+        convert_back = lambda value: _matmul(value, SRGB_TO_DISPLAY_P3)
     else:
         raise ValueError(f"Unknown target gamut: {target}")
     lab = linear_srgb_to_oklab(srgb)
     lab[..., 1:] *= np.float32(amount)
+    if vibrance:
+        lightness = lab[..., 0]
+        chroma = np.hypot(lab[..., 1], lab[..., 2])
+        hue = np.degrees(np.arctan2(lab[..., 2], lab[..., 1])) % 360.0
+        low_chroma = _smoothstep((chroma - 0.015) / 0.025)
+        high_chroma = 1.0 - _smoothstep((chroma - 0.10) / 0.10)
+        middle = _smoothstep((lightness - 0.18) / 0.20) * (
+            1.0 - _smoothstep((lightness - 0.78) / 0.16)
+        )
+        skin = (
+            _smoothstep((hue - 20.0) / 15.0)
+            * (1.0 - _smoothstep((hue - 80.0) / 15.0))
+            * _smoothstep((lightness - 0.40) / 0.15)
+        )
+        gain = 1.0 + np.float32(vibrance) * low_chroma * high_chroma * middle * (
+            1.0 - 0.75 * skin
+        )
+        lab[..., 1:] *= gain[..., None]
     if warm_color_separation:
         # Separate light skin/wood from darker auburn tones without shifting
         # neutral pixels or cool colors. This is an optional creative look.
-        def smoothstep(value: np.ndarray) -> np.ndarray:
-            t = np.clip(value, 0.0, 1.0)
-            return t * t * (3.0 - 2.0 * t)
-
         lightness = lab[..., 0]
         a = lab[..., 1].copy()
         b = lab[..., 2].copy()
         hue = np.degrees(np.arctan2(b, a)) % 360.0
         chroma = np.hypot(a, b)
         warm = (
-            smoothstep((hue - 20.0) / 15.0)
-            * (1.0 - smoothstep((hue - 80.0) / 15.0))
-            * smoothstep((chroma - 0.025) / 0.03)
+            _smoothstep((hue - 20.0) / 15.0)
+            * (1.0 - _smoothstep((hue - 80.0) / 15.0))
+            * _smoothstep((chroma - 0.025) / 0.03)
         )
         strength = np.float32(warm_color_separation)
-        light_mix = smoothstep((lightness - 0.55) / 0.20)
+        light_mix = _smoothstep((lightness - 0.55) / 0.20)
         angle = np.deg2rad((-5.0 + 15.0 * light_mix) * warm * strength)
         chroma_boost = (
             1.0
@@ -110,10 +145,73 @@ def adjust_oklab_chroma(
         )
         lab[..., 0] = (
             lightness
-            + 0.04 * smoothstep((lightness - 0.62) / 0.16) * warm * strength
+            + 0.04 * _smoothstep((lightness - 0.62) / 0.16) * warm * strength
         )
         lab[..., 1] = (a * np.cos(angle) - b * np.sin(angle)) * chroma_boost
         lab[..., 2] = (a * np.sin(angle) + b * np.cos(angle)) * chroma_boost
+    return convert_back(oklab_to_linear_srgb(lab))
+
+
+def refine_phone_color(
+    rgb: np.ndarray, *, target: str, dark_weight: float, indoor_weight: float,
+    neutral_protection: bool = False,
+) -> np.ndarray:
+    """Apply small, hue-selective corrections measured from paired phone scenes.
+
+    Neutral pixels stay fixed. The blue and warm corrections are deliberately
+    smooth in hue and chroma so skin and color boundaries have no hard mask.
+    """
+    values = np.asarray(rgb, dtype=np.float32)
+    if target == "srgb":
+        srgb = values
+        convert_back = lambda value: value
+    elif target == "rec2020":
+        srgb = rec2020_to_linear_srgb(values)
+        convert_back = linear_srgb_to_rec2020
+    elif target == "display-p3":
+        srgb = _matmul(values, DISPLAY_P3_TO_SRGB)
+        convert_back = lambda value: _matmul(value, SRGB_TO_DISPLAY_P3)
+    else:
+        raise ValueError(f"Unknown target gamut: {target}")
+    lab = linear_srgb_to_oklab(srgb)
+    hue = np.degrees(np.arctan2(lab[..., 2], lab[..., 1])) % 360.0
+    chroma = np.hypot(lab[..., 1], lab[..., 2])
+    colorful = _smoothstep((chroma - 0.015) / 0.020)
+    blue = (
+        _smoothstep((hue - 185.0) / 35.0)
+        * (1.0 - _smoothstep((hue - 270.0) / 30.0))
+        * colorful
+    )
+    warm = (
+        _smoothstep((hue - 10.0) / 20.0)
+        * (1.0 - _smoothstep((hue - 85.0) / 20.0))
+        * colorful
+    )
+    indoor_rotation = -5.0 if neutral_protection else -15.0
+    warm_rotation = np.full_like(hue, 15.0)
+    if neutral_protection:
+        relative = chroma / np.maximum(lab[..., 0], .05)
+        warm_rotation -= (12 * _smoothstep((hue-25)/25)
+            * (1-_smoothstep((hue-70)/20))
+            * _smoothstep((relative-.045)/.035) * (1-dark_weight))
+    angle = np.deg2rad(
+        21.0 * blue + (warm_rotation * (1.0 - indoor_weight) + indoor_rotation * indoor_weight) * warm
+    )
+    gain = (1.0 + 0.27 * blue) * (1.0 - 0.25 * dark_weight * (1.0 - 0.7 * blue))
+    gain *= 1.0 - 0.18 * indoor_weight * warm
+    if neutral_protection:
+        # Use chroma relative to lightness so gain-map brightness does not turn
+        # a weak warm cast into a different color category. Skin with stronger
+        # relative chroma stays outside this gently desaturated neutral zone.
+        relative_chroma = chroma / np.maximum(lab[..., 0], 0.05)
+        weak_color = 1.0 - _smoothstep((relative_chroma - 0.025) / 0.055)
+        warm_neutral = _smoothstep((hue + 5.0) / 20.0) * (
+            1.0 - _smoothstep((hue - 90.0) / 30.0)
+        )
+        gain *= 1.0 - 0.60 * weak_color * warm_neutral
+    adjusted_chroma = chroma * gain
+    lab[..., 1] = adjusted_chroma * np.cos(np.deg2rad(hue) + angle)
+    lab[..., 2] = adjusted_chroma * np.sin(np.deg2rad(hue) + angle)
     return convert_back(oklab_to_linear_srgb(lab))
 
 
@@ -128,6 +226,9 @@ def compress_gamut(
     elif target == "rec2020":
         to_srgb = rec2020_to_linear_srgb(values)
         from_srgb = linear_srgb_to_rec2020
+    elif target == "display-p3":
+        to_srgb = _matmul(values, DISPLAY_P3_TO_SRGB)
+        from_srgb = lambda value: _matmul(value, SRGB_TO_DISPLAY_P3)
     else:
         raise ValueError(f"Unknown target gamut: {target}")
 
@@ -165,3 +266,8 @@ def srgb_oetf(linear: np.ndarray) -> np.ndarray:
         12.92 * value,
         1.055 * np.power(value, 1.0 / 2.4) - 0.055,
     )
+
+
+def _smoothstep(value: np.ndarray) -> np.ndarray:
+    t = np.clip(value, 0.0, 1.0)
+    return t * t * (3.0 - 2.0 * t)

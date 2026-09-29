@@ -5,6 +5,7 @@ import tifffile
 from PIL import Image
 
 from hdrimg.render import open_scene, render_pair, write_rgba16f
+from hdrimg.style import NATURAL_STYLE
 
 
 def test_write_rgba16f_layout(tmp_path: Path):
@@ -41,6 +42,7 @@ def test_render_synthetic_float_tiff(tmp_path: Path):
     assert info.look["exposure_source"] == "manual"
     assert info.look["contrast_source"] == "auto"
     assert info.look["saturation_source"] == "auto"
+    assert info.style["name"] == "phone-clear"
     assert hdr.stat().st_size == width * height * 8
     with Image.open(sdr) as image:
         assert image.size == (width, height)
@@ -56,3 +58,30 @@ def test_open_scene_rejects_integer_tiff(tmp_path: Path):
         assert "32-bit float" in str(exc)
     else:
         raise AssertionError("integer TIFF should be rejected")
+
+
+def test_sdr_exposure_adjustment_leaves_hdr_rendition_unchanged(tmp_path: Path):
+    ramp = np.linspace(0.05, 2.0, 48, dtype=np.float32)
+    scene = np.broadcast_to(ramp[None, :, None], (32, 48, 3)).copy()
+    source = tmp_path / "scene.tif"
+    tifffile.imwrite(source, scene, photometric="rgb")
+    settings = dict(
+        auto_exposure=False,
+        exposure_ev=1.0,
+        highlight_ev=0.0,
+        hdr_strength=1.0,
+        peak_nits=1000,
+        auto_look=False,
+        style=NATURAL_STYLE,
+    )
+    render_pair(source, tmp_path / "base.jpg", tmp_path / "base.raw", **settings)
+    render_pair(
+        source,
+        tmp_path / "darker.jpg",
+        tmp_path / "darker.raw",
+        sdr_exposure_ev=-0.4,
+        **settings,
+    )
+    assert (tmp_path / "base.raw").read_bytes() == (tmp_path / "darker.raw").read_bytes()
+    with Image.open(tmp_path / "base.jpg") as base, Image.open(tmp_path / "darker.jpg") as darker:
+        assert np.asarray(darker, dtype=np.float32).mean() < np.asarray(base, dtype=np.float32).mean()

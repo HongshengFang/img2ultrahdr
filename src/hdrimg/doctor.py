@@ -69,6 +69,8 @@ def run_doctor() -> tuple[bool, list[Check]]:
     except (OSError, ValueError):
         valid_icc = False
     checks.append(Check("linear Rec.2020 ICC", valid_icc, os.fspath(icc_data)))
+    p3_profile = Path("/System/Library/ColorSync/Profiles/Display P3.icc")
+    checks.append(Check("Display P3 ICC", p3_profile.is_file(), os.fspath(p3_profile)))
 
     try:
         with tempfile.TemporaryDirectory(prefix="hdrimg-doctor-") as name:
@@ -87,7 +89,11 @@ def run_doctor() -> tuple[bool, list[Check]]:
                     1.055 * np.power(sdr_rgb, 1 / 2.4) - 0.055,
                 )
                 sdr_bytes = np.clip(encoded * 255 + 0.5, 0, 255).astype(np.uint8)
-                profile = ImageCms.ImageCmsProfile(ImageCms.createProfile("sRGB")).tobytes()
+                profile = (
+                    p3_profile.read_bytes()
+                    if p3_profile.is_file()
+                    else ImageCms.ImageCmsProfile(ImageCms.createProfile("sRGB")).tobytes()
+                )
                 sdr_path = work / "doctor-sdr.jpg"
                 Image.fromarray(sdr_bytes, mode="RGB").save(
                     sdr_path, quality=95, subsampling=0, icc_profile=profile
@@ -110,6 +116,7 @@ def run_doctor() -> tuple[bool, list[Check]]:
                     peak_nits=1000,
                     max_boost=1000 / 203,
                     gainmap_quality=95,
+                    sdr_gamut="display-p3" if p3_profile.is_file() else "srgb",
                     tools=tools,
                 )
                 validation = validate_ultrahdr(
