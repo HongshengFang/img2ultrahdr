@@ -11,15 +11,12 @@ def test_automatic_hdr_retains_independent_sdr_reference_chromaticity(tmp_path, 
     rgb[:,64:]=[.08,.10,.21]
     rgb *= np.linspace(.7,1.3,64,dtype=np.float32)[:,None,None]
     path=tmp_path/'scene.tif';tifffile.imwrite(path,rgb,photometric='rgb')
-    captured=[];original=render._quantize_sdr
-    def quantize(linear):
-        captured.append(linear.copy())
-        return original(linear)
-    monkeypatch.setattr(render,'_quantize_sdr',quantize)
+    linear_sdr=tmp_path/'final-sdr.tif'
     render.render_pair(path,tmp_path/'sdr.jpg',tmp_path/'hdr.raw',auto_exposure=True,
         exposure_ev=None,highlight_ev=0,hdr_strength=1,peak_nits=1000,
-        subject_adaptation_strength=0, _allow_histogram=False)
-    sdr=np.concatenate(captured,axis=0)
+        subject_adaptation_strength=0, _allow_histogram=False,
+        _linear_sdr_output=linear_sdr)
+    sdr=tifffile.imread(linear_sdr)
     hdr=np.fromfile(tmp_path/'hdr.raw',dtype='<f2').reshape(64,96,4)[...,:3].astype(np.float32)@REC2020_TO_DISPLAY_P3.T
     sy=sdr@DISPLAY_P3_TO_XYZ[1];hy=hdr@DISPLAY_P3_TO_XYZ[1]
     normalized=hdr*(sy/hy)[...,None]

@@ -1,0 +1,26 @@
+{
+  "recipe": "phone-clear-v7-candidate",
+  "default_preset": "phone-clear-v6",
+  "reference_display": "Mac HDR; final Ultra HDR files",
+  "objective": "Plausible phone-like HDR appearance, not pixel or score matching",
+  "rating_weights": {"hdr_light": 0.4, "light_dark_relationship": 0.3, "color_plausibility": 0.2, "material_detail": 0.1},
+  "hard_vetoes": ["new gray or white skin boundary", "new black or bright contour", "visible halo or banding", "lost white-garment texture", "implausible skin color"],
+  "promotion": {"improved_phone_scenes_min": 8, "phone_scenes_total": 12, "remaining_scenes_regressions": 0, "camera_scenes_total": 37, "real_hdr_display_required": true, "natural_regression_required": true},
+  "mandatory_boundary_samples": ["0N6A9406", "0N6A9416"],
+  "scene_goals": {
+    "01": "Deep canyon shadows and warm illuminated rock",
+    "02": "Retain dusk warmth and plausible skin",
+    "03": "Visible subject and ground; textured sign",
+    "04": "Warm rock, natural skin, fabric detail",
+    "05": "Dark cave and bright warm opening",
+    "06": "Bright lamps, dark sky, no expanded light strips",
+    "07": "Controlled face/background brightness; dark hair",
+    "08": "Vegetation and printed color without whitening",
+    "09": "Bright subject and white garment; natural contours",
+    "10": "Avoid washed-out rock; retain shadow vegetation",
+    "11": "Retain dusk color and vegetation",
+    "12": "White-object shape and autumn/red color"
+  },
+  "metric_interpretation": "Final decoded HDR/SDR distributions and region measurements are diagnostics. Larger bright area and smaller phone-image error are not automatically improvements.",
+  "sky": "No dedicated cloud-detail tuning; continuous transitions remain required"
+}

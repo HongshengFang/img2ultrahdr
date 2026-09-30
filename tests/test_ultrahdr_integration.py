@@ -98,7 +98,7 @@ def test_phone_clear_pair_survives_gainmap_round_trip(tmp_path: Path):
         auto_look=False,
     )
     assert info.style["name"] == "phone-clear"
-    assert info.style["algorithm_version"] == 6
+    assert info.style["algorithm_version"] == 7
     assert info.max_content_boost > 1.0
     output = tmp_path / "ultrahdr.jpg"
     tools = ToolPaths(Path("rawtherapee-cli"), ultra, Path("exiftool"))

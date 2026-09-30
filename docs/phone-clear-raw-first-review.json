@@ -1,0 +1,3496 @@
+{
+  "date": "2026-09-29",
+  "status": "Review complete; phone-clear V6 retained; candidate not promoted",
+  "scope": "full production RAW development and full-resolution render; internal DNG adapter",
+  "sampling": "area reduction to 1024 after audit framing; reference HDR is linear Display P3",
+  "hdr_metric_domain": "phone decoded Display P3 HDR; repo pre-encoding linear Rec.2020 rendition; each full output independently codec-validated",
+  "baseline_count": 12,
+  "capture_candidate_count": 12,
+  "camera_wb_probe_count": 4,
+  "complete_pipeline_codec_validations": 28,
+  "unit_tests_passed": 163,
+  "doctor_checks_passed": 8,
+  "production_code_modified": false,
+  "phone_natural_version": 8,
+  "preservation": {
+    "changed_audited_sources": [],
+    "phone_natural_images_checked": 37,
+    "changed_phone_natural_images": []
+  },
+  "capture_candidate_profile": "[PostDemosaicSharpening]\nEnabled=true\nAutoContrast=true\nContrast=20\nAutoRadius=false\nDeconvRadius=0.6\nDeconvRadiusOffset=0\nDeconvIterations=10\nDeconvIterCheck=true\n\n[Sharpening]\nEnabled=false\n",
+  "capture_candidate_decision": "Not promoted: small local hair/rock detail gains; unresolved WB and exposure; sky10 mottling is more apparent in native crops.",
+  "capture_aggregate_comparison": {
+    "sdr_spatial_luma_mae_ev": {
+      "before_median": 0.37672460079193115,
+      "after_median": 0.37777096033096313
+    },
+    "sdr_spatial_lightness_mae": {
+      "before_median": 0.058395303785800934,
+      "after_median": 0.05862634629011154
+    },
+    "sdr_spatial_color_mae": {
+      "before_median": 0.026188663206994534,
+      "after_median": 0.025886005721986294
+    },
+    "sdr_local_contrast_mae": {
+      "before_median": 0.011897166725248098,
+      "after_median": 0.011890019290149212
+    },
+    "hdr_spatial_luma_mae_ev": {
+      "before_median": 0.4640899896621704,
+      "after_median": 0.4559244066476822
+    },
+    "hdr_spatial_gain_mae_ev": {
+      "before_median": 0.16237816959619522,
+      "after_median": 0.16167228668928146
+    },
+    "sdr_distribution_mae_ev": {
+      "before_median": 0.1648922228955631,
+      "after_median": 0.16689746625519908
+    },
+    "hdr_distribution_mae_ev": {
+      "before_median": 0.2844822616114111,
+      "after_median": 0.2832817515752121
+    },
+    "hdr_above_white_fraction_abs_error": {
+      "before_median": 0.03872946384399735,
+      "after_median": 0.03846599810356201
+    },
+    "gain_band_mae_ev": {
+      "before_median": 0.17740440421378487,
+      "after_median": 0.17493209188539816
+    }
+  },
+  "white_balance_probes": [
+    {
+      "id": 2,
+      "baseline_spatial": {
+        "sdr_spatial_luma_mae_ev": 0.37412047386169434,
+        "sdr_spatial_lightness_mae": 0.0586177259683609,
+        "sdr_spatial_color_mae": 0.05925295874476433,
+        "sdr_local_contrast_mae": 0.006550764665007591,
+        "hdr_spatial_luma_mae_ev": 0.5184690952301025,
+        "hdr_spatial_gain_mae_ev": 0.19921956956386566
+      },
+      "camera_wb_spatial": {
+        "sdr_spatial_luma_mae_ev": 0.2654475271701813,
+        "sdr_spatial_lightness_mae": 0.03887646272778511,
+        "sdr_spatial_color_mae": 0.029927736148238182,
+        "sdr_local_contrast_mae": 0.006233620923012495,
+        "hdr_spatial_luma_mae_ev": 0.4072256088256836,
+        "hdr_spatial_gain_mae_ev": 0.19737708568572998
+      },
+      "baseline": {
+        "sdr_percentiles": [
+          0.034302265197038655,
+          0.16845397651195526,
+          0.5834245085716248,
+          0.6782258152961731,
+          0.7531973123550415
+        ],
+        "hdr_percentiles": [
+          0.03898294232785702,
+          0.33355845510959625,
+          1.430405926704407,
+          1.6924089789390562,
+          1.8815125602483749
+        ],
+        "hdr_peak": 1.9291363954544067,
+        "hdr_above_white_fraction": 0.22699280590369394,
+        "hdr_above_2x_white_fraction": 0.0,
+        "hdr_above_3x_white_fraction": 0.0,
+        "midtone_gain_median": 2.0427818298339844,
+        "gain_map_p99": 2.4773192405700684,
+        "gain_bands": {
+          "shadows": {
+            "fraction": 0.28066638151385226,
+            "median": 1.3820579051971436,
+            "p90": 1.7721600532531738
+          },
+          "midtones": {
+            "fraction": 0.38957371372031663,
+            "median": 1.9763844013214111,
+            "p90": 2.1631546020507812
+          },
+          "upper_midtones": {
+            "fraction": 0.2671220522757256,
+            "median": 2.356985569000244,
+            "p90": 2.469496250152588
+          },
+          "highlights": {
+            "fraction": 0.0,
+            "median": null,
+            "p90": null
+          }
+        },
+        "color_families": {
+          "blue": {
+            "pixel_fraction": 0.4203663526550132,
+            "lightness_median": 0.7458751797676086,
+            "chroma_median": 0.11466758698225021,
+            "hue_median": 250.23257446289062
+          },
+          "warm": {
+            "pixel_fraction": 0.003164165567282322,
+            "lightness_median": 0.668413519859314,
+            "chroma_median": 0.06091650202870369,
+            "hue_median": 37.633949279785156
+          },
+          "green": {
+            "pixel_fraction": 0.0001185273746701847,
+            "lightness_median": 0.34417417645454407,
+            "chroma_median": 0.08145380020141602,
+            "hue_median": 171.793212890625
+          },
+          "near_white": {
+            "pixel_fraction": 0.043954330887203165,
+            "lightness_median": 0.8963715434074402,
+            "chroma_median": 0.019530685618519783,
+            "hue_median": 219.25926208496094
+          }
+        }
+      },
+      "camera_wb": {
+        "sdr_percentiles": [
+          0.034485387802124026,
+          0.1676437258720398,
+          0.6651153385639192,
+          0.7379345774650573,
+          0.7934337908029556
+        ],
+        "hdr_percentiles": [
+          0.039134647697210326,
+          0.3317856341600418,
+          1.6312371253967286,
+          1.8386730194091792,
+          1.9849030536413197
+        ],
+        "hdr_peak": 2.014958143234253,
+        "hdr_above_white_fraction": 0.30183124793865435,
+        "hdr_above_2x_white_fraction": 0.0014171751319261214,
+        "hdr_above_3x_white_fraction": 0.0,
+        "midtone_gain_median": 1.9766690731048584,
+        "gain_map_p99": 2.477020025253296,
+        "gain_bands": {
+          "shadows": {
+            "fraction": 0.2822136790897098,
+            "median": 1.3791069984436035,
+            "p90": 1.7721858024597168
+          },
+          "midtones": {
+            "fraction": 0.29235292298812665,
+            "median": 1.888460636138916,
+            "p90": 2.0853333473205566
+          },
+          "upper_midtones": {
+            "fraction": 0.36158965822889183,
+            "median": 2.3177247047424316,
+            "p90": 2.465700387954712
+          },
+          "highlights": {
+            "fraction": 0.0014532486807387864,
+            "median": 2.4683356285095215,
+            "p90": 2.4781479835510254
+          }
+        },
+        "color_families": {
+          "blue": {
+            "pixel_fraction": 0.36795019788918204,
+            "lightness_median": 0.7862228155136108,
+            "chroma_median": 0.08130650222301483,
+            "hue_median": 249.23092651367188
+          },
+          "warm": {
+            "pixel_fraction": 0.3353860900395778,
+            "lightness_median": 0.4342684745788574,
+            "chroma_median": 0.043942492455244064,
+            "hue_median": 35.03240203857422
+          },
+          "green": {
+            "pixel_fraction": 0.0005385265501319261,
+            "lightness_median": 0.4356275200843811,
+            "chroma_median": 0.08206120878458023,
+            "hue_median": 183.86370849609375
+          },
+          "near_white": {
+            "pixel_fraction": 0.09743852036609499,
+            "lightness_median": 0.9022175073623657,
+            "chroma_median": 0.016666484996676445,
+            "hue_median": 188.8984375
+          }
+        }
+      },
+      "camera_high_key_weight": 0.0
+    },
+    {
+      "id": 7,
+      "baseline_spatial": {
+        "sdr_spatial_luma_mae_ev": 0.5272342562675476,
+        "sdr_spatial_lightness_mae": 0.07195913791656494,
+        "sdr_spatial_color_mae": 0.012043294496834278,
+        "sdr_local_contrast_mae": 0.015163523145020008,
+        "hdr_spatial_luma_mae_ev": 0.5953385233879089,
+        "hdr_spatial_gain_mae_ev": 0.13956423103809357
+      },
+      "camera_wb_spatial": {
+        "sdr_spatial_luma_mae_ev": 0.2185155153274536,
+        "sdr_spatial_lightness_mae": 0.030611149966716766,
+        "sdr_spatial_color_mae": 0.01836135797202587,
+        "sdr_local_contrast_mae": 0.01020415872335434,
+        "hdr_spatial_luma_mae_ev": 0.26949650049209595,
+        "hdr_spatial_gain_mae_ev": 0.14794377982616425
+      },
+      "baseline": {
+        "sdr_percentiles": [
+          0.004381482163444164,
+          0.08560019731521606,
+          0.3468577295541764,
+          0.4377312213182449,
+          0.8292479181289704
+        ],
+        "hdr_percentiles": [
+          0.0043724472634494305,
+          0.14133846759796143,
+          0.6192258477210999,
+          0.7989665329456325,
+          1.571526911854748
+        ],
+        "hdr_peak": 1.797966718673706,
+        "hdr_above_white_fraction": 0.019674255854221636,
+        "hdr_above_2x_white_fraction": 0.0,
+        "hdr_above_3x_white_fraction": 0.0,
+        "midtone_gain_median": 1.729733943939209,
+        "gain_map_p99": 1.8734064102172852,
+        "gain_bands": {
+          "shadows": {
+            "fraction": 0.3283092327671504,
+            "median": 1.2671611309051514,
+            "p90": 1.5680842399597168
+          },
+          "midtones": {
+            "fraction": 0.3936474480540897,
+            "median": 1.6744601726531982,
+            "p90": 1.7476105690002441
+          },
+          "upper_midtones": {
+            "fraction": 0.05987307264182058,
+            "median": 1.8217703104019165,
+            "p90": 1.871364712715149
+          },
+          "highlights": {
+            "fraction": 0.005588823383905013,
+            "median": 1.8794069290161133,
+            "p90": 1.8897980451583862
+          }
+        },
+        "color_families": {
+          "blue": {
+            "pixel_fraction": 0.00030920184696569923,
+            "lightness_median": 0.678015947341919,
+            "chroma_median": 0.043451812118291855,
+            "hue_median": 255.44119262695312
+          },
+          "warm": {
+            "pixel_fraction": 0.4573984271932718,
+            "lightness_median": 0.5316430926322937,
+            "chroma_median": 0.0603070966899395,
+            "hue_median": 49.02644348144531
+          },
+          "green": {
+            "pixel_fraction": 0.0015795061015831135,
+            "lightness_median": 0.3211413025856018,
+            "chroma_median": 0.07582816481590271,
+            "hue_median": 136.7801513671875
+          },
+          "near_white": {
+            "pixel_fraction": 0.01841683500989446,
+            "lightness_median": 0.8148583173751831,
+            "chroma_median": 0.012466217391192913,
+            "hue_median": 59.085777282714844
+          }
+        }
+      },
+      "camera_wb": {
+        "sdr_percentiles": [
+          0.0020462340442463757,
+          0.05097437836229801,
+          0.2522691518068314,
+          0.3452387705445288,
+          0.7624380299449051
+        ],
+        "hdr_percentiles": [
+          0.0020324354059994224,
+          0.06432772427797318,
+          0.4035783588886262,
+          0.5521714985370626,
+          1.2219892334938147
+        ],
+        "hdr_peak": 1.5068895816802979,
+        "hdr_above_white_fraction": 0.006547349109498681,
+        "hdr_above_2x_white_fraction": 0.0,
+        "hdr_above_3x_white_fraction": 0.0,
+        "midtone_gain_median": 1.5993003845214844,
+        "gain_map_p99": 1.5882619619369507,
+        "gain_bands": {
+          "shadows": {
+            "fraction": 0.3806158785455145,
+            "median": 1.1872869729995728,
+            "p90": 1.4686403274536133
+          },
+          "midtones": {
+            "fraction": 0.2825099975263852,
+            "median": 1.5491690635681152,
+            "p90": 1.5730496644973755
+          },
+          "upper_midtones": {
+            "fraction": 0.03142392603891821,
+            "median": 1.5818586349487305,
+            "p90": 1.5913811922073364
+          },
+          "highlights": {
+            "fraction": 0.004471831711741424,
+            "median": 1.590585470199585,
+            "p90": 1.5980103015899658
+          }
+        },
+        "color_families": {
+          "blue": {
+            "pixel_fraction": 0.0
+          },
+          "warm": {
+            "pixel_fraction": 0.5188870794854882,
+            "lightness_median": 0.46933186054229736,
+            "chroma_median": 0.059744492173194885,
+            "hue_median": 56.63447189331055
+          },
+          "green": {
+            "pixel_fraction": 0.0013591997856200527,
+            "lightness_median": 0.2750888168811798,
+            "chroma_median": 0.06974232196807861,
+            "hue_median": 125.79605102539062
+          },
+          "near_white": {
+            "pixel_fraction": 0.006489373763192612,
+            "lightness_median": 0.9435075521469116,
+            "chroma_median": 0.027141965925693512,
+            "hue_median": 57.16634750366211
+          }
+        }
+      },
+      "camera_high_key_weight": 0.0
+    },
+    {
+      "id": 9,
+      "baseline_spatial": {
+        "sdr_spatial_luma_mae_ev": 0.7908496856689453,
+        "sdr_spatial_lightness_mae": 0.11660773307085037,
+        "sdr_spatial_color_mae": 0.02663053572177887,
+        "sdr_local_contrast_mae": 0.009118776768445969,
+        "hdr_spatial_luma_mae_ev": 1.385973334312439,
+        "hdr_spatial_gain_mae_ev": 0.5974597334861755
+      },
+      "camera_wb_spatial": {
+        "sdr_spatial_luma_mae_ev": 0.15018023550510406,
+        "sdr_spatial_lightness_mae": 0.024138068780303,
+        "sdr_spatial_color_mae": 0.010647152550518513,
+        "sdr_local_contrast_mae": 0.008666504174470901,
+        "hdr_spatial_luma_mae_ev": 0.24125678837299347,
+        "hdr_spatial_gain_mae_ev": 0.1296679824590683
+      },
+      "baseline": {
+        "sdr_percentiles": [
+          0.016926535405218605,
+          0.25445492565631866,
+          0.5552148163318635,
+          0.6471174955368042,
+          0.7219481810927392
+        ],
+        "hdr_percentiles": [
+          0.01708382945507765,
+          0.526646614074707,
+          1.3474872589111329,
+          1.6138151884078977,
+          1.8031523817777635
+        ],
+        "hdr_peak": 1.8777092695236206,
+        "hdr_above_white_fraction": 0.2725588514182058,
+        "hdr_above_2x_white_fraction": 0.0,
+        "hdr_above_3x_white_fraction": 0.0,
+        "midtone_gain_median": 2.0669314861297607,
+        "gain_map_p99": 2.472630500793457,
+        "gain_bands": {
+          "shadows": {
+            "fraction": 0.21135878751649076,
+            "median": 1.3426381349563599,
+            "p90": 1.7610831260681152
+          },
+          "midtones": {
+            "fraction": 0.34521226706794195,
+            "median": 2.0044913291931152,
+            "p90": 2.159301280975342
+          },
+          "upper_midtones": {
+            "fraction": 0.32721800791556727,
+            "median": 2.3246281147003174,
+            "p90": 2.4630980491638184
+          },
+          "highlights": {
+            "fraction": 0.0,
+            "median": null,
+            "p90": null
+          }
+        },
+        "color_families": {
+          "blue": {
+            "pixel_fraction": 0.5581698858014512,
+            "lightness_median": 0.7543616890907288,
+            "chroma_median": 0.0929986983537674,
+            "hue_median": 259.1273193359375
+          },
+          "warm": {
+            "pixel_fraction": 0.0008503050791556728,
+            "lightness_median": 0.791947066783905,
+            "chroma_median": 0.055512260645627975,
+            "hue_median": 27.083616256713867
+          },
+          "green": {
+            "pixel_fraction": 0.0
+          },
+          "near_white": {
+            "pixel_fraction": 0.024627927110817942,
+            "lightness_median": 0.8765822649002075,
+            "chroma_median": 0.038293879479169846,
+            "hue_median": 257.8386535644531
+          }
+        }
+      },
+      "camera_wb": {
+        "sdr_percentiles": [
+          0.06776145473122598,
+          0.4035157561302185,
+          0.6360055804252625,
+          0.7044662684202194,
+          0.7612358412146568
+        ],
+        "hdr_percentiles": [
+          0.13205041885375976,
+          1.1948462128639221,
+          2.1926724672317506,
+          2.464315843582153,
+          2.6631428742408754
+        ],
+        "hdr_peak": 2.7990901470184326,
+        "hdr_above_white_fraction": 0.5680321363786279,
+        "hdr_above_2x_white_fraction": 0.1673232911444591,
+        "hdr_above_3x_white_fraction": 0.0,
+        "midtone_gain_median": 2.6209053993225098,
+        "gain_map_p99": 3.4607491493225098,
+        "gain_bands": {
+          "shadows": {
+            "fraction": 0.1369300379287599,
+            "median": 1.6289700269699097,
+            "p90": 2.1015000343322754
+          },
+          "midtones": {
+            "fraction": 0.34161521891490765,
+            "median": 2.5197761058807373,
+            "p90": 2.868767023086548
+          },
+          "upper_midtones": {
+            "fraction": 0.5047900519459103,
+            "median": 3.2648701667785645,
+            "p90": 3.4371836185455322
+          },
+          "highlights": {
+            "fraction": 2.5766820580474933e-06,
+            "median": 3.436431407928467,
+            "p90": 3.4430906772613525
+          }
+        },
+        "color_families": {
+          "blue": {
+            "pixel_fraction": 0.3917432800131926,
+            "lightness_median": 0.7921047210693359,
+            "chroma_median": 0.0676259845495224,
+            "hue_median": 260.7075500488281
+          },
+          "warm": {
+            "pixel_fraction": 0.05003916556728232,
+            "lightness_median": 0.5212801098823547,
+            "chroma_median": 0.047640360891819,
+            "hue_median": 40.943565368652344
+          },
+          "green": {
+            "pixel_fraction": 0.0
+          },
+          "near_white": {
+            "pixel_fraction": 0.23482205433707123,
+            "lightness_median": 0.8428771495819092,
+            "chroma_median": 0.020379740744829178,
+            "hue_median": 264.0873107910156
+          }
+        }
+      },
+      "camera_high_key_weight": 1.0
+    },
+    {
+      "id": 10,
+      "baseline_spatial": {
+        "sdr_spatial_luma_mae_ev": 0.43683886528015137,
+        "sdr_spatial_lightness_mae": 0.06794949620962143,
+        "sdr_spatial_color_mae": 0.028453676030039787,
+        "sdr_local_contrast_mae": 0.02179696224629879,
+        "hdr_spatial_luma_mae_ev": 0.4645300805568695,
+        "hdr_spatial_gain_mae_ev": 0.23583419620990753
+      },
+      "camera_wb_spatial": {
+        "sdr_spatial_luma_mae_ev": 0.4221474230289459,
+        "sdr_spatial_lightness_mae": 0.06544431298971176,
+        "sdr_spatial_color_mae": 0.021695895120501518,
+        "sdr_local_contrast_mae": 0.02183559536933899,
+        "hdr_spatial_luma_mae_ev": 0.4608539640903473,
+        "hdr_spatial_gain_mae_ev": 0.23896823823451996
+      },
+      "baseline": {
+        "sdr_percentiles": [
+          0.005267064040526748,
+          0.2710694819688797,
+          0.6026693761348725,
+          0.6862851858139035,
+          0.8279591995477683
+        ],
+        "hdr_percentiles": [
+          0.0052700292784720664,
+          0.5651830732822418,
+          1.4637426376342775,
+          1.6987771153450009,
+          2.0683485829830177
+        ],
+        "hdr_peak": 2.2280497550964355,
+        "hdr_above_white_fraction": 0.24982478562005278,
+        "hdr_above_2x_white_fraction": 0.009604582371372032,
+        "hdr_above_3x_white_fraction": 0.0,
+        "midtone_gain_median": 2.0962905883789062,
+        "gain_map_p99": 2.47286057472229,
+        "gain_bands": {
+          "shadows": {
+            "fraction": 0.040519613703825855,
+            "median": 1.0390324592590332,
+            "p90": 1.4517152309417725
+          },
+          "midtones": {
+            "fraction": 0.35754040237467016,
+            "median": 2.038362979888916,
+            "p90": 2.1649012565612793
+          },
+          "upper_midtones": {
+            "fraction": 0.2891552605540897,
+            "median": 2.3342385292053223,
+            "p90": 2.453481435775757
+          },
+          "highlights": {
+            "fraction": 0.009622619145778364,
+            "median": 2.472536563873291,
+            "p90": 2.4830992221832275
+          }
+        },
+        "color_families": {
+          "blue": {
+            "pixel_fraction": 0.40298147880936674,
+            "lightness_median": 0.6904953122138977,
+            "chroma_median": 0.1818591207265854,
+            "hue_median": 247.76809692382812
+          },
+          "warm": {
+            "pixel_fraction": 0.0858176842843008,
+            "lightness_median": 0.8354156613349915,
+            "chroma_median": 0.06951527297496796,
+            "hue_median": 41.40440368652344
+          },
+          "green": {
+            "pixel_fraction": 0.0008219615765171504,
+            "lightness_median": 0.7326269149780273,
+            "chroma_median": 0.040542759001255035,
+            "hue_median": 108.92840576171875
+          },
+          "near_white": {
+            "pixel_fraction": 0.11739492290567283,
+            "lightness_median": 0.8096674084663391,
+            "chroma_median": 0.016548331826925278,
+            "hue_median": 65.15872955322266
+          }
+        }
+      },
+      "camera_wb": {
+        "sdr_percentiles": [
+          0.005317072104662657,
+          0.2714097201824188,
+          0.5902621924877167,
+          0.6787308305501937,
+          0.8243708720803268
+        ],
+        "hdr_percentiles": [
+          0.005291519453749061,
+          0.5693295300006866,
+          1.4301073908805848,
+          1.680796217918396,
+          2.0610304403305064
+        ],
+        "hdr_peak": 2.21798038482666,
+        "hdr_above_white_fraction": 0.23798235488126648,
+        "hdr_above_2x_white_fraction": 0.008468265583773086,
+        "hdr_above_3x_white_fraction": 0.0,
+        "midtone_gain_median": 2.113112449645996,
+        "gain_map_p99": 2.472803831100464,
+        "gain_bands": {
+          "shadows": {
+            "fraction": 0.04110323218997362,
+            "median": 1.0414479970932007,
+            "p90": 1.458069920539856
+          },
+          "midtones": {
+            "fraction": 0.36908393799472294,
+            "median": 2.0560781955718994,
+            "p90": 2.180365562438965
+          },
+          "upper_midtones": {
+            "fraction": 0.27863595605211083,
+            "median": 2.336434841156006,
+            "p90": 2.455451488494873
+          },
+          "highlights": {
+            "fraction": 0.00849660908641161,
+            "median": 2.4717423915863037,
+            "p90": 2.4819352626800537
+          }
+        },
+        "color_families": {
+          "blue": {
+            "pixel_fraction": 0.3971478706299472,
+            "lightness_median": 0.6994181275367737,
+            "chroma_median": 0.12316327542066574,
+            "hue_median": 253.48922729492188
+          },
+          "warm": {
+            "pixel_fraction": 0.20613198796174143,
+            "lightness_median": 0.7791304588317871,
+            "chroma_median": 0.06305503845214844,
+            "hue_median": 52.67479705810547
+          },
+          "green": {
+            "pixel_fraction": 6.441705145118734e-06,
+            "lightness_median": 0.5379540920257568,
+            "chroma_median": 0.05071801319718361,
+            "hue_median": 105.85641479492188
+          },
+          "near_white": {
+            "pixel_fraction": 0.034916618568601586,
+            "lightness_median": 0.8461663722991943,
+            "chroma_median": 0.03436225652694702,
+            "hue_median": 76.21478271484375
+          }
+        }
+      },
+      "camera_high_key_weight": 0.0
+    }
+  ],
+  "pairs": [
+    {
+      "id": 1,
+      "stem": "PXL_20241128_233519825",
+      "scene": "slot canyon and bright sky",
+      "phone": {
+        "sdr_percentiles": [
+          0.007605159468948842,
+          0.03460866026580334,
+          0.37365066409111025,
+          0.43802978843450485,
+          0.5946751433610928
+        ],
+        "hdr_percentiles": [
+          0.0076121156569570305,
+          0.03467200696468353,
+          0.4358584076166153,
+          1.8932140588760356,
+          2.736559798717503
+        ],
+        "hdr_peak": 4.046753883361816,
+        "hdr_above_white_fraction": 0.06209030755277045,
+        "hdr_above_2x_white_fraction": 0.03462674183707124,
+        "hdr_above_3x_white_fraction": 0.0013746598779683377,
+        "midtone_gain_median": 1.0025839805603027,
+        "gain_map_p99": 4.825116157531738,
+        "gain_bands": {
+          "shadows": {
+            "fraction": 0.37392294689973615,
+            "median": 1.0007672309875488,
+            "p90": 1.0075287818908691
+          },
+          "midtones": {
+            "fraction": 0.2050626649076517,
+            "median": 1.0023736953735352,
+            "p90": 4.0981340408325195
+          },
+          "upper_midtones": {
+            "fraction": 0.07577764264511873,
+            "median": 4.520825386047363,
+            "p90": 4.828304290771484
+          },
+          "highlights": {
+            "fraction": 2.4478479551451187e-05,
+            "median": 1.318824052810669,
+            "p90": 4.751400470733643
+          }
+        },
+        "color_families": {
+          "blue": {
+            "pixel_fraction": 0.05894289041886543,
+            "lightness_median": 0.7444931268692017,
+            "chroma_median": 0.0990181639790535,
+            "hue_median": 245.82241821289062
+          },
+          "warm": {
+            "pixel_fraction": 0.05667025684366755,
+            "lightness_median": 0.5605869293212891,
+            "chroma_median": 0.0823545902967453,
+            "hue_median": 29.48299789428711
+          },
+          "green": {
+            "pixel_fraction": 2.5766820580474935e-05,
+            "lightness_median": 0.5701563358306885,
+            "chroma_median": 0.057185910642147064,
+            "hue_median": 173.51681518554688
+          },
+          "near_white": {
+            "pixel_fraction": 0.02205253339379947,
+            "lightness_median": 0.7574806213378906,
+            "chroma_median": 0.03659575432538986,
+            "hue_median": 339.90679931640625
+          }
+        }
+      },
+      "baseline": {
+        "sdr_percentiles": [
+          0.009504628833383322,
+          0.05026504956185818,
+          0.33836673498153697,
+          0.41389733403921125,
+          0.6435406652092945
+        ],
+        "hdr_percentiles": [
+          0.00951703367754817,
+          0.05023631826043129,
+          0.42231028974056245,
+          1.333518201112745,
+          3.8625205814838424
+        ],
+        "hdr_peak": 4.925780773162842,
+        "hdr_above_white_fraction": 0.05699749546503958,
+        "hdr_above_2x_white_fraction": 0.03130668700527704,
+        "hdr_above_3x_white_fraction": 0.00996531785949868,
+        "midtone_gain_median": 1.0058650970458984,
+        "gain_map_p99": 5.520688533782959,
+        "gain_bands": {
+          "shadows": {
+            "fraction": 0.4019598243733509,
+            "median": 0.9998118877410889,
+            "p90": 1.0081814527511597
+          },
+          "midtones": {
+            "fraction": 0.2876144046833773,
+            "median": 1.005357027053833,
+            "p90": 1.3974436521530151
+          },
+          "upper_midtones": {
+            "fraction": 0.05721909012203166,
+            "median": 4.518983840942383,
+            "p90": 5.793545722961426
+          },
+          "highlights": {
+            "fraction": 6.957041556728233e-05,
+            "median": 5.343791961669922,
+            "p90": 5.857017993927002
+          }
+        },
+        "color_families": {
+          "blue": {
+            "pixel_fraction": 0.05522216152704486,
+            "lightness_median": 0.7571390271186829,
+            "chroma_median": 0.12354754656553268,
+            "hue_median": 238.55540466308594
+          },
+          "warm": {
+            "pixel_fraction": 0.006798575610158311,
+            "lightness_median": 0.6253043413162231,
+            "chroma_median": 0.09159572422504425,
+            "hue_median": 24.7275333404541
+          },
+          "green": {
+            "pixel_fraction": 7.73004617414248e-06,
+            "lightness_median": 0.540385901927948,
+            "chroma_median": 0.049233727157115936,
+            "hue_median": 181.24432373046875
+          },
+          "near_white": {
+            "pixel_fraction": 0.013523715781662268,
+            "lightness_median": 0.749809741973877,
+            "chroma_median": 0.03578031435608864,
+            "hue_median": 319.67303466796875
+          }
+        }
+      },
+      "capture_candidate": {
+        "sdr_percentiles": [
+          0.009498975612223149,
+          0.050311436876654625,
+          0.3386586159467697,
+          0.4144005030393598,
+          0.6434262436628347
+        ],
+        "hdr_percentiles": [
+          0.009515666589140891,
+          0.050289176404476166,
+          0.4226145535707474,
+          1.3315111696720123,
+          3.8530874311924626
+        ],
+        "hdr_peak": 4.925780773162842,
+        "hdr_above_white_fraction": 0.056975593667546176,
+        "hdr_above_2x_white_fraction": 0.03128092018469657,
+        "hdr_above_3x_white_fraction": 0.009942127720976253,
+        "midtone_gain_median": 1.0059305429458618,
+        "gain_map_p99": 5.520474433898926,
+        "gain_bands": {
+          "shadows": {
+            "fraction": 0.40184000865765174,
+            "median": 0.9997893571853638,
+            "p90": 1.0081534385681152
+          },
+          "midtones": {
+            "fraction": 0.2876285764346966,
+            "median": 1.0054162740707397,
+            "p90": 1.3959050178527832
+          },
+          "upper_midtones": {
+            "fraction": 0.057418782981530345,
+            "median": 4.510425567626953,
+            "p90": 5.792369365692139
+          },
+          "highlights": {
+            "fraction": 6.828207453825858e-05,
+            "median": 5.250576972961426,
+            "p90": 5.832422256469727
+          }
+        },
+        "color_families": {
+          "blue": {
+            "pixel_fraction": 0.05510363415237467,
+            "lightness_median": 0.7571634650230408,
+            "chroma_median": 0.12313199043273926,
+            "hue_median": 238.55609130859375
+          },
+          "warm": {
+            "pixel_fraction": 0.006200785372691293,
+            "lightness_median": 0.6255646347999573,
+            "chroma_median": 0.09235240519046783,
+            "hue_median": 24.473356246948242
+          },
+          "green": {
+            "pixel_fraction": 7.73004617414248e-06,
+            "lightness_median": 0.5414775013923645,
+            "chroma_median": 0.04802747443318367,
+            "hue_median": 182.5996856689453
+          },
+          "near_white": {
+            "pixel_fraction": 0.012996784300791557,
+            "lightness_median": 0.7518775463104248,
+            "chroma_median": 0.03582290560007095,
+            "hue_median": 319.0359191894531
+          }
+        }
+      },
+      "baseline_spatial": {
+        "sdr_spatial_luma_mae_ev": 0.35338330268859863,
+        "sdr_spatial_lightness_mae": 0.04857528582215309,
+        "sdr_spatial_color_mae": 0.021718906238675117,
+        "sdr_local_contrast_mae": 0.011662719771265984,
+        "hdr_spatial_luma_mae_ev": 0.3631249964237213,
+        "hdr_spatial_gain_mae_ev": 0.05626564845442772
+      },
+      "capture_spatial": {
+        "sdr_spatial_luma_mae_ev": 0.3540583550930023,
+        "sdr_spatial_lightness_mae": 0.04869629815220833,
+        "sdr_spatial_color_mae": 0.021907491609454155,
+        "sdr_local_contrast_mae": 0.011679507791996002,
+        "hdr_spatial_luma_mae_ev": 0.36372554302215576,
+        "hdr_spatial_gain_mae_ev": 0.05635650455951691
+      },
+      "baseline_high_key_weight": 0.0,
+      "baseline_codec_passed": true,
+      "capture_codec_passed": true
+    },
+    {
+      "id": 2,
+      "stem": "PXL_20241128_234941183",
+      "scene": "dusk portrait on sandstone",
+      "phone": {
+        "sdr_percentiles": [
+          0.04713307358324528,
+          0.12933509051799774,
+          0.7393375635147095,
+          0.799908325076103,
+          0.8244426846504211
+        ],
+        "hdr_percentiles": [
+          0.09919756501913071,
+          0.2720073461532593,
+          1.8681532144546509,
+          2.079221594333648,
+          2.164471387863159
+        ],
+        "hdr_peak": 2.2651517391204834,
+        "hdr_above_white_fraction": 0.4009652250989446,
+        "hdr_above_2x_white_fraction": 0.07398427193271767,
+        "hdr_above_3x_white_fraction": 0.0,
+        "midtone_gain_median": 2.1033143997192383,
+        "gain_map_p99": 2.6047658920288086,
+        "gain_bands": {
+          "shadows": {
+            "fraction": 0.31996078289907653,
+            "median": 1.9081981182098389,
+            "p90": 1.950018048286438
+          },
+          "midtones": {
+            "fraction": 0.18557779518469658,
+            "median": 1.9763810634613037,
+            "p90": 2.2639856338500977
+          },
+          "upper_midtones": {
+            "fraction": 0.3824813963555409,
+            "median": 2.3714046478271484,
+            "p90": 2.509992837905884
+          },
+          "highlights": {
+            "fraction": 0.049871681233509234,
+            "median": 2.5851027965545654,
+            "p90": 2.606210708618164
+          }
+        },
+        "color_families": {
+          "blue": {
+            "pixel_fraction": 0.04280384234828496,
+            "lightness_median": 0.7473956942558289,
+            "chroma_median": 0.038006365299224854,
+            "hue_median": 259.03253173828125
+          },
+          "warm": {
+            "pixel_fraction": 0.4930622835587071,
+            "lightness_median": 0.4506639540195465,
+            "chroma_median": 0.058169350028038025,
+            "hue_median": 34.274723052978516
+          },
+          "green": {
+            "pixel_fraction": 0.000514048070580475,
+            "lightness_median": 0.46519991755485535,
+            "chroma_median": 0.05553429573774338,
+            "hue_median": 166.5345001220703
+          },
+          "near_white": {
+            "pixel_fraction": 0.4244555470811346,
+            "lightness_median": 0.8241060376167297,
+            "chroma_median": 0.02704899199306965,
+            "hue_median": 253.6155548095703
+          }
+        }
+      },
+      "baseline": {
+        "sdr_percentiles": [
+          0.034302265197038655,
+          0.16845397651195526,
+          0.5834245085716248,
+          0.6782258152961731,
+          0.7531973123550415
+        ],
+        "hdr_percentiles": [
+          0.03898294232785702,
+          0.33355845510959625,
+          1.430405926704407,
+          1.6924089789390562,
+          1.8815125602483749
+        ],
+        "hdr_peak": 1.9291363954544067,
+        "hdr_above_white_fraction": 0.22699280590369394,
+        "hdr_above_2x_white_fraction": 0.0,
+        "hdr_above_3x_white_fraction": 0.0,
+        "midtone_gain_median": 2.0427818298339844,
+        "gain_map_p99": 2.4773192405700684,
+        "gain_bands": {
+          "shadows": {
+            "fraction": 0.28066638151385226,
+            "median": 1.3820579051971436,
+            "p90": 1.7721600532531738
+          },
+          "midtones": {
+            "fraction": 0.38957371372031663,
+            "median": 1.9763844013214111,
+            "p90": 2.1631546020507812
+          },
+          "upper_midtones": {
+            "fraction": 0.2671220522757256,
+            "median": 2.356985569000244,
+            "p90": 2.469496250152588
+          },
+          "highlights": {
+            "fraction": 0.0,
+            "median": null,
+            "p90": null
+          }
+        },
+        "color_families": {
+          "blue": {
+            "pixel_fraction": 0.4203663526550132,
+            "lightness_median": 0.7458751797676086,
+            "chroma_median": 0.11466758698225021,
+            "hue_median": 250.23257446289062
+          },
+          "warm": {
+            "pixel_fraction": 0.003164165567282322,
+            "lightness_median": 0.668413519859314,
+            "chroma_median": 0.06091650202870369,
+            "hue_median": 37.633949279785156
+          },
+          "green": {
+            "pixel_fraction": 0.0001185273746701847,
+            "lightness_median": 0.34417417645454407,
+            "chroma_median": 0.08145380020141602,
+            "hue_median": 171.793212890625
+          },
+          "near_white": {
+            "pixel_fraction": 0.043954330887203165,
+            "lightness_median": 0.8963715434074402,
+            "chroma_median": 0.019530685618519783,
+            "hue_median": 219.25926208496094
+          }
+        }
+      },
+      "capture_candidate": {
+        "sdr_percentiles": [
+          0.03448459953069687,
+          0.16918275505304337,
+          0.5844408154487613,
+          0.6777245402336121,
+          0.7536562642455102
+        ],
+        "hdr_percentiles": [
+          0.03939899913966656,
+          0.3351616710424423,
+          1.4315401792526248,
+          1.693190598487854,
+          1.8826728028059005
+        ],
+        "hdr_peak": 1.9307684898376465,
+        "hdr_above_white_fraction": 0.2272350140171504,
+        "hdr_above_2x_white_fraction": 0.0,
+        "hdr_above_3x_white_fraction": 0.0,
+        "midtone_gain_median": 2.038489818572998,
+        "gain_map_p99": 2.4777843952178955,
+        "gain_bands": {
+          "shadows": {
+            "fraction": 0.2795416597955145,
+            "median": 1.386145830154419,
+            "p90": 1.7692177295684814
+          },
+          "midtones": {
+            "fraction": 0.3893881926121372,
+            "median": 1.9710110425949097,
+            "p90": 2.159855604171753
+          },
+          "upper_midtones": {
+            "fraction": 0.26849928883575197,
+            "median": 2.356289863586426,
+            "p90": 2.469522476196289
+          },
+          "highlights": {
+            "fraction": 0.0,
+            "median": null,
+            "p90": null
+          }
+        },
+        "color_families": {
+          "blue": {
+            "pixel_fraction": 0.422636409548153,
+            "lightness_median": 0.7470974922180176,
+            "chroma_median": 0.11613444983959198,
+            "hue_median": 248.9075469970703
+          },
+          "warm": {
+            "pixel_fraction": 0.0033664351088390503,
+            "lightness_median": 0.6674675345420837,
+            "chroma_median": 0.05998547002673149,
+            "hue_median": 39.05470657348633
+          },
+          "green": {
+            "pixel_fraction": 0.00013398746701846965,
+            "lightness_median": 0.362140417098999,
+            "chroma_median": 0.07620014250278473,
+            "hue_median": 172.69064331054688
+          },
+          "near_white": {
+            "pixel_fraction": 0.04273813695580475,
+            "lightness_median": 0.8966025114059448,
+            "chroma_median": 0.019524695351719856,
+            "hue_median": 214.36952209472656
+          }
+        }
+      },
+      "baseline_spatial": {
+        "sdr_spatial_luma_mae_ev": 0.37412047386169434,
+        "sdr_spatial_lightness_mae": 0.0586177259683609,
+        "sdr_spatial_color_mae": 0.05925295874476433,
+        "sdr_local_contrast_mae": 0.006550764665007591,
+        "hdr_spatial_luma_mae_ev": 0.5184690952301025,
+        "hdr_spatial_gain_mae_ev": 0.19921956956386566
+      },
+      "capture_spatial": {
+        "sdr_spatial_luma_mae_ev": 0.37322282791137695,
+        "sdr_spatial_lightness_mae": 0.058567699044942856,
+        "sdr_spatial_color_mae": 0.06022578477859497,
+        "sdr_local_contrast_mae": 0.006590854376554489,
+        "hdr_spatial_luma_mae_ev": 0.516331136226654,
+        "hdr_spatial_gain_mae_ev": 0.19810374081134796
+      },
+      "baseline_high_key_weight": 0.0,
+      "baseline_codec_passed": true,
+      "capture_codec_passed": true
+    },
+    {
+      "id": 3,
+      "stem": "PXL_20241128_235346079",
+      "scene": "entrance portrait and blue sky",
+      "phone": {
+        "sdr_percentiles": [
+          0.07209528386592866,
+          0.30969831347465515,
+          0.573697030544281,
+          0.6130769848823547,
+          0.8651556372642517
+        ],
+        "hdr_percentiles": [
+          0.13986285626888276,
+          0.5978907346725464,
+          1.2318583726882935,
+          1.3381108045578003,
+          1.9704325199127197
+        ],
+        "hdr_peak": 2.1650426387786865,
+        "hdr_above_white_fraction": 0.30585087194920846,
+        "hdr_above_2x_white_fraction": 0.00148545720646438,
+        "hdr_above_3x_white_fraction": 0.0,
+        "midtone_gain_median": 1.9084786176681519,
+        "gain_map_p99": 2.236650228500366,
+        "gain_bands": {
+          "shadows": {
+            "fraction": 0.0934511048812665,
+            "median": 1.743013858795166,
+            "p90": 1.8211257457733154
+          },
+          "midtones": {
+            "fraction": 0.4088331237631926,
+            "median": 1.8384788036346436,
+            "p90": 1.8712493181228638
+          },
+          "upper_midtones": {
+            "fraction": 0.4417206052110818,
+            "median": 2.0897116661071777,
+            "p90": 2.151465892791748
+          },
+          "highlights": {
+            "fraction": 0.009301822229551452,
+            "median": 2.2558138370513916,
+            "p90": 2.2619001865386963
+          }
+        },
+        "color_families": {
+          "blue": {
+            "pixel_fraction": 0.37001669689973615,
+            "lightness_median": 0.7918931245803833,
+            "chroma_median": 0.08042266219854355,
+            "hue_median": 249.2703857421875
+          },
+          "warm": {
+            "pixel_fraction": 0.061216812335092345,
+            "lightness_median": 0.4488186836242676,
+            "chroma_median": 0.06476828455924988,
+            "hue_median": 32.92198944091797
+          },
+          "green": {
+            "pixel_fraction": 0.005878700115435356,
+            "lightness_median": 0.7483038902282715,
+            "chroma_median": 0.04224387928843498,
+            "hue_median": 139.9542236328125
+          },
+          "near_white": {
+            "pixel_fraction": 0.10574316663918205,
+            "lightness_median": 0.7922009825706482,
+            "chroma_median": 0.012318991124629974,
+            "hue_median": 55.951805114746094
+          }
+        }
+      },
+      "baseline": {
+        "sdr_percentiles": [
+          0.05448213405907155,
+          0.25275734066963196,
+          0.46049672365188604,
+          0.5050429105758667,
+          0.684776248931885
+        ],
+        "hdr_percentiles": [
+          0.07907211855053901,
+          0.5176295638084412,
+          1.0313264966011049,
+          1.1501384973526,
+          1.5951579785346988
+        ],
+        "hdr_peak": 1.8693703413009644,
+        "hdr_above_white_fraction": 0.11813829567941952,
+        "hdr_above_2x_white_fraction": 0.0,
+        "hdr_above_3x_white_fraction": 0.0,
+        "midtone_gain_median": 2.069816827774048,
+        "gain_map_p99": 2.290348768234253,
+        "gain_bands": {
+          "shadows": {
+            "fraction": 0.23255457412598945,
+            "median": 1.5736287832260132,
+            "p90": 1.7578589916229248
+          },
+          "midtones": {
+            "fraction": 0.5285393304749341,
+            "median": 2.011777400970459,
+            "p90": 2.1208913326263428
+          },
+          "upper_midtones": {
+            "fraction": 0.19358998804419525,
+            "median": 2.201850175857544,
+            "p90": 2.2707409858703613
+          },
+          "highlights": {
+            "fraction": 0.0,
+            "median": null,
+            "p90": null
+          }
+        },
+        "color_families": {
+          "blue": {
+            "pixel_fraction": 0.3912923606530343,
+            "lightness_median": 0.6987298727035522,
+            "chroma_median": 0.11473501473665237,
+            "hue_median": 250.36654663085938
+          },
+          "warm": {
+            "pixel_fraction": 0.009764336658970977,
+            "lightness_median": 0.614252507686615,
+            "chroma_median": 0.07233716547489166,
+            "hue_median": 27.588180541992188
+          },
+          "green": {
+            "pixel_fraction": 0.0002344780672823219,
+            "lightness_median": 0.6617361307144165,
+            "chroma_median": 0.04124396666884422,
+            "hue_median": 150.78207397460938
+          },
+          "near_white": {
+            "pixel_fraction": 0.09349748515831134,
+            "lightness_median": 0.7719189524650574,
+            "chroma_median": 0.015960387885570526,
+            "hue_median": 286.0274353027344
+          }
+        }
+      },
+      "capture_candidate": {
+        "sdr_percentiles": [
+          0.05508457496762276,
+          0.25278475880622864,
+          0.46070684492588043,
+          0.5056868672370909,
+          0.6851920130848885
+        ],
+        "hdr_percentiles": [
+          0.08100784718990328,
+          0.5222750306129456,
+          1.0444741368293764,
+          1.1643897771835325,
+          1.6152769380807876
+        ],
+        "hdr_peak": 1.8946400880813599,
+        "hdr_above_white_fraction": 0.12581165484828497,
+        "hdr_above_2x_white_fraction": 0.0,
+        "hdr_above_3x_white_fraction": 0.0,
+        "midtone_gain_median": 2.07666277885437,
+        "gain_map_p99": 2.318596363067627,
+        "gain_bands": {
+          "shadows": {
+            "fraction": 0.2253746495712401,
+            "median": 1.5753334760665894,
+            "p90": 1.7518529891967773
+          },
+          "midtones": {
+            "fraction": 0.5347607293040897,
+            "median": 2.017893075942993,
+            "p90": 2.1398985385894775
+          },
+          "upper_midtones": {
+            "fraction": 0.19486158063984169,
+            "median": 2.227280378341675,
+            "p90": 2.299818754196167
+          },
+          "highlights": {
+            "fraction": 0.0,
+            "median": null,
+            "p90": null
+          }
+        },
+        "color_families": {
+          "blue": {
+            "pixel_fraction": 0.38679733880277045,
+            "lightness_median": 0.7005144953727722,
+            "chroma_median": 0.11205469816923141,
+            "hue_median": 252.58953857421875
+          },
+          "warm": {
+            "pixel_fraction": 0.009234828496042216,
+            "lightness_median": 0.6156870126724243,
+            "chroma_median": 0.07510091364383698,
+            "hue_median": 26.948745727539062
+          },
+          "green": {
+            "pixel_fraction": 0.00010950898746701847,
+            "lightness_median": 0.6496692895889282,
+            "chroma_median": 0.04470216482877731,
+            "hue_median": 180.10549926757812
+          },
+          "near_white": {
+            "pixel_fraction": 0.09414680903693931,
+            "lightness_median": 0.7724533081054688,
+            "chroma_median": 0.017090443521738052,
+            "hue_median": 294.0812683105469
+          }
+        }
+      },
+      "baseline_spatial": {
+        "sdr_spatial_luma_mae_ev": 0.4217003285884857,
+        "sdr_spatial_lightness_mae": 0.06606659293174744,
+        "sdr_spatial_color_mae": 0.027354516088962555,
+        "sdr_local_contrast_mae": 0.006671957205981016,
+        "hdr_spatial_luma_mae_ev": 0.4636498987674713,
+        "hdr_spatial_gain_mae_ev": 0.07828161865472794
+      },
+      "capture_spatial": {
+        "sdr_spatial_luma_mae_ev": 0.4124929904937744,
+        "sdr_spatial_lightness_mae": 0.06449517607688904,
+        "sdr_spatial_color_mae": 0.02640167437493801,
+        "sdr_local_contrast_mae": 0.006591318640857935,
+        "hdr_spatial_luma_mae_ev": 0.4478764533996582,
+        "hdr_spatial_gain_mae_ev": 0.08181173354387283
+      },
+      "baseline_high_key_weight": 0.0,
+      "baseline_codec_passed": true,
+      "capture_codec_passed": true
+    },
+    {
+      "id": 4,
+      "stem": "PXL_20241129_001720208",
+      "scene": "sandstone wall portrait",
+      "phone": {
+        "sdr_percentiles": [
+          0.0542950339615345,
+          0.16457828879356384,
+          0.28418482542037965,
+          0.32149527966976155,
+          0.5214219576120377
+        ],
+        "hdr_percentiles": [
+          0.08946006149053574,
+          0.27106165885925293,
+          0.4681962609291077,
+          0.529839840531349,
+          0.8588484114408531
+        ],
+        "hdr_peak": 1.5853345394134521,
+        "hdr_above_white_fraction": 0.00343858220646438,
+        "hdr_above_2x_white_fraction": 0.0,
+        "hdr_above_3x_white_fraction": 0.0,
+        "midtone_gain_median": 1.6473442316055298,
+        "gain_map_p99": 1.6267582178115845,
+        "gain_bands": {
+          "shadows": {
+            "fraction": 0.22320121825527706,
+            "median": 1.524314522743225,
+            "p90": 1.5559611320495605
+          },
+          "midtones": {
+            "fraction": 0.7477505565633246,
+            "median": 1.5981342792510986,
+            "p90": 1.615442156791687
+          },
+          "upper_midtones": {
+            "fraction": 0.011513903776385224,
+            "median": 1.6277858018875122,
+            "p90": 1.6336359977722168
+          },
+          "highlights": {
+            "fraction": 0.0009765625,
+            "median": 1.635541319847107,
+            "p90": 1.6380478143692017
+          }
+        },
+        "color_families": {
+          "blue": {
+            "pixel_fraction": 1.2883410290237467e-06,
+            "lightness_median": 0.6957141160964966,
+            "chroma_median": 0.03573867306113243,
+            "hue_median": 261.45892333984375
+          },
+          "warm": {
+            "pixel_fraction": 0.9696492620382586,
+            "lightness_median": 0.5576425790786743,
+            "chroma_median": 0.090950146317482,
+            "hue_median": 45.810386657714844
+          },
+          "green": {
+            "pixel_fraction": 0.0
+          },
+          "near_white": {
+            "pixel_fraction": 0.0063012759729551455,
+            "lightness_median": 0.8491446375846863,
+            "chroma_median": 0.02192479372024536,
+            "hue_median": 87.75234985351562
+          }
+        }
+      },
+      "baseline": {
+        "sdr_percentiles": [
+          0.058781708031892775,
+          0.19527646899223328,
+          0.30154936015605927,
+          0.340676200389862,
+          0.48651095882058215
+        ],
+        "hdr_percentiles": [
+          0.07899412885308266,
+          0.3122560828924179,
+          0.48232678771018983,
+          0.5449954569339751,
+          0.7788615608215337
+        ],
+        "hdr_peak": 1.058515191078186,
+        "hdr_above_white_fraction": 8.631884894459103e-05,
+        "hdr_above_2x_white_fraction": 0.0,
+        "hdr_above_3x_white_fraction": 0.0,
+        "midtone_gain_median": 1.598671317100525,
+        "gain_map_p99": 1.5840680599212646,
+        "gain_bands": {
+          "shadows": {
+            "fraction": 0.20161635265501318,
+            "median": 1.3340500593185425,
+            "p90": 1.4862691164016724
+          },
+          "midtones": {
+            "fraction": 0.7570717039083114,
+            "median": 1.558373212814331,
+            "p90": 1.5723836421966553
+          },
+          "upper_midtones": {
+            "fraction": 0.02170081629287599,
+            "median": 1.580183982849121,
+            "p90": 1.5878705978393555
+          },
+          "highlights": {
+            "fraction": 0.0,
+            "median": null,
+            "p90": null
+          }
+        },
+        "color_families": {
+          "blue": {
+            "pixel_fraction": 0.0004187108344327177,
+            "lightness_median": 0.7708295583724976,
+            "chroma_median": 0.04174166917800903,
+            "hue_median": 270.498291015625
+          },
+          "warm": {
+            "pixel_fraction": 0.8576846965699209,
+            "lightness_median": 0.5965601205825806,
+            "chroma_median": 0.07799612730741501,
+            "hue_median": 34.59239196777344
+          },
+          "green": {
+            "pixel_fraction": 0.0
+          },
+          "near_white": {
+            "pixel_fraction": 0.00733452547823219,
+            "lightness_median": 0.7857488393783569,
+            "chroma_median": 0.01931653544306755,
+            "hue_median": 301.40948486328125
+          }
+        }
+      },
+      "capture_candidate": {
+        "sdr_percentiles": [
+          0.05921296253800392,
+          0.1960197165608406,
+          0.3023893773555756,
+          0.3414842844009399,
+          0.4858384786546231
+        ],
+        "hdr_percentiles": [
+          0.08005457893013954,
+          0.3134077489376068,
+          0.4836134433746339,
+          0.5462167888879775,
+          0.7778943017125137
+        ],
+        "hdr_peak": 1.0612812042236328,
+        "hdr_above_white_fraction": 7.343543865435357e-05,
+        "hdr_above_2x_white_fraction": 0.0,
+        "hdr_above_3x_white_fraction": 0.0,
+        "midtone_gain_median": 1.5982186794281006,
+        "gain_map_p99": 1.58443021774292,
+        "gain_bands": {
+          "shadows": {
+            "fraction": 0.19700280343007914,
+            "median": 1.3334689140319824,
+            "p90": 1.4809337854385376
+          },
+          "midtones": {
+            "fraction": 0.7616916948383905,
+            "median": 1.5580942630767822,
+            "p90": 1.5725327730178833
+          },
+          "upper_midtones": {
+            "fraction": 0.021663454403034303,
+            "median": 1.5802026987075806,
+            "p90": 1.5880897045135498
+          },
+          "highlights": {
+            "fraction": 0.0,
+            "median": null,
+            "p90": null
+          }
+        },
+        "color_families": {
+          "blue": {
+            "pixel_fraction": 0.0004573610653034301,
+            "lightness_median": 0.7721886038780212,
+            "chroma_median": 0.0420943945646286,
+            "hue_median": 269.9623718261719
+          },
+          "warm": {
+            "pixel_fraction": 0.8588712586576517,
+            "lightness_median": 0.5971611142158508,
+            "chroma_median": 0.07763597369194031,
+            "hue_median": 34.764801025390625
+          },
+          "green": {
+            "pixel_fraction": 0.0
+          },
+          "near_white": {
+            "pixel_fraction": 0.007330660455145119,
+            "lightness_median": 0.7830256223678589,
+            "chroma_median": 0.019043926149606705,
+            "hue_median": 299.89642333984375
+          }
+        }
+      },
+      "baseline_spatial": {
+        "sdr_spatial_luma_mae_ev": 0.23646067082881927,
+        "sdr_spatial_lightness_mae": 0.03376147523522377,
+        "sdr_spatial_color_mae": 0.023749083280563354,
+        "sdr_local_contrast_mae": 0.009667537175118923,
+        "hdr_spatial_luma_mae_ev": 0.25124505162239075,
+        "hdr_spatial_gain_mae_ev": 0.06476447731256485
+      },
+      "capture_spatial": {
+        "sdr_spatial_luma_mae_ev": 0.23882080614566803,
+        "sdr_spatial_lightness_mae": 0.03408632054924965,
+        "sdr_spatial_color_mae": 0.023790985345840454,
+        "sdr_local_contrast_mae": 0.009611501358449459,
+        "hdr_spatial_luma_mae_ev": 0.25195518136024475,
+        "hdr_spatial_gain_mae_ev": 0.06441854685544968
+      },
+      "baseline_high_key_weight": 0.0,
+      "baseline_codec_passed": true,
+      "capture_codec_passed": true
+    },
+    {
+      "id": 5,
+      "stem": "PXL_20241129_002105753",
+      "scene": "backlit cave silhouettes",
+      "phone": {
+        "sdr_percentiles": [
+          0.011540730670094491,
+          0.0491544883698225,
+          0.3626413345336914,
+          0.5144199728965759,
+          0.892412856817246
+        ],
+        "hdr_percentiles": [
+          0.01159544950351119,
+          0.04940989054739475,
+          0.7477082490921022,
+          1.9719037353992457,
+          5.326547071933751
+        ],
+        "hdr_peak": 5.783782958984375,
+        "hdr_above_white_fraction": 0.08426781002638523,
+        "hdr_above_2x_white_fraction": 0.049317694591029027,
+        "hdr_above_3x_white_fraction": 0.030839019211741425,
+        "midtone_gain_median": 1.2092258930206299,
+        "gain_map_p99": 5.899232387542725,
+        "gain_bands": {
+          "shadows": {
+            "fraction": 0.557237126896438,
+            "median": 1.0005122423171997,
+            "p90": 1.0061216354370117
+          },
+          "midtones": {
+            "fraction": 0.12492785290237467,
+            "median": 1.1992242336273193,
+            "p90": 2.218425989151001
+          },
+          "upper_midtones": {
+            "fraction": 0.07089869516820581,
+            "median": 3.8662796020507812,
+            "p90": 5.873218536376953
+          },
+          "highlights": {
+            "fraction": 0.011740651797493404,
+            "median": 5.9056596755981445,
+            "p90": 5.924591064453125
+          }
+        },
+        "color_families": {
+          "blue": {
+            "pixel_fraction": 0.05939896314313984,
+            "lightness_median": 0.6651235818862915,
+            "chroma_median": 0.051008373498916626,
+            "hue_median": 254.60202026367188
+          },
+          "warm": {
+            "pixel_fraction": 0.6696165381761213,
+            "lightness_median": 0.36775410175323486,
+            "chroma_median": 0.08230280131101608,
+            "hue_median": 42.43631362915039
+          },
+          "green": {
+            "pixel_fraction": 0.0006093853067282322,
+            "lightness_median": 0.9824312925338745,
+            "chroma_median": 0.06971081346273422,
+            "hue_median": 106.27518463134766
+          },
+          "near_white": {
+            "pixel_fraction": 0.08170787640171503,
+            "lightness_median": 0.795624852180481,
+            "chroma_median": 0.011325238272547722,
+            "hue_median": 94.19220733642578
+          }
+        }
+      },
+      "baseline": {
+        "sdr_percentiles": [
+          0.011265102308243513,
+          0.058486392721533775,
+          0.3861443102359772,
+          0.5199470728635787,
+          0.8782602792978289
+        ],
+        "hdr_percentiles": [
+          0.011257207579910755,
+          0.0681043192744255,
+          0.6263899803161624,
+          1.8065612614154765,
+          4.802516682147981
+        ],
+        "hdr_peak": 4.925780773162842,
+        "hdr_above_white_fraction": 0.07835561304419525,
+        "hdr_above_2x_white_fraction": 0.044811077671503954,
+        "hdr_above_3x_white_fraction": 0.025801605788258575,
+        "midtone_gain_median": 1.3031980991363525,
+        "gain_map_p99": 5.0197649002075195,
+        "gain_bands": {
+          "shadows": {
+            "fraction": 0.43410264470646437,
+            "median": 1.0971193313598633,
+            "p90": 1.2338443994522095
+          },
+          "midtones": {
+            "fraction": 0.23467003009564644,
+            "median": 1.279336929321289,
+            "p90": 1.3034712076187134
+          },
+          "upper_midtones": {
+            "fraction": 0.0735784445085752,
+            "median": 3.3072328567504883,
+            "p90": 4.3234405517578125
+          },
+          "highlights": {
+            "fraction": 0.01627174719656992,
+            "median": 5.169259071350098,
+            "p90": 5.4514994621276855
+          }
+        },
+        "color_families": {
+          "blue": {
+            "pixel_fraction": 0.11281229386543536,
+            "lightness_median": 0.7195183634757996,
+            "chroma_median": 0.10289505124092102,
+            "hue_median": 262.82916259765625
+          },
+          "warm": {
+            "pixel_fraction": 0.47835715905343007,
+            "lightness_median": 0.4196903705596924,
+            "chroma_median": 0.07853181660175323,
+            "hue_median": 31.98529624938965
+          },
+          "green": {
+            "pixel_fraction": 2.5766820580474933e-06,
+            "lightness_median": 0.6191637516021729,
+            "chroma_median": 0.042295102030038834,
+            "hue_median": 145.88536071777344
+          },
+          "near_white": {
+            "pixel_fraction": 0.049300946157651716,
+            "lightness_median": 0.8919885158538818,
+            "chroma_median": 0.01787385158240795,
+            "hue_median": 266.5076904296875
+          }
+        }
+      },
+      "capture_candidate": {
+        "sdr_percentiles": [
+          0.011268929112702608,
+          0.05848701857030392,
+          0.38635178208351145,
+          0.520035085082054,
+          0.8780151653289796
+        ],
+        "hdr_percentiles": [
+          0.011257488653063774,
+          0.06814435124397278,
+          0.6258289873600009,
+          1.805964732170104,
+          4.801903977394105
+        ],
+        "hdr_peak": 4.925780773162842,
+        "hdr_above_white_fraction": 0.07832855788258575,
+        "hdr_above_2x_white_fraction": 0.04478788753298153,
+        "hdr_above_3x_white_fraction": 0.025787434036939314,
+        "midtone_gain_median": 1.3031057119369507,
+        "gain_map_p99": 5.017879486083984,
+        "gain_bands": {
+          "shadows": {
+            "fraction": 0.4335344863126649,
+            "median": 1.0969860553741455,
+            "p90": 1.2337260246276855
+          },
+          "midtones": {
+            "fraction": 0.2348697229551451,
+            "median": 1.279413104057312,
+            "p90": 1.3021842241287231
+          },
+          "upper_midtones": {
+            "fraction": 0.07398813695580475,
+            "median": 3.3000681400299072,
+            "p90": 4.320470333099365
+          },
+          "highlights": {
+            "fraction": 0.01625113374010554,
+            "median": 5.169628143310547,
+            "p90": 5.451672554016113
+          }
+        },
+        "color_families": {
+          "blue": {
+            "pixel_fraction": 0.12287810232519789,
+            "lightness_median": 0.7231694459915161,
+            "chroma_median": 0.09643888473510742,
+            "hue_median": 262.7071838378906
+          },
+          "warm": {
+            "pixel_fraction": 0.4824798503463061,
+            "lightness_median": 0.41904416680336,
+            "chroma_median": 0.07751405984163284,
+            "hue_median": 32.706138610839844
+          },
+          "green": {
+            "pixel_fraction": 1.2883410290237467e-06,
+            "lightness_median": 0.6539007425308228,
+            "chroma_median": 0.04087549448013306,
+            "hue_median": 146.1588897705078
+          },
+          "near_white": {
+            "pixel_fraction": 0.04882297163588391,
+            "lightness_median": 0.8927510976791382,
+            "chroma_median": 0.01786728762090206,
+            "hue_median": 261.4952392578125
+          }
+        }
+      },
+      "baseline_spatial": {
+        "sdr_spatial_luma_mae_ev": 0.4443531930446625,
+        "sdr_spatial_lightness_mae": 0.05920077860355377,
+        "sdr_spatial_color_mae": 0.0313805527985096,
+        "sdr_local_contrast_mae": 0.037985604256391525,
+        "hdr_spatial_luma_mae_ev": 0.5715813636779785,
+        "hdr_spatial_gain_mae_ev": 0.18519210815429688
+      },
+      "capture_spatial": {
+        "sdr_spatial_luma_mae_ev": 0.4448050260543823,
+        "sdr_spatial_lightness_mae": 0.059179987758398056,
+        "sdr_spatial_color_mae": 0.031090283766388893,
+        "sdr_local_contrast_mae": 0.037969689816236496,
+        "hdr_spatial_luma_mae_ev": 0.5722535252571106,
+        "hdr_spatial_gain_mae_ev": 0.18531370162963867
+      },
+      "baseline_high_key_weight": 0.0,
+      "baseline_codec_passed": true,
+      "capture_codec_passed": true
+    },
+    {
+      "id": 6,
+      "stem": "PXL_20241129_005548780",
+      "scene": "night gas station",
+      "phone": {
+        "sdr_percentiles": [
+          0.0009954133536666631,
+          0.011667112819850445,
+          0.3435721218585968,
+          0.44030698984861366,
+          0.7154006570577622
+        ],
+        "hdr_percentiles": [
+          0.000992994848638773,
+          0.011837817262858152,
+          0.6387135326862338,
+          1.114348089694976,
+          3.566245807409288
+        ],
+        "hdr_peak": 5.98743200302124,
+        "hdr_above_white_fraction": 0.0570258389676781,
+        "hdr_above_2x_white_fraction": 0.022174925791556728,
+        "hdr_above_3x_white_fraction": 0.008925626649076517,
+        "midtone_gain_median": 1.5059837102890015,
+        "gain_map_p99": 5.1182403564453125,
+        "gain_bands": {
+          "shadows": {
+            "fraction": 0.20765867208113456,
+            "median": 1.003956913948059,
+            "p90": 1.2795495986938477
+          },
+          "midtones": {
+            "fraction": 0.16816071281332454,
+            "median": 1.4771060943603516,
+            "p90": 2.724666118621826
+          },
+          "upper_midtones": {
+            "fraction": 0.06404600923482849,
+            "median": 2.7042393684387207,
+            "p90": 4.725466251373291
+          },
+          "highlights": {
+            "fraction": 0.002905209020448549,
+            "median": 5.8583502769470215,
+            "p90": 5.90118932723999
+          }
+        },
+        "color_families": {
+          "blue": {
+            "pixel_fraction": 0.052230633657651716,
+            "lightness_median": 0.43448156118392944,
+            "chroma_median": 0.07074197381734848,
+            "hue_median": 253.6158447265625
+          },
+          "warm": {
+            "pixel_fraction": 0.17830124505277045,
+            "lightness_median": 0.4116198420524597,
+            "chroma_median": 0.061194952577352524,
+            "hue_median": 56.04816818237305
+          },
+          "green": {
+            "pixel_fraction": 0.035893181068601586,
+            "lightness_median": 0.7948518395423889,
+            "chroma_median": 0.04912390932440758,
+            "hue_median": 125.48851013183594
+          },
+          "near_white": {
+            "pixel_fraction": 0.0345429996701847,
+            "lightness_median": 0.764330267906189,
+            "chroma_median": 0.03719693794846535,
+            "hue_median": 102.00450134277344
+          }
+        }
+      },
+      "baseline": {
+        "sdr_percentiles": [
+          0.001776214537676424,
+          0.015131112188100815,
+          0.364308774471283,
+          0.4388382688164709,
+          0.6728185167908699
+        ],
+        "hdr_percentiles": [
+          0.001791235711425543,
+          0.015122523065656424,
+          0.7290315032005312,
+          1.007927888631819,
+          2.1652020180225375
+        ],
+        "hdr_peak": 4.925780773162842,
+        "hdr_above_white_fraction": 0.05127339627308707,
+        "hdr_above_2x_white_fraction": 0.006752195333113457,
+        "hdr_above_3x_white_fraction": 0.003057233261873351,
+        "midtone_gain_median": 1.5626046657562256,
+        "gain_map_p99": 3.023808717727661,
+        "gain_bands": {
+          "shadows": {
+            "fraction": 0.20203248680738786,
+            "median": 1.1005146503448486,
+            "p90": 1.2992045879364014
+          },
+          "midtones": {
+            "fraction": 0.18564607725923482,
+            "median": 1.5200960636138916,
+            "p90": 2.085031509399414
+          },
+          "upper_midtones": {
+            "fraction": 0.07168071817282322,
+            "median": 2.368943214416504,
+            "p90": 3.018768787384033
+          },
+          "highlights": {
+            "fraction": 0.0030830000824538257,
+            "median": 4.7216668128967285,
+            "p90": 5.157621383666992
+          }
+        },
+        "color_families": {
+          "blue": {
+            "pixel_fraction": 0.02926595481530343,
+            "lightness_median": 0.43410247564315796,
+            "chroma_median": 0.06315286457538605,
+            "hue_median": 250.00726318359375
+          },
+          "warm": {
+            "pixel_fraction": 0.18220363002968337,
+            "lightness_median": 0.4061700105667114,
+            "chroma_median": 0.06838814914226532,
+            "hue_median": 62.93305206298828
+          },
+          "green": {
+            "pixel_fraction": 0.03483931810686016,
+            "lightness_median": 0.774267852306366,
+            "chroma_median": 0.049846529960632324,
+            "hue_median": 111.44050598144531
+          },
+          "near_white": {
+            "pixel_fraction": 0.024053327011873352,
+            "lightness_median": 0.7741168737411499,
+            "chroma_median": 0.03922596573829651,
+            "hue_median": 100.94172668457031
+          }
+        }
+      },
+      "capture_candidate": {
+        "sdr_percentiles": [
+          0.001770961657166481,
+          0.015116635710000992,
+          0.36412703394889834,
+          0.4389755263924598,
+          0.6763172474503519
+        ],
+        "hdr_percentiles": [
+          0.001785995694808662,
+          0.015116930473595858,
+          0.7285919129848483,
+          1.008712077140808,
+          2.1866963696479806
+        ],
+        "hdr_peak": 4.925780773162842,
+        "hdr_above_white_fraction": 0.051380328578496046,
+        "hdr_above_2x_white_fraction": 0.0069093729386543535,
+        "hdr_above_3x_white_fraction": 0.0030804234003957783,
+        "midtone_gain_median": 1.56101393699646,
+        "gain_map_p99": 3.0340962409973145,
+        "gain_bands": {
+          "shadows": {
+            "fraction": 0.20178899035290238,
+            "median": 1.1007078886032104,
+            "p90": 1.2989336252212524
+          },
+          "midtones": {
+            "fraction": 0.18579681315963062,
+            "median": 1.5189368724822998,
+            "p90": 2.0846385955810547
+          },
+          "upper_midtones": {
+            "fraction": 0.07160985941622691,
+            "median": 2.3708627223968506,
+            "p90": 3.0286080837249756
+          },
+          "highlights": {
+            "fraction": 0.003112631926121372,
+            "median": 4.744681358337402,
+            "p90": 5.156994819641113
+          }
+        },
+        "color_families": {
+          "blue": {
+            "pixel_fraction": 0.029299451682058046,
+            "lightness_median": 0.4343194365501404,
+            "chroma_median": 0.0631030946969986,
+            "hue_median": 250.121826171875
+          },
+          "warm": {
+            "pixel_fraction": 0.18235565427110817,
+            "lightness_median": 0.4062592685222626,
+            "chroma_median": 0.06829207390546799,
+            "hue_median": 62.91859817504883
+          },
+          "green": {
+            "pixel_fraction": 0.03445925750329815,
+            "lightness_median": 0.7747937440872192,
+            "chroma_median": 0.04971583932638168,
+            "hue_median": 111.3446044921875
+          },
+          "near_white": {
+            "pixel_fraction": 0.024198909548153034,
+            "lightness_median": 0.7741260528564453,
+            "chroma_median": 0.03922683373093605,
+            "hue_median": 100.98265075683594
+          }
+        }
+      },
+      "baseline_spatial": {
+        "sdr_spatial_luma_mae_ev": 0.1966424435377121,
+        "sdr_spatial_lightness_mae": 0.03185601532459259,
+        "sdr_spatial_color_mae": 0.025746790692210197,
+        "sdr_local_contrast_mae": 0.012131613679230213,
+        "hdr_spatial_luma_mae_ev": 0.21409963071346283,
+        "hdr_spatial_gain_mae_ev": 0.12853141129016876
+      },
+      "capture_spatial": {
+        "sdr_spatial_luma_mae_ev": 0.19648349285125732,
+        "sdr_spatial_lightness_mae": 0.0318160355091095,
+        "sdr_spatial_color_mae": 0.025719158351421356,
+        "sdr_local_contrast_mae": 0.012100530788302422,
+        "hdr_spatial_luma_mae_ev": 0.21345143020153046,
+        "hdr_spatial_gain_mae_ev": 0.1285266876220703
+      },
+      "baseline_high_key_weight": 0.0,
+      "baseline_codec_passed": true,
+      "capture_codec_passed": true
+    },
+    {
+      "id": 7,
+      "stem": "PXL_20241129_005955117",
+      "scene": "indoor mixed light portrait",
+      "phone": {
+        "sdr_percentiles": [
+          0.0031414296943694355,
+          0.04507614113390446,
+          0.23148250579833987,
+          0.327172477543354,
+          0.8404516890645081
+        ],
+        "hdr_percentiles": [
+          0.00504478788934648,
+          0.07232518866658211,
+          0.37151326239109045,
+          0.5250272870063777,
+          1.3486863094568293
+        ],
+        "hdr_peak": 1.6044923067092896,
+        "hdr_above_white_fraction": 0.0065640975428759895,
+        "hdr_above_2x_white_fraction": 0.0,
+        "hdr_above_3x_white_fraction": 0.0,
+        "midtone_gain_median": 1.604732871055603,
+        "gain_map_p99": 1.5893659591674805,
+        "gain_bands": {
+          "shadows": {
+            "fraction": 0.3686471903858839,
+            "median": 1.453827142715454,
+            "p90": 1.5121349096298218
+          },
+          "midtones": {
+            "fraction": 0.27289768510883905,
+            "median": 1.5536547899246216,
+            "p90": 1.575506329536438
+          },
+          "upper_midtones": {
+            "fraction": 0.026736941375329816,
+            "median": 1.5855979919433594,
+            "p90": 1.590844988822937
+          },
+          "highlights": {
+            "fraction": 0.005305388357519789,
+            "median": 1.5951472520828247,
+            "p90": 1.5962897539138794
+          }
+        },
+        "color_families": {
+          "blue": {
+            "pixel_fraction": 0.015778312582453827,
+            "lightness_median": 0.46614864468574524,
+            "chroma_median": 0.04247868433594704,
+            "hue_median": 268.3526611328125
+          },
+          "warm": {
+            "pixel_fraction": 0.3304259770778364,
+            "lightness_median": 0.4886243939399719,
+            "chroma_median": 0.07071875035762787,
+            "hue_median": 53.63615798950195
+          },
+          "green": {
+            "pixel_fraction": 0.0023988909960422165,
+            "lightness_median": 0.2998422682285309,
+            "chroma_median": 0.07049542665481567,
+            "hue_median": 131.5779571533203
+          },
+          "near_white": {
+            "pixel_fraction": 0.009617465781662268,
+            "lightness_median": 0.8587012887001038,
+            "chroma_median": 0.012964341789484024,
+            "hue_median": 90.0
+          }
+        }
+      },
+      "baseline": {
+        "sdr_percentiles": [
+          0.004381482163444164,
+          0.08560019731521606,
+          0.3468577295541764,
+          0.4377312213182449,
+          0.8292479181289704
+        ],
+        "hdr_percentiles": [
+          0.0043724472634494305,
+          0.14133846759796143,
+          0.6192258477210999,
+          0.7989665329456325,
+          1.571526911854748
+        ],
+        "hdr_peak": 1.797966718673706,
+        "hdr_above_white_fraction": 0.019674255854221636,
+        "hdr_above_2x_white_fraction": 0.0,
+        "hdr_above_3x_white_fraction": 0.0,
+        "midtone_gain_median": 1.729733943939209,
+        "gain_map_p99": 1.8734064102172852,
+        "gain_bands": {
+          "shadows": {
+            "fraction": 0.3283092327671504,
+            "median": 1.2671611309051514,
+            "p90": 1.5680842399597168
+          },
+          "midtones": {
+            "fraction": 0.3936474480540897,
+            "median": 1.6744601726531982,
+            "p90": 1.7476105690002441
+          },
+          "upper_midtones": {
+            "fraction": 0.05987307264182058,
+            "median": 1.8217703104019165,
+            "p90": 1.871364712715149
+          },
+          "highlights": {
+            "fraction": 0.005588823383905013,
+            "median": 1.8794069290161133,
+            "p90": 1.8897980451583862
+          }
+        },
+        "color_families": {
+          "blue": {
+            "pixel_fraction": 0.00030920184696569923,
+            "lightness_median": 0.678015947341919,
+            "chroma_median": 0.043451812118291855,
+            "hue_median": 255.44119262695312
+          },
+          "warm": {
+            "pixel_fraction": 0.4573984271932718,
+            "lightness_median": 0.5316430926322937,
+            "chroma_median": 0.0603070966899395,
+            "hue_median": 49.02644348144531
+          },
+          "green": {
+            "pixel_fraction": 0.0015795061015831135,
+            "lightness_median": 0.3211413025856018,
+            "chroma_median": 0.07582816481590271,
+            "hue_median": 136.7801513671875
+          },
+          "near_white": {
+            "pixel_fraction": 0.01841683500989446,
+            "lightness_median": 0.8148583173751831,
+            "chroma_median": 0.012466217391192913,
+            "hue_median": 59.085777282714844
+          }
+        }
+      },
+      "capture_candidate": {
+        "sdr_percentiles": [
+          0.004330537794157863,
+          0.08539090305566788,
+          0.34476991593837736,
+          0.43527307659387504,
+          0.8296320864558228
+        ],
+        "hdr_percentiles": [
+          0.004323102347552777,
+          0.14047587662935257,
+          0.6142739355564117,
+          0.7931089073419563,
+          1.5681105870008643
+        ],
+        "hdr_peak": 1.7951370477676392,
+        "hdr_above_white_fraction": 0.019089349027044854,
+        "hdr_above_2x_white_fraction": 0.0,
+        "hdr_above_3x_white_fraction": 0.0,
+        "midtone_gain_median": 1.7278223037719727,
+        "gain_map_p99": 1.8697232007980347,
+        "gain_bands": {
+          "shadows": {
+            "fraction": 0.3286029745217678,
+            "median": 1.2701536417007446,
+            "p90": 1.5631769895553589
+          },
+          "midtones": {
+            "fraction": 0.39402879699868076,
+            "median": 1.6725636720657349,
+            "p90": 1.7449754476547241
+          },
+          "upper_midtones": {
+            "fraction": 0.05887074332124011,
+            "median": 1.8189706802368164,
+            "p90": 1.8682783842086792
+          },
+          "highlights": {
+            "fraction": 0.005579804996701847,
+            "median": 1.8748646974563599,
+            "p90": 1.8833860158920288
+          }
+        },
+        "color_families": {
+          "blue": {
+            "pixel_fraction": 0.000300183459762533,
+            "lightness_median": 0.675161600112915,
+            "chroma_median": 0.04403955489397049,
+            "hue_median": 254.8224639892578
+          },
+          "warm": {
+            "pixel_fraction": 0.45439530425461744,
+            "lightness_median": 0.532791793346405,
+            "chroma_median": 0.060359664261341095,
+            "hue_median": 49.00953674316406
+          },
+          "green": {
+            "pixel_fraction": 0.0015679110323218997,
+            "lightness_median": 0.32186827063560486,
+            "chroma_median": 0.07566078752279282,
+            "hue_median": 136.7483367919922
+          },
+          "near_white": {
+            "pixel_fraction": 0.018090884729551452,
+            "lightness_median": 0.8172956109046936,
+            "chroma_median": 0.01256098598241806,
+            "hue_median": 58.83263397216797
+          }
+        }
+      },
+      "baseline_spatial": {
+        "sdr_spatial_luma_mae_ev": 0.5272342562675476,
+        "sdr_spatial_lightness_mae": 0.07195913791656494,
+        "sdr_spatial_color_mae": 0.012043294496834278,
+        "sdr_local_contrast_mae": 0.015163523145020008,
+        "hdr_spatial_luma_mae_ev": 0.5953385233879089,
+        "hdr_spatial_gain_mae_ev": 0.13956423103809357
+      },
+      "capture_spatial": {
+        "sdr_spatial_luma_mae_ev": 0.5232944488525391,
+        "sdr_spatial_lightness_mae": 0.07137560844421387,
+        "sdr_spatial_color_mae": 0.011954198591411114,
+        "sdr_local_contrast_mae": 0.015113319270312786,
+        "hdr_spatial_luma_mae_ev": 0.5903257727622986,
+        "hdr_spatial_gain_mae_ev": 0.13803087174892426
+      },
+      "baseline_high_key_weight": 0.0,
+      "baseline_codec_passed": true,
+      "capture_codec_passed": true
+    },
+    {
+      "id": 8,
+      "stem": "PXL_20241129_180551347",
+      "scene": "outdoor sign and desert shrubs",
+      "phone": {
+        "sdr_percentiles": [
+          0.0701936699450016,
+          0.297958642244339,
+          0.4909770429134369,
+          0.5217134207487105,
+          0.6097992068529133
+        ],
+        "hdr_percentiles": [
+          0.15449698120355607,
+          0.655655026435852,
+          1.0794932484626771,
+          1.1484861373901367,
+          1.341492266058922
+        ],
+        "hdr_peak": 2.187490224838257,
+        "hdr_above_white_fraction": 0.16554795720646437,
+        "hdr_above_2x_white_fraction": 0.0002344780672823219,
+        "hdr_above_3x_white_fraction": 0.0,
+        "midtone_gain_median": 2.2002997398376465,
+        "gain_map_p99": 2.1724815368652344,
+        "gain_bands": {
+          "shadows": {
+            "fraction": 0.14247119269459102,
+            "median": 1.968969464302063,
+            "p90": 2.026535987854004
+          },
+          "midtones": {
+            "fraction": 0.5469123618898417,
+            "median": 2.1312673091888428,
+            "p90": 2.15321946144104
+          },
+          "upper_midtones": {
+            "fraction": 0.29084814066622694,
+            "median": 2.160954475402832,
+            "p90": 2.1696600914001465
+          },
+          "highlights": {
+            "fraction": 0.00042128751649076515,
+            "median": 2.179605722427368,
+            "p90": 2.182103157043457
+          }
+        },
+        "color_families": {
+          "blue": {
+            "pixel_fraction": 0.25662207288918204,
+            "lightness_median": 0.7526815533638,
+            "chroma_median": 0.07657989114522934,
+            "hue_median": 253.14712524414062
+          },
+          "warm": {
+            "pixel_fraction": 0.5671728129122692,
+            "lightness_median": 0.6547179222106934,
+            "chroma_median": 0.06412485986948013,
+            "hue_median": 45.627220153808594
+          },
+          "green": {
+            "pixel_fraction": 0.0
+          },
+          "near_white": {
+            "pixel_fraction": 0.02081314932387863,
+            "lightness_median": 0.7454875111579895,
+            "chroma_median": 0.028951838612556458,
+            "hue_median": 262.8338623046875
+          }
+        }
+      },
+      "baseline": {
+        "sdr_percentiles": [
+          0.08965109363198281,
+          0.3387192636728287,
+          0.4605910271406174,
+          0.4931318461894989,
+          0.5613361182808877
+        ],
+        "hdr_percentiles": [
+          0.17093502432107927,
+          0.7148783802986145,
+          0.9932742595672608,
+          1.06755411028862,
+          1.218600473403931
+        ],
+        "hdr_peak": 1.7381236553192139,
+        "hdr_above_white_fraction": 0.09335447930408972,
+        "hdr_above_2x_white_fraction": 0.0,
+        "hdr_above_3x_white_fraction": 0.0,
+        "midtone_gain_median": 2.0757102966308594,
+        "gain_map_p99": 2.1463842391967773,
+        "gain_bands": {
+          "shadows": {
+            "fraction": 0.11280198713720317,
+            "median": 1.6699161529541016,
+            "p90": 1.7968635559082031
+          },
+          "midtones": {
+            "fraction": 0.5529946198878628,
+            "median": 2.0192346572875977,
+            "p90": 2.0879383087158203
+          },
+          "upper_midtones": {
+            "fraction": 0.323891511378628,
+            "median": 2.109346628189087,
+            "p90": 2.137430191040039
+          },
+          "highlights": {
+            "fraction": 0.0,
+            "median": null,
+            "p90": null
+          }
+        },
+        "color_families": {
+          "blue": {
+            "pixel_fraction": 0.2629735941622691,
+            "lightness_median": 0.7448180913925171,
+            "chroma_median": 0.09167316555976868,
+            "hue_median": 254.60501098632812
+          },
+          "warm": {
+            "pixel_fraction": 0.32395721677110817,
+            "lightness_median": 0.6966071128845215,
+            "chroma_median": 0.05975491926074028,
+            "hue_median": 41.719093322753906
+          },
+          "green": {
+            "pixel_fraction": 0.0
+          },
+          "near_white": {
+            "pixel_fraction": 0.11272468667546175,
+            "lightness_median": 0.7644639611244202,
+            "chroma_median": 0.0249942597001791,
+            "hue_median": 44.420448303222656
+          }
+        }
+      },
+      "capture_candidate": {
+        "sdr_percentiles": [
+          0.09021825268864632,
+          0.33797141909599304,
+          0.45881403386592867,
+          0.4906360566616058,
+          0.5557013866305353
+        ],
+        "hdr_percentiles": [
+          0.17167385071516036,
+          0.7124724388122559,
+          0.9889774203300477,
+          1.0612506091594696,
+          1.2075206619501115
+        ],
+        "hdr_peak": 1.736303448677063,
+        "hdr_above_white_fraction": 0.08946240105540897,
+        "hdr_above_2x_white_fraction": 0.0,
+        "hdr_above_3x_white_fraction": 0.0,
+        "midtone_gain_median": 2.077672004699707,
+        "gain_map_p99": 2.143643379211426,
+        "gain_bands": {
+          "shadows": {
+            "fraction": 0.11063628586741425,
+            "median": 1.6593940258026123,
+            "p90": 1.7936246395111084
+          },
+          "midtones": {
+            "fraction": 0.5678015233344327,
+            "median": 2.0215418338775635,
+            "p90": 2.084993839263916
+          },
+          "upper_midtones": {
+            "fraction": 0.31128380606860157,
+            "median": 2.109189510345459,
+            "p90": 2.1345021724700928
+          },
+          "highlights": {
+            "fraction": 0.0,
+            "median": null,
+            "p90": null
+          }
+        },
+        "color_families": {
+          "blue": {
+            "pixel_fraction": 0.26433150560686014,
+            "lightness_median": 0.7402673959732056,
+            "chroma_median": 0.0921238586306572,
+            "hue_median": 253.93084716796875
+          },
+          "warm": {
+            "pixel_fraction": 0.31469275643139843,
+            "lightness_median": 0.6950346827507019,
+            "chroma_median": 0.05943239480257034,
+            "hue_median": 42.627655029296875
+          },
+          "green": {
+            "pixel_fraction": 0.0
+          },
+          "near_white": {
+            "pixel_fraction": 0.11613621372031663,
+            "lightness_median": 0.7641423940658569,
+            "chroma_median": 0.023770319297909737,
+            "hue_median": 45.48280334472656
+          }
+        }
+      },
+      "baseline_spatial": {
+        "sdr_spatial_luma_mae_ev": 0.37932872772216797,
+        "sdr_spatial_lightness_mae": 0.05817288160324097,
+        "sdr_spatial_color_mae": 0.024133896455168724,
+        "sdr_local_contrast_mae": 0.05010180547833443,
+        "hdr_spatial_luma_mae_ev": 0.4122559726238251,
+        "hdr_spatial_gain_mae_ev": 0.08049830049276352
+      },
+      "capture_spatial": {
+        "sdr_spatial_luma_mae_ev": 0.3823190927505493,
+        "sdr_spatial_lightness_mae": 0.05868499353528023,
+        "sdr_spatial_color_mae": 0.024694019928574562,
+        "sdr_local_contrast_mae": 0.04988618195056915,
+        "hdr_spatial_luma_mae_ev": 0.4155305325984955,
+        "hdr_spatial_gain_mae_ev": 0.08113143593072891
+      },
+      "baseline_high_key_weight": 0.0,
+      "baseline_codec_passed": true,
+      "capture_codec_passed": true
+    },
+    {
+      "id": 9,
+      "stem": "PXL_20241129_232250015",
+      "scene": "backlit white dress and canyon",
+      "phone": {
+        "sdr_percentiles": [
+          0.08238346725702286,
+          0.4093111753463745,
+          0.7053601145744324,
+          0.7782121866941452,
+          0.8435307228565219
+        ],
+        "hdr_percentiles": [
+          0.19081724733114244,
+          1.1773824095726013,
+          2.4318031311035155,
+          2.848833894729614,
+          3.1264745569229144
+        ],
+        "hdr_peak": 3.261420488357544,
+        "hdr_above_white_fraction": 0.5588810500494723,
+        "hdr_above_2x_white_fraction": 0.22842544112796834,
+        "hdr_above_3x_white_fraction": 0.02395670143469657,
+        "midtone_gain_median": 2.3220748901367188,
+        "gain_map_p99": 3.671926736831665,
+        "gain_bands": {
+          "shadows": {
+            "fraction": 0.10501783063984169,
+            "median": 2.0571489334106445,
+            "p90": 2.1267430782318115
+          },
+          "midtones": {
+            "fraction": 0.36318591276385226,
+            "median": 2.246279239654541,
+            "p90": 3.0046639442443848
+          },
+          "upper_midtones": {
+            "fraction": 0.4781085092348285,
+            "median": 3.283143997192383,
+            "p90": 3.6282289028167725
+          },
+          "highlights": {
+            "fraction": 0.03282306439643799,
+            "median": 3.666637420654297,
+            "p90": 3.675551652908325
+          }
+        },
+        "color_families": {
+          "blue": {
+            "pixel_fraction": 0.4770327444755937,
+            "lightness_median": 0.806067943572998,
+            "chroma_median": 0.0706133022904396,
+            "hue_median": 254.131103515625
+          },
+          "warm": {
+            "pixel_fraction": 0.06286073548812665,
+            "lightness_median": 0.6209508776664734,
+            "chroma_median": 0.04865986853837967,
+            "hue_median": 36.23664855957031
+          },
+          "green": {
+            "pixel_fraction": 2.5766820580474933e-06,
+            "lightness_median": 0.7102864980697632,
+            "chroma_median": 0.035495124757289886,
+            "hue_median": 182.57049560546875
+          },
+          "near_white": {
+            "pixel_fraction": 0.16853433171174143,
+            "lightness_median": 0.8966299295425415,
+            "chroma_median": 0.022021805867552757,
+            "hue_median": 243.32041931152344
+          }
+        }
+      },
+      "baseline": {
+        "sdr_percentiles": [
+          0.016926535405218605,
+          0.25445492565631866,
+          0.5552148163318635,
+          0.6471174955368042,
+          0.7219481810927392
+        ],
+        "hdr_percentiles": [
+          0.01708382945507765,
+          0.526646614074707,
+          1.3474872589111329,
+          1.6138151884078977,
+          1.8031523817777635
+        ],
+        "hdr_peak": 1.8777092695236206,
+        "hdr_above_white_fraction": 0.2725588514182058,
+        "hdr_above_2x_white_fraction": 0.0,
+        "hdr_above_3x_white_fraction": 0.0,
+        "midtone_gain_median": 2.0669314861297607,
+        "gain_map_p99": 2.472630500793457,
+        "gain_bands": {
+          "shadows": {
+            "fraction": 0.21135878751649076,
+            "median": 1.3426381349563599,
+            "p90": 1.7610831260681152
+          },
+          "midtones": {
+            "fraction": 0.34521226706794195,
+            "median": 2.0044913291931152,
+            "p90": 2.159301280975342
+          },
+          "upper_midtones": {
+            "fraction": 0.32721800791556727,
+            "median": 2.3246281147003174,
+            "p90": 2.4630980491638184
+          },
+          "highlights": {
+            "fraction": 0.0,
+            "median": null,
+            "p90": null
+          }
+        },
+        "color_families": {
+          "blue": {
+            "pixel_fraction": 0.5581698858014512,
+            "lightness_median": 0.7543616890907288,
+            "chroma_median": 0.0929986983537674,
+            "hue_median": 259.1273193359375
+          },
+          "warm": {
+            "pixel_fraction": 0.0008503050791556728,
+            "lightness_median": 0.791947066783905,
+            "chroma_median": 0.055512260645627975,
+            "hue_median": 27.083616256713867
+          },
+          "green": {
+            "pixel_fraction": 0.0
+          },
+          "near_white": {
+            "pixel_fraction": 0.024627927110817942,
+            "lightness_median": 0.8765822649002075,
+            "chroma_median": 0.038293879479169846,
+            "hue_median": 257.8386535644531
+          }
+        }
+      },
+      "capture_candidate": {
+        "sdr_percentiles": [
+          0.017136989533901213,
+          0.2540634423494339,
+          0.5546130955219268,
+          0.6462257117033005,
+          0.7208046907186508
+        ],
+        "hdr_percentiles": [
+          0.01731274463236332,
+          0.5253698229789734,
+          1.3458523035049441,
+          1.6116070985794062,
+          1.8016446119546892
+        ],
+        "hdr_peak": 1.8742181062698364,
+        "hdr_above_white_fraction": 0.27197909795514513,
+        "hdr_above_2x_white_fraction": 0.0,
+        "hdr_above_3x_white_fraction": 0.0,
+        "midtone_gain_median": 2.06689715385437,
+        "gain_map_p99": 2.472571849822998,
+        "gain_bands": {
+          "shadows": {
+            "fraction": 0.21192823425131926,
+            "median": 1.34598970413208,
+            "p90": 1.7583675384521484
+          },
+          "midtones": {
+            "fraction": 0.3453488312170185,
+            "median": 2.0040476322174072,
+            "p90": 2.1567554473876953
+          },
+          "upper_midtones": {
+            "fraction": 0.32766635059366755,
+            "median": 2.3240222930908203,
+            "p90": 2.4629626274108887
+          },
+          "highlights": {
+            "fraction": 0.0,
+            "median": null,
+            "p90": null
+          }
+        },
+        "color_families": {
+          "blue": {
+            "pixel_fraction": 0.5424920638192612,
+            "lightness_median": 0.7565401792526245,
+            "chroma_median": 0.09170956164598465,
+            "hue_median": 262.4340515136719
+          },
+          "warm": {
+            "pixel_fraction": 0.0006093853067282322,
+            "lightness_median": 0.8065646886825562,
+            "chroma_median": 0.05809754505753517,
+            "hue_median": 25.971872329711914
+          },
+          "green": {
+            "pixel_fraction": 0.0
+          },
+          "near_white": {
+            "pixel_fraction": 0.028115466276385226,
+            "lightness_median": 0.8822475075721741,
+            "chroma_median": 0.03769979998469353,
+            "hue_median": 264.56683349609375
+          }
+        }
+      },
+      "baseline_spatial": {
+        "sdr_spatial_luma_mae_ev": 0.7908496856689453,
+        "sdr_spatial_lightness_mae": 0.11660773307085037,
+        "sdr_spatial_color_mae": 0.02663053572177887,
+        "sdr_local_contrast_mae": 0.009118776768445969,
+        "hdr_spatial_luma_mae_ev": 1.385973334312439,
+        "hdr_spatial_gain_mae_ev": 0.5974597334861755
+      },
+      "capture_spatial": {
+        "sdr_spatial_luma_mae_ev": 0.7894055843353271,
+        "sdr_spatial_lightness_mae": 0.1159730777144432,
+        "sdr_spatial_color_mae": 0.02605285309255123,
+        "sdr_local_contrast_mae": 0.00907921977341175,
+        "hdr_spatial_luma_mae_ev": 1.3836463689804077,
+        "hdr_spatial_gain_mae_ev": 0.5965032577514648
+      },
+      "baseline_high_key_weight": 0.0,
+      "baseline_codec_passed": true,
+      "capture_codec_passed": true
+    },
+    {
+      "id": 10,
+      "stem": "PXL_20241130_190219288",
+      "scene": "blue sky valley and shaded trees",
+      "phone": {
+        "sdr_percentiles": [
+          0.015661714971065523,
+          0.2824433892965317,
+          0.4655597239732743,
+          0.5420244365930557,
+          0.7473207181692127
+        ],
+        "hdr_percentiles": [
+          0.01567230150103569,
+          0.41732701659202576,
+          1.2590063214302063,
+          1.569951462745666,
+          2.3521156036853825
+        ],
+        "hdr_peak": 3.005983829498291,
+        "hdr_above_white_fraction": 0.15942704897757257,
+        "hdr_above_2x_white_fraction": 0.018852294277704486,
+        "hdr_above_3x_white_fraction": 1.2883410290237467e-06,
+        "midtone_gain_median": 1.643843650817871,
+        "gain_map_p99": 3.257007122039795,
+        "gain_bands": {
+          "shadows": {
+            "fraction": 0.1875219017974934,
+            "median": 0.9998562932014465,
+            "p90": 1.0059329271316528
+          },
+          "midtones": {
+            "fraction": 0.49074326970646437,
+            "median": 1.6135475635528564,
+            "p90": 2.595405101776123
+          },
+          "upper_midtones": {
+            "fraction": 0.17025942034960423,
+            "median": 2.7124857902526855,
+            "p90": 3.1810524463653564
+          },
+          "highlights": {
+            "fraction": 0.0015176657321899737,
+            "median": 2.822958469390869,
+            "p90": 3.195437431335449
+          }
+        },
+        "color_families": {
+          "blue": {
+            "pixel_fraction": 0.41222661403364114,
+            "lightness_median": 0.6878107190132141,
+            "chroma_median": 0.14337337017059326,
+            "hue_median": 254.26016235351562
+          },
+          "warm": {
+            "pixel_fraction": 0.14670468131596306,
+            "lightness_median": 0.7407402992248535,
+            "chroma_median": 0.07374922186136246,
+            "hue_median": 58.20964813232422
+          },
+          "green": {
+            "pixel_fraction": 0.01613002968337731,
+            "lightness_median": 0.6941812038421631,
+            "chroma_median": 0.057228587567806244,
+            "hue_median": 109.00423431396484
+          },
+          "near_white": {
+            "pixel_fraction": 0.013865126154353561,
+            "lightness_median": 0.7629387378692627,
+            "chroma_median": 0.03764175623655319,
+            "hue_median": 80.21539306640625
+          }
+        }
+      },
+      "baseline": {
+        "sdr_percentiles": [
+          0.005267064040526748,
+          0.2710694819688797,
+          0.6026693761348725,
+          0.6862851858139035,
+          0.8279591995477683
+        ],
+        "hdr_percentiles": [
+          0.0052700292784720664,
+          0.5651830732822418,
+          1.4637426376342775,
+          1.6987771153450009,
+          2.0683485829830177
+        ],
+        "hdr_peak": 2.2280497550964355,
+        "hdr_above_white_fraction": 0.24982478562005278,
+        "hdr_above_2x_white_fraction": 0.009604582371372032,
+        "hdr_above_3x_white_fraction": 0.0,
+        "midtone_gain_median": 2.0962905883789062,
+        "gain_map_p99": 2.47286057472229,
+        "gain_bands": {
+          "shadows": {
+            "fraction": 0.040519613703825855,
+            "median": 1.0390324592590332,
+            "p90": 1.4517152309417725
+          },
+          "midtones": {
+            "fraction": 0.35754040237467016,
+            "median": 2.038362979888916,
+            "p90": 2.1649012565612793
+          },
+          "upper_midtones": {
+            "fraction": 0.2891552605540897,
+            "median": 2.3342385292053223,
+            "p90": 2.453481435775757
+          },
+          "highlights": {
+            "fraction": 0.009622619145778364,
+            "median": 2.472536563873291,
+            "p90": 2.4830992221832275
+          }
+        },
+        "color_families": {
+          "blue": {
+            "pixel_fraction": 0.40298147880936674,
+            "lightness_median": 0.6904953122138977,
+            "chroma_median": 0.1818591207265854,
+            "hue_median": 247.76809692382812
+          },
+          "warm": {
+            "pixel_fraction": 0.0858176842843008,
+            "lightness_median": 0.8354156613349915,
+            "chroma_median": 0.06951527297496796,
+            "hue_median": 41.40440368652344
+          },
+          "green": {
+            "pixel_fraction": 0.0008219615765171504,
+            "lightness_median": 0.7326269149780273,
+            "chroma_median": 0.040542759001255035,
+            "hue_median": 108.92840576171875
+          },
+          "near_white": {
+            "pixel_fraction": 0.11739492290567283,
+            "lightness_median": 0.8096674084663391,
+            "chroma_median": 0.016548331826925278,
+            "hue_median": 65.15872955322266
+          }
+        }
+      },
+      "capture_candidate": {
+        "sdr_percentiles": [
+          0.0052564757410436865,
+          0.2705162912607193,
+          0.6013842046260834,
+          0.6848694115877149,
+          0.8275869488716125
+        ],
+        "hdr_percentiles": [
+          0.005262673739343882,
+          0.5639075636863708,
+          1.4593799352645873,
+          1.694327300786971,
+          2.0680767178535464
+        ],
+        "hdr_peak": 2.2254724502563477,
+        "hdr_above_white_fraction": 0.24884564643799473,
+        "hdr_above_2x_white_fraction": 0.009399736147757257,
+        "hdr_above_3x_white_fraction": 0.0,
+        "midtone_gain_median": 2.095529556274414,
+        "gain_map_p99": 2.4730961322784424,
+        "gain_bands": {
+          "shadows": {
+            "fraction": 0.04056728232189974,
+            "median": 1.0397629737854004,
+            "p90": 1.4503501653671265
+          },
+          "midtones": {
+            "fraction": 0.35797843832453824,
+            "median": 2.0376319885253906,
+            "p90": 2.1640992164611816
+          },
+          "upper_midtones": {
+            "fraction": 0.2889864878792876,
+            "median": 2.33251953125,
+            "p90": 2.4524199962615967
+          },
+          "highlights": {
+            "fraction": 0.009465441540237467,
+            "median": 2.473007917404175,
+            "p90": 2.483433246612549
+          }
+        },
+        "color_families": {
+          "blue": {
+            "pixel_fraction": 0.40223810603562005,
+            "lightness_median": 0.6918302178382874,
+            "chroma_median": 0.17769698798656464,
+            "hue_median": 250.11126708984375
+          },
+          "warm": {
+            "pixel_fraction": 0.08962344368403694,
+            "lightness_median": 0.8345524072647095,
+            "chroma_median": 0.06859023123979568,
+            "hue_median": 39.09820556640625
+          },
+          "green": {
+            "pixel_fraction": 0.0002563798647757256,
+            "lightness_median": 0.7318628430366516,
+            "chroma_median": 0.039248980581760406,
+            "hue_median": 107.86560821533203
+          },
+          "near_white": {
+            "pixel_fraction": 0.1132979984333773,
+            "lightness_median": 0.8081396818161011,
+            "chroma_median": 0.0169715266674757,
+            "hue_median": 59.36457061767578
+          }
+        }
+      },
+      "baseline_spatial": {
+        "sdr_spatial_luma_mae_ev": 0.43683886528015137,
+        "sdr_spatial_lightness_mae": 0.06794949620962143,
+        "sdr_spatial_color_mae": 0.028453676030039787,
+        "sdr_local_contrast_mae": 0.02179696224629879,
+        "hdr_spatial_luma_mae_ev": 0.4645300805568695,
+        "hdr_spatial_gain_mae_ev": 0.23583419620990753
+      },
+      "capture_spatial": {
+        "sdr_spatial_luma_mae_ev": 0.43558672070503235,
+        "sdr_spatial_lightness_mae": 0.06769723445177078,
+        "sdr_spatial_color_mae": 0.027115046977996826,
+        "sdr_local_contrast_mae": 0.021792910993099213,
+        "hdr_spatial_luma_mae_ev": 0.4639723598957062,
+        "hdr_spatial_gain_mae_ev": 0.2359890192747116
+      },
+      "baseline_high_key_weight": 0.0,
+      "baseline_codec_passed": true,
+      "capture_codec_passed": true
+    },
+    {
+      "id": 11,
+      "stem": "PXL_20241130_234033611",
+      "scene": "dusk white jacket portrait",
+      "phone": {
+        "sdr_percentiles": [
+          0.01186311421915889,
+          0.22176703065633774,
+          0.7093760907649994,
+          0.7677298426628112,
+          0.9031856274604813
+        ],
+        "hdr_percentiles": [
+          0.02694926802068949,
+          0.5136111378669739,
+          1.947588062286377,
+          2.1112210750579825,
+          2.490237336158755
+        ],
+        "hdr_peak": 2.7342190742492676,
+        "hdr_above_white_fraction": 0.41232195126978893,
+        "hdr_above_2x_white_fraction": 0.08252597295514512,
+        "hdr_above_3x_white_fraction": 0.0,
+        "midtone_gain_median": 2.279165506362915,
+        "gain_map_p99": 2.7315876483917236,
+        "gain_bands": {
+          "shadows": {
+            "fraction": 0.22857231200527706,
+            "median": 1.971505045890808,
+            "p90": 2.091801643371582
+          },
+          "midtones": {
+            "fraction": 0.21083314437664907,
+            "median": 2.19187593460083,
+            "p90": 2.3216135501861572
+          },
+          "upper_midtones": {
+            "fraction": 0.3887852490105541,
+            "median": 2.703235626220703,
+            "p90": 2.7240641117095947
+          },
+          "highlights": {
+            "fraction": 0.03274318725263852,
+            "median": 2.7274181842803955,
+            "p90": 2.7345399856567383
+          }
+        },
+        "color_families": {
+          "blue": {
+            "pixel_fraction": 0.261825682305409,
+            "lightness_median": 0.8230747580528259,
+            "chroma_median": 0.0561567023396492,
+            "hue_median": 252.42306518554688
+          },
+          "warm": {
+            "pixel_fraction": 0.10789469615765171,
+            "lightness_median": 0.6164641976356506,
+            "chroma_median": 0.05894048884510994,
+            "hue_median": 68.6963119506836
+          },
+          "green": {
+            "pixel_fraction": 0.0005307965039577836,
+            "lightness_median": 0.3525681495666504,
+            "chroma_median": 0.037997450679540634,
+            "hue_median": 107.55586242675781
+          },
+          "near_white": {
+            "pixel_fraction": 0.21757760966358838,
+            "lightness_median": 0.8835450410842896,
+            "chroma_median": 0.02556324377655983,
+            "hue_median": 254.7544708251953
+          }
+        }
+      },
+      "baseline": {
+        "sdr_percentiles": [
+          0.010080080945044756,
+          0.28500521183013916,
+          0.70853191614151,
+          0.7575138717889784,
+          0.8338941246271137
+        ],
+        "hdr_percentiles": [
+          0.010073315445333719,
+          0.5996797978878021,
+          1.7537136912345888,
+          1.8917026281356812,
+          2.087909260988237
+        ],
+        "hdr_peak": 2.1950902938842773,
+        "hdr_above_white_fraction": 0.40112755606860157,
+        "hdr_above_2x_white_fraction": 0.01615708484498681,
+        "hdr_above_3x_white_fraction": 0.0,
+        "midtone_gain_median": 2.047437906265259,
+        "gain_map_p99": 2.4791243076324463,
+        "gain_bands": {
+          "shadows": {
+            "fraction": 0.1861768737631926,
+            "median": 1.2614275217056274,
+            "p90": 1.7314603328704834
+          },
+          "midtones": {
+            "fraction": 0.2282940303430079,
+            "median": 1.9807853698730469,
+            "p90": 2.135841131210327
+          },
+          "upper_midtones": {
+            "fraction": 0.4077367455474934,
+            "median": 2.371025562286377,
+            "p90": 2.461927890777588
+          },
+          "highlights": {
+            "fraction": 0.01585561304419525,
+            "median": 2.4743001461029053,
+            "p90": 2.4858081340789795
+          }
+        },
+        "color_families": {
+          "blue": {
+            "pixel_fraction": 0.432997248103562,
+            "lightness_median": 0.851088285446167,
+            "chroma_median": 0.0722745954990387,
+            "hue_median": 258.86407470703125
+          },
+          "warm": {
+            "pixel_fraction": 0.013106293288258575,
+            "lightness_median": 0.7932698130607605,
+            "chroma_median": 0.056883879005908966,
+            "hue_median": 42.38372039794922
+          },
+          "green": {
+            "pixel_fraction": 9.6625577176781e-05,
+            "lightness_median": 0.5399479866027832,
+            "chroma_median": 0.04110652208328247,
+            "hue_median": 110.19088745117188
+          },
+          "near_white": {
+            "pixel_fraction": 0.07802837442282322,
+            "lightness_median": 0.9108637571334839,
+            "chroma_median": 0.0327753983438015,
+            "hue_median": 259.28033447265625
+          }
+        }
+      },
+      "capture_candidate": {
+        "sdr_percentiles": [
+          0.010100683383643628,
+          0.2853958159685135,
+          0.7091017961502075,
+          0.7578926563262938,
+          0.8340321257710458
+        ],
+        "hdr_percentiles": [
+          0.010097235068678857,
+          0.6007379293441772,
+          1.7549931645393373,
+          1.892949503660202,
+          2.0890931951999665
+        ],
+        "hdr_peak": 2.1944966316223145,
+        "hdr_above_white_fraction": 0.40139553100263853,
+        "hdr_above_2x_white_fraction": 0.016336164248021107,
+        "hdr_above_3x_white_fraction": 0.0,
+        "midtone_gain_median": 2.0477585792541504,
+        "gain_map_p99": 2.4792473316192627,
+        "gain_bands": {
+          "shadows": {
+            "fraction": 0.18597331588060687,
+            "median": 1.2668030261993408,
+            "p90": 1.7263116836547852
+          },
+          "midtones": {
+            "fraction": 0.2287436613621372,
+            "median": 1.981237769126892,
+            "p90": 2.1359148025512695
+          },
+          "upper_midtones": {
+            "fraction": 0.4077599356860158,
+            "median": 2.3714206218719482,
+            "p90": 2.4621236324310303
+          },
+          "highlights": {
+            "fraction": 0.015992177193271766,
+            "median": 2.4744327068328857,
+            "p90": 2.485842227935791
+          }
+        },
+        "color_families": {
+          "blue": {
+            "pixel_fraction": 0.43300497814973615,
+            "lightness_median": 0.8512653708457947,
+            "chroma_median": 0.07216848433017731,
+            "hue_median": 258.8546447753906
+          },
+          "warm": {
+            "pixel_fraction": 0.013133348449868075,
+            "lightness_median": 0.7936835289001465,
+            "chroma_median": 0.0569436252117157,
+            "hue_median": 42.390098571777344
+          },
+          "green": {
+            "pixel_fraction": 0.00011466235158311346,
+            "lightness_median": 0.5325801968574524,
+            "chroma_median": 0.04032266139984131,
+            "hue_median": 108.246337890625
+          },
+          "near_white": {
+            "pixel_fraction": 0.0785424224934037,
+            "lightness_median": 0.9115825891494751,
+            "chroma_median": 0.03285011649131775,
+            "hue_median": 259.30194091796875
+          }
+        }
+      },
+      "baseline_spatial": {
+        "sdr_spatial_luma_mae_ev": 0.2591191232204437,
+        "sdr_spatial_lightness_mae": 0.03929893299937248,
+        "sdr_spatial_color_mae": 0.03327175974845886,
+        "sdr_local_contrast_mae": 0.00975923240184784,
+        "hdr_spatial_luma_mae_ev": 0.4062821865081787,
+        "hdr_spatial_gain_mae_ev": 0.2914057672023773
+      },
+      "capture_spatial": {
+        "sdr_spatial_luma_mae_ev": 0.25975409150123596,
+        "sdr_spatial_lightness_mae": 0.0394136905670166,
+        "sdr_spatial_color_mae": 0.033244162797927856,
+        "sdr_local_contrast_mae": 0.009766412898898125,
+        "hdr_spatial_luma_mae_ev": 0.4048008918762207,
+        "hdr_spatial_gain_mae_ev": 0.29010680317878723
+      },
+      "baseline_high_key_weight": 0.0,
+      "baseline_codec_passed": true,
+      "capture_codec_passed": true
+    },
+    {
+      "id": 12,
+      "stem": "PXL_20241201_175649967",
+      "scene": "snowman white dress and autumn trees",
+      "phone": {
+        "sdr_percentiles": [
+          0.011558856815099716,
+          0.1917671263217926,
+          0.5436478912830354,
+          0.6661748081445692,
+          0.8765888890624052
+        ],
+        "hdr_percentiles": [
+          0.018910256028175358,
+          0.32069990038871765,
+          1.0985997319221499,
+          1.3846526801586145,
+          1.8455725240707408
+        ],
+        "hdr_peak": 2.102135181427002,
+        "hdr_above_white_fraction": 0.11830191499010555,
+        "hdr_above_2x_white_fraction": 0.0005784651220316622,
+        "hdr_above_3x_white_fraction": 0.0,
+        "midtone_gain_median": 1.6426832675933838,
+        "gain_map_p99": 2.093557357788086,
+        "gain_bands": {
+          "shadows": {
+            "fraction": 0.1989855602737467,
+            "median": 1.502295732498169,
+            "p90": 1.5523005723953247
+          },
+          "midtones": {
+            "fraction": 0.49284713060686014,
+            "median": 1.606343150138855,
+            "p90": 1.808431625366211
+          },
+          "upper_midtones": {
+            "fraction": 0.15542159671833772,
+            "median": 2.043227434158325,
+            "p90": 2.089404821395874
+          },
+          "highlights": {
+            "fraction": 0.017637388687335092,
+            "median": 2.0923843383789062,
+            "p90": 2.0964760780334473
+          }
+        },
+        "color_families": {
+          "blue": {
+            "pixel_fraction": 0.10218863374010555,
+            "lightness_median": 0.6406500935554504,
+            "chroma_median": 0.124335378408432,
+            "hue_median": 255.70765686035156
+          },
+          "warm": {
+            "pixel_fraction": 0.39931357189973615,
+            "lightness_median": 0.5755980014801025,
+            "chroma_median": 0.062031522393226624,
+            "hue_median": 58.51715087890625
+          },
+          "green": {
+            "pixel_fraction": 0.048244506513852245,
+            "lightness_median": 0.4131730794906616,
+            "chroma_median": 0.053355585783720016,
+            "hue_median": 117.42469787597656
+          },
+          "near_white": {
+            "pixel_fraction": 0.14673688984168864,
+            "lightness_median": 0.8353531360626221,
+            "chroma_median": 0.011178751476109028,
+            "hue_median": 95.05317687988281
+          }
+        }
+      },
+      "baseline": {
+        "sdr_percentiles": [
+          0.021846620738506316,
+          0.2206951603293419,
+          0.5556037068367006,
+          0.6488027840852737,
+          0.7571561747789385
+        ],
+        "hdr_percentiles": [
+          0.023542902618646624,
+          0.458815261721611,
+          1.3465757250785828,
+          1.607474064826965,
+          1.8982608413696291
+        ],
+        "hdr_peak": 2.206606864929199,
+        "hdr_above_white_fraction": 0.1826506843667546,
+        "hdr_above_2x_white_fraction": 0.0006415938324538259,
+        "hdr_above_3x_white_fraction": 0.0,
+        "midtone_gain_median": 2.084214210510254,
+        "gain_map_p99": 2.475271463394165,
+        "gain_bands": {
+          "shadows": {
+            "fraction": 0.14139285125329815,
+            "median": 1.4737825393676758,
+            "p90": 1.7590479850769043
+          },
+          "midtones": {
+            "fraction": 0.5540600779188655,
+            "median": 2.0140373706817627,
+            "p90": 2.1718173027038574
+          },
+          "upper_midtones": {
+            "fraction": 0.20967750247361477,
+            "median": 2.377716541290283,
+            "p90": 2.466205358505249
+          },
+          "highlights": {
+            "fraction": 0.0004560727242744063,
+            "median": 2.4846320152282715,
+            "p90": 2.5068345069885254
+          }
+        },
+        "color_families": {
+          "blue": {
+            "pixel_fraction": 0.09987090822889182,
+            "lightness_median": 0.6413018107414246,
+            "chroma_median": 0.11165308207273483,
+            "hue_median": 257.72564697265625
+          },
+          "warm": {
+            "pixel_fraction": 0.227159001896438,
+            "lightness_median": 0.5648042559623718,
+            "chroma_median": 0.05841239541769028,
+            "hue_median": 50.2569694519043
+          },
+          "green": {
+            "pixel_fraction": 0.0373103562005277,
+            "lightness_median": 0.4286113977432251,
+            "chroma_median": 0.05248997360467911,
+            "hue_median": 117.70697021484375
+          },
+          "near_white": {
+            "pixel_fraction": 0.18850490600263853,
+            "lightness_median": 0.8192025423049927,
+            "chroma_median": 0.013078683987259865,
+            "hue_median": 280.52044677734375
+          }
+        }
+      },
+      "capture_candidate": {
+        "sdr_percentiles": [
+          0.022250363789498812,
+          0.2224479541182518,
+          0.5557807266712189,
+          0.6492564886808395,
+          0.7578641378879548
+        ],
+        "hdr_percentiles": [
+          0.02438739091157914,
+          0.4631362706422806,
+          1.3462764501571656,
+          1.6076399683952332,
+          1.8991885989904405
+        ],
+        "hdr_peak": 2.202752113342285,
+        "hdr_above_white_fraction": 0.1827086597130607,
+        "hdr_above_2x_white_fraction": 0.000686685768469657,
+        "hdr_above_3x_white_fraction": 0.0,
+        "midtone_gain_median": 2.0866916179656982,
+        "gain_map_p99": 2.4751245975494385,
+        "gain_bands": {
+          "shadows": {
+            "fraction": 0.14047812912269128,
+            "median": 1.4790873527526855,
+            "p90": 1.752514123916626
+          },
+          "midtones": {
+            "fraction": 0.5561240002473615,
+            "median": 2.016486644744873,
+            "p90": 2.172340154647827
+          },
+          "upper_midtones": {
+            "fraction": 0.20980762491754618,
+            "median": 2.37658429145813,
+            "p90": 2.465980291366577
+          },
+          "highlights": {
+            "fraction": 0.00048828125,
+            "median": 2.484797716140747,
+            "p90": 2.5038864612579346
+          }
+        },
+        "color_families": {
+          "blue": {
+            "pixel_fraction": 0.10174029106200527,
+            "lightness_median": 0.6427618265151978,
+            "chroma_median": 0.11182115972042084,
+            "hue_median": 256.51220703125
+          },
+          "warm": {
+            "pixel_fraction": 0.22208551492414247,
+            "lightness_median": 0.5660924315452576,
+            "chroma_median": 0.058510903269052505,
+            "hue_median": 51.11649703979492
+          },
+          "green": {
+            "pixel_fraction": 0.03969249876319261,
+            "lightness_median": 0.4341896176338196,
+            "chroma_median": 0.05298677459359169,
+            "hue_median": 118.03016662597656
+          },
+          "near_white": {
+            "pixel_fraction": 0.1882549678430079,
+            "lightness_median": 0.8187487125396729,
+            "chroma_median": 0.012086613103747368,
+            "hue_median": 274.10540771484375
+          }
+        }
+      },
+      "baseline_spatial": {
+        "sdr_spatial_luma_mae_ev": 0.31144341826438904,
+        "sdr_spatial_lightness_mae": 0.045080915093421936,
+        "sdr_spatial_color_mae": 0.01573624275624752,
+        "sdr_local_contrast_mae": 0.012550502084195614,
+        "hdr_spatial_luma_mae_ev": 0.519375741481781,
+        "hdr_spatial_gain_mae_ev": 0.2904532253742218
+      },
+      "capture_spatial": {
+        "sdr_spatial_luma_mae_ev": 0.3134607970714569,
+        "sdr_spatial_lightness_mae": 0.04526841640472412,
+        "sdr_spatial_color_mae": 0.015329703688621521,
+        "sdr_local_contrast_mae": 0.012551626190543175,
+        "hdr_spatial_luma_mae_ev": 0.5268699526786804,
+        "hdr_spatial_gain_mae_ev": 0.29097115993499756
+      },
+      "baseline_high_key_weight": 0.0,
+      "baseline_codec_passed": true,
+      "capture_codec_passed": true
+    }
+  ],
+  "local_evidence_root": "outputs/phone-clear-raw-first-20260929",
+  "gallery_validation": {
+    "all_preview_images_present": 72,
+    "full_comparisons_present": 12,
+    "native_region_sheets_present": 12,
+    "original_and_probe_links_resolve": true,
+    "validation": "static asset/link checks and Chrome browser interaction",
+    "browser": {
+      "scene_mode_checks": 24,
+      "navigation": true,
+      "errors": []
+    }
+  }
+}

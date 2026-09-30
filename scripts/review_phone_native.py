@@ -52,7 +52,12 @@ def native_review(samples: Path, baseline: Path, current: Path, output: Path):
                 pw,phh = min(x1-x0,360/ps.shape[1]), min(y1-y0,360/ps.shape[0])
                 crop = rgb[max(0,round((cy-phh/2)*height)):min(height,round((cy+phh/2)*height)),
                            max(0,round((cx-pw/2)*width)):min(width,round((cx+pw/2)*width))]
-                panel = _panel(crop, hdr=c>=3, width=380, height=385)
+                # Keep one output pixel per original crop pixel. The generic
+                # contact-sheet panel otherwise shrinks 360-pixel tall crops
+                # to 351, which is unsuitable for a 100% edge inspection.
+                panel = _panel(crop, hdr=c>=3,
+                               width=crop.shape[1]+10, height=crop.shape[0]+34)
+                assert panel.size == (crop.shape[1], crop.shape[0])
                 # Small faces need an explicit nearest-neighbor magnified view.
                 factor = min(3, max(1, min(360//max(panel.width,1),360//max(panel.height,1))))
                 if factor>1:
@@ -63,14 +68,15 @@ def native_review(samples: Path, baseline: Path, current: Path, output: Path):
                 records[f'{name}/{label}/{"HDR" if c>=3 else "SDR"}'] = list(crop.shape[:2])
             panel_rows.append(panels)
         heights = [max(panel.height for panel, _, _ in row)+42 for row in panel_rows]
-        sheet = Image.new("RGB", (6*380, sum(heights)), "#ededed")
+        column_width=max(380,max(panel.width+16 for row in panel_rows for panel,_,_ in row))
+        sheet = Image.new("RGB", (6*column_width, sum(heights)), "#ededed")
         draw = ImageDraw.Draw(sheet)
         top = 0
         for height, panels in zip(heights, panel_rows):
             for c, (panel, label, dimensions_label) in enumerate(panels):
-                sheet.paste(panel, (c*380+(380-panel.width)//2,top+6))
-                draw.text((c*380+8,top+height-30),label,fill='#111')
-                draw.text((c*380+8,top+height-15),dimensions_label,fill='#111')
+                sheet.paste(panel, (c*column_width+(column_width-panel.width)//2,top+6))
+                draw.text((c*column_width+8,top+height-30),label,fill='#111')
+                draw.text((c*column_width+8,top+height-15),dimensions_label,fill='#111')
             top += height
         sheet.save(output / f'{row["id"]:02}_native_regions.png')
         (output / f'{row["id"]:02}_crops.json').write_text(json.dumps(records,indent=2)+'\n')

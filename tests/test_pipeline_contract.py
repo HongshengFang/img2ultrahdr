@@ -79,7 +79,13 @@ def test_pipeline_passes_denoise_overlay_only_when_requested(monkeypatch, tmp_pa
     fake_tools = ToolPaths(Path("rawtherapee-cli"), Path("ultrahdr_app"), Path("exiftool"))
     monkeypatch.setattr(pipeline, "resolve_tools", lambda **kw: fake_tools)
     observed = []
-    def stop_after_development(*args, profile_overlay, **kw):
+    def stop_after_development(source, destination, *, profile_overlay=None, **kw):
+        if destination.parent.name == "fixed-camera-metering":
+            import numpy as np
+            import tifffile
+            assert kw["white_balance"] == "camera" and profile_overlay is None
+            tifffile.imwrite(destination, np.full((32,32,3), .01, np.float32), photometric="rgb")
+            return
         observed.append(profile_overlay.read_text() if profile_overlay else None)
         raise ProcessingError("inspection complete")
     monkeypatch.setattr(pipeline, "develop_raw", stop_after_development)
@@ -116,6 +122,7 @@ def test_adaptive_denoise_redevelops_only_when_residual_noise_requires_it(monkey
             pipeline.render_raw(source, RenderOptions(output=tmp_path/"out",
                 raw_detail_strength=detail, surface_denoise_strength=0,
                 skin_protection_strength=0))
+        assert calls.pop(0) == ("scene.tif", None)  # Independent fixed-WB metering.
         assert len(calls) == expected + 1
         assert calls[-1] == ("scene-color-reference.tif", None)
         assert "Luma=15\nLdetail=30" in calls[0][1]

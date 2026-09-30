@@ -56,10 +56,14 @@ def validate_raw_input(path: Path) -> Path:
 
 
 def _white_balance_overlay(
-    mode: str, temperature_k: int | None, tint: float
+    mode: str, temperature_k: int | None, tint: float, *, temperature_bias: float = 0.0,
 ) -> str:
     setting = {"camera": "Camera", "auto": "Auto", "custom": "Custom"}[mode]
     lines = ["[White Balance]", f"Setting={setting}", f"Green={tint:.6f}"]
+    if temperature_bias:
+        if mode != "auto" or not 0 <= temperature_bias <= .20:
+            raise InputError("Native auto-WB temperature bias must be between 0 and 0.20")
+        lines.append(f"TemperatureBias={temperature_bias:.8f}")
     if mode == "custom":
         if temperature_k is None:
             raise InputError("--temperature-k is required with --white-balance custom")
@@ -78,6 +82,7 @@ def develop_raw(
     tint: float,
     work_dir: Path,
     profile_overlay: Path | None = None,
+    temperature_bias: float = 0.0,
 ) -> None:
     profile = Path(str(files("hdrimg").joinpath("profiles/raw-unclipped.pp3")))
     profile_data = Path(
@@ -94,7 +99,7 @@ def develop_raw(
         raise ProcessingError(f"Cannot prepare linear Rec.2020 profile: {exc}") from exc
     overlay = work_dir / "white-balance.pp3"
     overlay.write_text(
-        _white_balance_overlay(white_balance, temperature_k, tint), encoding="utf-8"
+        _white_balance_overlay(white_balance, temperature_k, tint, temperature_bias=temperature_bias), encoding="utf-8"
     )
     run_checked(
         [

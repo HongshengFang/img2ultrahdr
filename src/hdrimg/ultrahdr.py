@@ -131,6 +131,8 @@ def validate_ultrahdr(
     above_reference = 0
     for start in range(0, height, 512):
         rgb = np.asarray(decoded[start : start + 512, :, :3], dtype=np.float32)
+        if not np.all(np.isfinite(rgb)):
+            raise ProcessingError("Decoded HDR contains non-finite pixels")
         peak_rgb = max(peak_rgb, float(np.max(rgb)))
         y = rgb @ np.array([0.2627, 0.6780, 0.0593], dtype=np.float32)
         peak_luminance = max(peak_luminance, float(np.max(y)))

@@ -154,25 +154,29 @@ def test_pipeline_wb_reference_is_shared_by_denoise_and_color_passes(monkeypatch
     monkeypatch.setattr(pipeline, 'phone_denoise_decision', lambda *a, **kw: {'extra_denoise_weight': 0})
     def guard_scene(source, reference, destination, **kwargs):
         assert guard
-        assert kwargs['pale_boundaries'] == (style == 'phone-natural')
+        assert kwargs['pale_boundaries'] is True
         shutil.copy2(source, destination)
         return {'applied': True}, (None, {'status': 'color_only_fallback'})
     monkeypatch.setattr(pipeline, 'preserve_raw_skin', guard_scene)
     def capture(scene, *args, **kwargs):
         assert (scene.name == 'scene-raw-skin.tif') == guard
-        assert (kwargs['_skin_context'] is not None) == (guard and style == 'phone-clear')
+        # Both accepted paths rebuild the context from their SDR/HDR
+        # reference, rather than reusing the earlier RAW guard preview.
+        assert kwargs['_skin_context'] is None
         raise ProcessingError('captured')
     monkeypatch.setattr(pipeline, 'render_pair', capture)
     with pytest.raises(ProcessingError, match='captured'):
         pipeline.render_raw(source, RenderOptions(output=tmp_path/'out', style=style, white_balance=wb,
             temperature_k=5600, surface_denoise_strength=0))
     expected = wb or 'auto'
+    if style == 'phone-clear':
+        assert calls.pop(0) == ('camera', None)  # Fixed metering precedes selected WB.
     assert [c[0] for c in calls] == [expected] * 3 + (['camera'] if guard else [])
     if guard:
         assert calls[1][1] == calls[3][1]  # Matching final NR and sharpening.
 
 
-def test_v6_never_reestimates_white_balance_after_raw(monkeypatch, tmp_path):
+def test_phone_default_never_reestimates_white_balance_after_raw(monkeypatch, tmp_path):
     source = tmp_path/'scene.tif'
     tifffile.imwrite(source, np.broadcast_to(colors([.08])[0], (32, 32, 3)), photometric='rgb')
     def forbidden(*args, **kwargs):
@@ -182,7 +186,7 @@ def test_v6_never_reestimates_white_balance_after_raw(monkeypatch, tmp_path):
     info = render.render_pair(source, tmp_path/'sdr.jpg', tmp_path/'hdr.raw',
         auto_exposure=True, exposure_ev=None, highlight_ev=0, hdr_strength=1,
         peak_nits=1000, skin_protection_strength=0, subject_adaptation_strength=0)
-    assert info.style['algorithm_version'] == 6
+    assert info.style['algorithm_version'] == 7
     assert info.tone_mapping['phone_illuminant_strength'] == 0
     for channel in ['red', 'green', 'blue']:
         assert info.tone_mapping[f'phone_illuminant_{channel}_gain'] == 1

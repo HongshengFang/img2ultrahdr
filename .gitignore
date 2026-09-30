@@ -9,6 +9,7 @@ dist/
 samples/
 outputs/
 result/
+result_natural/
 jpg_hdr_sample_effect/
 *.[Cc][Rr]2
 *.[Cc][Rr]3

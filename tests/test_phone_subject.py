@@ -73,7 +73,7 @@ def test_unavailable_subject_helper_matches_explicit_off(tmp_path, monkeypatch):
                   hdr_strength=1, peak_nits=1000)
     info = render_pair(source, tmp_path/"fallback.jpg", tmp_path/"fallback.raw", **common)
     render_pair(source, tmp_path/"off.jpg", tmp_path/"off.raw", subject_adaptation_strength=0, **common)
-    assert info.tone_mapping["phone_subject"]["status"] == "unavailable"
+    assert info.tone_mapping["phone_clear_local"]["detection"]["status"] == "unavailable"
     assert (tmp_path/"fallback.raw").read_bytes() == (tmp_path/"off.raw").read_bytes()
     assert (tmp_path/"fallback.jpg").read_bytes() == (tmp_path/"off.jpg").read_bytes()
 
