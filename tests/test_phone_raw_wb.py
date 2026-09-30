@@ -186,7 +186,7 @@ def test_phone_default_never_reestimates_white_balance_after_raw(monkeypatch, tm
     info = render.render_pair(source, tmp_path/'sdr.jpg', tmp_path/'hdr.raw',
         auto_exposure=True, exposure_ev=None, highlight_ev=0, hdr_strength=1,
         peak_nits=1000, skin_protection_strength=0, subject_adaptation_strength=0)
-    assert info.style['algorithm_version'] == 7
+    assert info.style['algorithm_version'] == 8
     assert info.tone_mapping['phone_illuminant_strength'] == 0
     for channel in ['red', 'green', 'blue']:
         assert info.tone_mapping[f'phone_illuminant_{channel}_gain'] == 1

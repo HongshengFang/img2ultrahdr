@@ -1,4 +1,4 @@
-"""Experimental Phone Clear V8 luminance allocation, opt-in only.
+"""Phone Clear V8 R5 luminance allocation, the accepted Clear default.
 
 No calibration filenames, coordinates, final JPEGs or reference-photo pixels
 are used here. Color and RAW development retain the accepted V7 safeguards.
@@ -301,5 +301,4 @@ def _alternative_local_field(rgb: np.ndarray, *, person: Image.Image | None,
         'outdoor_contrast_weight': outdoor_contrast,
         'image_edge_constraint': boundary,
     }
-
 

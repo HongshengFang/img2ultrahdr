@@ -38,11 +38,12 @@ class StyleSettings:
 
 
 NATURAL_STYLE = StyleSettings("natural", 0.0, 0.0, 0.0, 0.0, "srgb")
+PHONE_CLEAR_V8 = StyleSettings("phone-clear", .38, .42, .22, .23, "display-p3", 8)
 
 STYLE_PRESETS = {
     "natural": NATURAL_STYLE,
     "phone-natural": StyleSettings("phone-natural", 0.38, 0.42, 0.0, 0.23, "display-p3", 8),
-    "phone-clear": StyleSettings("phone-clear", 0.38, 0.42, 0.22, 0.23, "display-p3", 7),
+    "phone-clear": PHONE_CLEAR_V8,
 }
 
 RAW_PHONE_STYLES = frozenset({"phone-natural", "phone-clear"})
@@ -50,8 +51,8 @@ RAW_PHONE_STYLES = frozenset({"phone-natural", "phone-clear"})
 DEFAULT_STYLE_NAME = "phone-clear"
 DEFAULT_STYLE = STYLE_PRESETS[DEFAULT_STYLE_NAME]
 
-# Retained evaluation entry point for reproducing the accepted R4 recipe.
-# The public Clear preset and this recipe must remain equivalent.
+# Historical R4 evaluation entry. Keep it fixed at V7 so old experiments do
+# not silently render the newer public default.
 PHONE_CLEAR_CANDIDATE = StyleSettings("phone-clear", .38, .42, .22, .23, "display-p3", 7)
 
 
@@ -78,5 +79,5 @@ def resolve_style(
         algorithm_version=preset.algorithm_version,
     )
 
-# Explicit experimental entry; never selected by public/default presets.
-PHONE_CLEAR_V8_EXPERIMENT = StyleSettings("phone-clear", .38, .42, .22, .23, "display-p3", 8)
+# Compatibility entry for the frozen R5 experiment, now the accepted default.
+PHONE_CLEAR_V8_EXPERIMENT = PHONE_CLEAR_V8

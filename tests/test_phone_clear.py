@@ -35,9 +35,10 @@ def test_daylight_shoulder_preserves_texture_without_changing_night_curve():
         assert np.all(np.diff(mapped) >= 0) and np.all((mapped>=0)&(mapped<=1))
 
 
-def test_accepted_clear_matches_reviewed_recipe_and_natural_stays_isolated():
-    assert STYLE_PRESETS['phone-clear'] == PHONE_CLEAR_CANDIDATE
-    assert STYLE_PRESETS['phone-clear'].algorithm_version == 7
+def test_historical_v7_recipe_and_natural_stay_isolated_from_new_default():
+    assert PHONE_CLEAR_CANDIDATE.algorithm_version == 7
+    assert PHONE_CLEAR_CANDIDATE.clear_v7
+    assert STYLE_PRESETS['phone-clear'].algorithm_version == 8
     assert STYLE_PRESETS['phone-natural'].algorithm_version == 8
     assert not STYLE_PRESETS['phone-natural'].clear_v7
     assert PHONE_CLEAR_CANDIDATE.pale_boundaries

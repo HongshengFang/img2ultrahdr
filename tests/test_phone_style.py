@@ -74,7 +74,7 @@ def test_style_defaults_and_overrides():
     assert clear.local_contrast == 0.22
     assert clear.vibrance == 0.23
     assert clear.sdr_gamut == "display-p3"
-    assert clear.algorithm_version == 7
+    assert clear.algorithm_version == 8
     assert DEFAULT_STYLE_NAME == "phone-clear"
     assert DEFAULT_STYLE == clear
     assert RenderOptions(output=Path("out")).style == DEFAULT_STYLE_NAME

@@ -1,0 +1,309 @@
+{
+  "utc": "2026-09-30T17:10:38.206509+00:00",
+  "candidate": "Phone Clear V8 R5 / allocation0.55 material0.15 gainmapQ98",
+  "candidate_source_commit": "e77f45c236cd57fd7f40fc8a290b738c63e43d83",
+  "user_authorization": "那先帮我把这一版同步到GitHub上,然后替换掉默认的 Phone Clear。",
+  "viewing_feedback_scope": "User confirmed overall HDR brightness/pop and absence of visible black edges or edge-color loss; no per-image checklist is inferred. Existing capture purple fringing is outside this release scope.",
+  "public_default": {
+    "style": "phone-clear",
+    "algorithm_version": 8,
+    "peak_nits": 1000
+  },
+  "promoted_default": true,
+  "checks": {
+    "public_default_matches_frozen_R5_on_19_float_inputs": true,
+    "public_default_full_RAW_matches_reviewed_R5": true,
+    "Natural_full_RAW_unchanged": true,
+    "184_tests_passed": true,
+    "no_new_image_processing_parameters": true,
+    "original_1361_input_and_result_files_unchanged": true
+  },
+  "passed": true,
+  "same_float_input": {
+    "scope": "Compare the promoted default with the frozen R5 renderer on identical scenes.\n\nThe supplied checkpoint must include the retained RAW-derived float previews.\nThis checks dispatch equivalence, not physical HDR display acceptance. Complete\nRAW-to-final-decode checks are recorded separately during promotion.\n",
+    "count": 19,
+    "phone_count": 12,
+    "camera_count": 7,
+    "style": {
+      "name": "phone-clear",
+      "midtone_lift_ev": 0.38,
+      "highlight_rolloff": 0.42,
+      "local_contrast": 0.22,
+      "vibrance": 0.23,
+      "sdr_gamut": "display-p3",
+      "algorithm_version": 8
+    },
+    "recipe": {
+      "meter_outdoor_evidence": true,
+      "hdr_separation_ev": 0.55,
+      "sdr_separation_ev": 0.0,
+      "subject_relation": 0.0,
+      "material_strength": 0.15
+    },
+    "rows": [
+      {
+        "family": "phone",
+        "scene": "01_PXL_20241128_233519825",
+        "scene_sha256": "819e371c13f8bb52321445a08db1a17f9b1625ac78c683d2fa39aad4f8134a4c",
+        "sdr_jpeg_identical": true,
+        "hdr_pixels_identical": true,
+        "render_parameters_identical": true,
+        "gainmap_quality": 98
+      },
+      {
+        "family": "phone",
+        "scene": "02_PXL_20241128_234941183",
+        "scene_sha256": "bac16aecf923fe6f313f00ada7760ab67b23d932c970dd579e0af84a2ac9aed4",
+        "sdr_jpeg_identical": true,
+        "hdr_pixels_identical": true,
+        "render_parameters_identical": true,
+        "gainmap_quality": 98
+      },
+      {
+        "family": "phone",
+        "scene": "03_PXL_20241128_235346079",
+        "scene_sha256": "8b810fa2b85c52df5a403684781dff864a938c703c81ac30e427a5f991ab3fc7",
+        "sdr_jpeg_identical": true,
+        "hdr_pixels_identical": true,
+        "render_parameters_identical": true,
+        "gainmap_quality": 98
+      },
+      {
+        "family": "phone",
+        "scene": "04_PXL_20241129_001720208",
+        "scene_sha256": "6a5f95f71703801426744f70978983676eb20bc496ad656416dbe24ed2f571ee",
+        "sdr_jpeg_identical": true,
+        "hdr_pixels_identical": true,
+        "render_parameters_identical": true,
+        "gainmap_quality": 98
+      },
+      {
+        "family": "phone",
+        "scene": "05_PXL_20241129_002105753",
+        "scene_sha256": "0c0ea8099a9514e1b62c26e0395e030ea34dc5acf1c5aa2f28f2a4a8926c8a26",
+        "sdr_jpeg_identical": true,
+        "hdr_pixels_identical": true,
+        "render_parameters_identical": true,
+        "gainmap_quality": 98
+      },
+      {
+        "family": "phone",
+        "scene": "06_PXL_20241129_005548780",
+        "scene_sha256": "289df0bfe7d2abfd910333ab002bd314ad0147281220a8c4b916c7a04d0b9b8c",
+        "sdr_jpeg_identical": true,
+        "hdr_pixels_identical": true,
+        "render_parameters_identical": true,
+        "gainmap_quality": 98
+      },
+      {
+        "family": "phone",
+        "scene": "07_PXL_20241129_005955117",
+        "scene_sha256": "ffc093c06d2a496fd36a0eb5fa2e50a6f913a452ab622e9a5d183679f4576b3c",
+        "sdr_jpeg_identical": true,
+        "hdr_pixels_identical": true,
+        "render_parameters_identical": true,
+        "gainmap_quality": 98
+      },
+      {
+        "family": "phone",
+        "scene": "08_PXL_20241129_180551347",
+        "scene_sha256": "b37f996edac880468b60a34cc6647a0295b5c6e8f213fbe3afe1c50a4d79a717",
+        "sdr_jpeg_identical": true,
+        "hdr_pixels_identical": true,
+        "render_parameters_identical": true,
+        "gainmap_quality": 98
+      },
+      {
+        "family": "phone",
+        "scene": "09_PXL_20241129_232250015",
+        "scene_sha256": "3d2643603bbf715b75deedf8c61ae753393282e2c363f0979e5565912244bc80",
+        "sdr_jpeg_identical": true,
+        "hdr_pixels_identical": true,
+        "render_parameters_identical": true,
+        "gainmap_quality": 98
+      },
+      {
+        "family": "phone",
+        "scene": "10_PXL_20241130_190219288",
+        "scene_sha256": "01a02aecb794532889b14249671c6e3f05ed1ada9e0e3bcd1405243582c11f17",
+        "sdr_jpeg_identical": true,
+        "hdr_pixels_identical": true,
+        "render_parameters_identical": true,
+        "gainmap_quality": 98
+      },
+      {
+        "family": "phone",
+        "scene": "11_PXL_20241130_234033611",
+        "scene_sha256": "e668f022483d7755ed11aa3776998f06a01ce5153e02876dd7227850eab2f480",
+        "sdr_jpeg_identical": true,
+        "hdr_pixels_identical": true,
+        "render_parameters_identical": true,
+        "gainmap_quality": 98
+      },
+      {
+        "family": "phone",
+        "scene": "12_PXL_20241201_175649967",
+        "scene_sha256": "d35e30b8390c324e503af06e781c0608ff54070ed7e1b8070c570b7efdec0689",
+        "sdr_jpeg_identical": true,
+        "hdr_pixels_identical": true,
+        "render_parameters_identical": true,
+        "gainmap_quality": 98
+      },
+      {
+        "family": "camera",
+        "scene": "0N6A9034",
+        "scene_sha256": "407d992e885a2e680d04c71163d6f2275d78887f14009b4ac7431b905483a80a",
+        "sdr_jpeg_identical": true,
+        "hdr_pixels_identical": true,
+        "render_parameters_identical": true,
+        "gainmap_quality": 98
+      },
+      {
+        "family": "camera",
+        "scene": "0N6A9169",
+        "scene_sha256": "2b1b361f855456b8212c4ebe5f8d6a9caf4434f6cb7bcc023b84c23bf0a022f0",
+        "sdr_jpeg_identical": true,
+        "hdr_pixels_identical": true,
+        "render_parameters_identical": true,
+        "gainmap_quality": 98
+      },
+      {
+        "family": "camera",
+        "scene": "0N6A9406",
+        "scene_sha256": "a760893296b8d4e97081635004201b5fdf5e4258bcb19aa1112daffe3cac7bcf",
+        "sdr_jpeg_identical": true,
+        "hdr_pixels_identical": true,
+        "render_parameters_identical": true,
+        "gainmap_quality": 98
+      },
+      {
+        "family": "camera",
+        "scene": "0N6A9416",
+        "scene_sha256": "a7d3bb59be7bf8c52f0f3deafb1468087ff15422ac5c3f06256abcfe1cf4b940",
+        "sdr_jpeg_identical": true,
+        "hdr_pixels_identical": true,
+        "render_parameters_identical": true,
+        "gainmap_quality": 98
+      },
+      {
+        "family": "camera",
+        "scene": "0N6A9453",
+        "scene_sha256": "d39c8df5361c688cba585f6813fb4ac0c86aae8efee76d1fc3ff9c7c0b26e4a0",
+        "sdr_jpeg_identical": true,
+        "hdr_pixels_identical": true,
+        "render_parameters_identical": true,
+        "gainmap_quality": 98
+      },
+      {
+        "family": "camera",
+        "scene": "0N6A9479",
+        "scene_sha256": "9fd9c71fb16ee9a1e15accc36a1d5aae1071f7f619e611213ab4aad5e287d6e8",
+        "sdr_jpeg_identical": true,
+        "hdr_pixels_identical": true,
+        "render_parameters_identical": true,
+        "gainmap_quality": 98
+      },
+      {
+        "family": "camera",
+        "scene": "DSCF8111",
+        "scene_sha256": "686cde3c94d26b9be180b88715e1237b5dfc4ee5fbe995826229d42d93500f46",
+        "sdr_jpeg_identical": true,
+        "hdr_pixels_identical": true,
+        "render_parameters_identical": true,
+        "gainmap_quality": 98
+      }
+    ],
+    "passed": true
+  },
+  "full_RAW": {
+    "default": {
+      "source": "0N6A9406.CR2",
+      "source_sha256": "0bcd4dec83c1a91d4f62997ef17f63d71764daebfd37c94313e4d55102969a71",
+      "comparison_target": "outputs/phone-clear-v8-20260930/candidate-cameras/0N6A9406",
+      "complete_RAW_pipeline_and_final_decode": {
+        "jpeg_sha256_equal": true,
+        "sdr_pixels_equal": true,
+        "decoded_hdr_sha256_equal": true
+      },
+      "render_parameters_identical": true,
+      "render_style": {
+        "name": "phone-clear",
+        "midtone_lift_ev": 0.38,
+        "highlight_rolloff": 0.42,
+        "local_contrast": 0.22,
+        "vibrance": 0.23,
+        "sdr_gamut": "display-p3",
+        "algorithm_version": 8
+      },
+      "peak_nits": 1000.0,
+      "gainmap_quality": 98,
+      "ultrahdr_sha256": "2b210d9357275f0c2ba9ee90492190332a5e91bb312f23d285e7d47bc58eed6d",
+      "decoded_hdr_sha256": "ad0e3048c4027be18dae964dadb055ea2faed35f8801600b7d26bd7e1987c698",
+      "OMP_NUM_THREADS": 2,
+      "validation_passed": true,
+      "source_record_sha256": "74049dcf1ca272b00e7c3598386f9eac98fb333e4e5c4a7696df8bd6a754a90a",
+      "passed": true
+    },
+    "natural": {
+      "source": "0N6A9406.CR2",
+      "source_sha256": "0bcd4dec83c1a91d4f62997ef17f63d71764daebfd37c94313e4d55102969a71",
+      "comparison_target": "outputs/phone-clear-v8-20260930/natural-raw-same-input/baseline/0N6A9406",
+      "complete_RAW_pipeline_and_final_decode": {
+        "jpeg_sha256_equal": true,
+        "sdr_pixels_equal": true,
+        "decoded_hdr_sha256_equal": true
+      },
+      "render_parameters_identical": true,
+      "render_style": {
+        "name": "phone-natural",
+        "midtone_lift_ev": 0.38,
+        "highlight_rolloff": 0.42,
+        "local_contrast": 0.0,
+        "vibrance": 0.23,
+        "sdr_gamut": "display-p3",
+        "algorithm_version": 8
+      },
+      "peak_nits": 1000.0,
+      "gainmap_quality": 95,
+      "ultrahdr_sha256": "6c306b8a0bf341af99443f61027dbeaaa03a6b32b1b40af48c913b9b614c39a8",
+      "decoded_hdr_sha256": "bdaf44def0b433f8425590f7853ca143d406b57fd5036d3b256c4000064f8f77",
+      "OMP_NUM_THREADS": 1,
+      "validation_passed": true,
+      "source_record_sha256": "a800767cff968b416c52eedefaf5512376891858c0a2e742b3c551fc66738d2e",
+      "passed": true
+    }
+  },
+  "source_transition": {
+    "changed_production_files": [
+      "src/hdrimg/phone_clear_v8.py",
+      "src/hdrimg/style.py"
+    ],
+    "phone_clear_v8_change": "Module docstring and EOF whitespace only; identical executable AST",
+    "all_other_production_source_matches_frozen_candidate": true,
+    "tests": {
+      "tests": 184,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    "passed": true
+  },
+  "preservation": {
+    "utc": "2026-09-30T17:06:50.386454+00:00",
+    "scope": "Original input, accepted result/result_natural and historical baseline files after default promotion; production sources intentionally change and are checked separately.",
+    "count": 1361,
+    "failed": [],
+    "passed": true
+  },
+  "candidate_validation_record": "phone-clear-v8-r5-validation.json",
+  "candidate_validation_record_sha256": "15064cc69c675e1d86cb1b0ea617fcfef3ee11243ed5492ef7ecf322204c70c5",
+  "original_night_evidence": "outputs/phone-clear-v8-20260930",
+  "promotion_evidence": "outputs/phone-clear-v8-promotion-20260930",
+  "source_note": "The default preset now selects exactly the reviewed V8 style. The V8 module change is documentation/whitespace only (identical executable AST); all other production modules retain their frozen bytes. Full-RAW jobs started before that documentation edit; their source hashes remain recorded without rewriting them.",
+  "historical_V7": "PHONE_CLEAR_CANDIDATE remains fixed at version 7 for historical experiment reproducibility; PHONE_CLEAR_V8_EXPERIMENT aliases the accepted V8 preset.",
+  "defaults_and_original_files": "Natural V8, result/, result_natural/ and frozen comparison photos remain unchanged. New renders with no --style option use Clear V8 R5.",
+  "commands": {
+    "tests": "PYTHONPATH=src OMP_NUM_THREADS=2 .venv/bin/python -m pytest -q",
+    "same_input": "PYTHONPATH=src OMP_NUM_THREADS=2 .venv/bin/python scripts/compare_clear_v8_default.py outputs/phone-clear-v8-20260930 <new-output-directory>"
+  }
+}

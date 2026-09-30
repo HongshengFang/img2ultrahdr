@@ -1,14 +1,16 @@
 from dataclasses import replace
 import numpy as np
 import pytest
-from hdrimg.style import STYLE_PRESETS,PHONE_CLEAR_CANDIDATE,PHONE_CLEAR_V8_EXPERIMENT
+from hdrimg.style import DEFAULT_STYLE,STYLE_PRESETS,PHONE_CLEAR_CANDIDATE,PHONE_CLEAR_V8,PHONE_CLEAR_V8_EXPERIMENT
 from hdrimg.phone_clear_v8 import redistribution_curve,scene_decision,outdoor_evidence
 from hdrimg.phone_clear import scene_decision as baseline_scene_decision
 
 
-def test_candidate_opt_in_and_frozen_defaults():
-    assert STYLE_PRESETS['phone-clear']==PHONE_CLEAR_CANDIDATE
+def test_accepted_default_matches_frozen_r5_and_preserves_historical_v7():
+    assert DEFAULT_STYLE==STYLE_PRESETS['phone-clear']==PHONE_CLEAR_V8==PHONE_CLEAR_V8_EXPERIMENT
+    assert DEFAULT_STYLE.algorithm_version==8
     assert PHONE_CLEAR_CANDIDATE.algorithm_version==7
+    assert PHONE_CLEAR_CANDIDATE != DEFAULT_STYLE
     assert not STYLE_PRESETS['phone-natural'].clear_float
     assert not PHONE_CLEAR_CANDIDATE.clear_v8
     assert PHONE_CLEAR_V8_EXPERIMENT.clear_v8
