@@ -20,7 +20,9 @@ float3 unlab(float3 c) {
 float oetf(float x) { return x<=.0031308 ? max(x,0.f)*12.92 : 1.055*pow(x,1.f/2.4)-.055; }
 float adjusted(float y, constant float *p) {
     y=max(y*exp2(p[0]),0.f); y*=exp2(p[1]*pow(max(1-y/.18,0.f),2.f));
-    return y*exp2(p[2]*ss((y-.18)/.82));
+    y*=exp2(p[2]*ss((y-.18)/.82));
+    y*=exp2(p[35]*pow(max(1-y/.045,0.f),2.f));
+    return y*exp2(p[34]*pow(y/(y+.9),2.f));
 }
 float midtone(float y,constant float *p) {
     float lo=log2(max(p[5],1e-6f)), mid=log2(max(p[6],max(p[5]*1.01f,1e-6f))), hi=log2(max(p[7],max(p[6]*1.01f,1e-6f)));

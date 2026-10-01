@@ -39,6 +39,8 @@ struct EditorCommands:Commands {
     @ObservedObject var model:EditorModel
     @ObservedObject var preferences=AppPreferences.shared
     var body:some Commands {
+            CommandGroup(replacing:.textEditing) {}
+            CommandGroup(replacing:.textFormatting) {}
             CommandGroup(replacing:.appSettings) { SettingsLink { Text(L("设置")+"…") }.keyboardShortcut(",") }
             CommandGroup(after:.toolbar) { Button(L("输出边界提示"), action:preferences.toggleClipping).keyboardShortcut("j",modifiers:[]) }
             CommandGroup(replacing:.newItem) { Button(L("打开 RAW…"), action:model.openPanel).keyboardShortcut("o") }
@@ -165,12 +167,14 @@ struct EditorView: View {
                 adjustment("曝光",key:\.exposure_ev,range:-3...3,unit:" EV")
                 adjustment("高光",key:\.highlight_ev,range:-2...2,unit:" EV")
                 adjustment("阴影",key:\.shadow_ev,range:-2...2,unit:" EV")
+                adjustment("白色色阶",key:\.white_ev,range:-2...2,multiplier:50)
+                adjustment("黑色色阶",key:\.black_ev,range:-2...2,multiplier:50)
                 Divider()
                 Picker(L("白平衡"),selection:$model.recipe.white_balance) { Text(L("自动")).tag("auto");Text(L("相机")).tag("camera");Text(L("自定义")).tag("custom") }
-                    .onChange(of:model.recipe.white_balance) { _,_ in model.commit() }
+                    .onChange(of:model.recipe.white_balance) { _,_ in model.scheduleWhiteBalance() }
                 if model.recipe.white_balance == "custom" {
                     VStack(alignment:.leading,spacing:5) {
-                        HStack { Text(L("色温"));Spacer();TextField("K",value:Binding(get:{model.recipe.temperature_k},set:{model.recipe.temperature_k=$0;model.scheduleEdit()}),format:.number.grouping(.never)).frame(width:70).multilineTextAlignment(.trailing);Text(L("K")) }
+                        HStack { Text(L("色温")).onTapGesture(count:2) { model.recipe.temperature_k=5600;model.commit() }.help(L("双击名称重置此项"));Spacer();TextField("K",value:Binding(get:{model.recipe.temperature_k},set:{model.recipe.temperature_k=$0;model.scheduleEdit()}),format:.number.grouping(.never)).frame(width:70).multilineTextAlignment(.trailing);Text(L("K")) }
                         Slider(value:Binding(get:{Double(model.recipe.temperature_k)},set:{model.recipe.temperature_k=Int($0);model.sliderChanged()}),in:2000...15000,step:50,onEditingChanged:{ $0 ? model.beginDrag() : model.endDrag() }).accessibilityLabel(L("色温"))
                     }.disabled(!model.customPreviewReady)
                     adjustment("色调 · 绿 ↔ 洋红",key:\.tint,range:-100...100,multiplier:-1,flipSlider:true).disabled(!model.customPreviewReady)
@@ -192,8 +196,8 @@ struct EditorView: View {
     func adjustment(_ title:String,key:WritableKeyPath<Recipe,Double>,range:ClosedRange<Double>,multiplier:Double=1,unit:String="",flipSlider:Bool=false) -> some View {
         VStack(alignment:.leading,spacing:5) {
             HStack {
-                Text(L(title));Spacer()
-                TextField(L(title),value:Binding(get:{model.recipe[keyPath:key]*multiplier},set:{model.recipe[keyPath:key]=$0/multiplier;model.scheduleEdit()}),format:.number.precision(.fractionLength(multiplier == 100 ? 0 : 2)))
+                Text(L(title)).onTapGesture(count:2) { model.resetAdjustment(key) }.help(L("双击名称重置此项"));Spacer()
+                TextField(L(title),value:Binding(get:{model.recipe[keyPath:key]*multiplier},set:{model.recipe[keyPath:key]=$0/multiplier;model.scheduleEdit()}),format:.number.precision(.fractionLength(abs(multiplier) >= 50 ? 0 : 2)))
                     .textFieldStyle(.plain).multilineTextAlignment(.trailing).frame(width:58)
                 Text(unit).foregroundStyle(.secondary)
             }.font(.callout)

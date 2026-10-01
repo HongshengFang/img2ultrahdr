@@ -208,8 +208,12 @@ class PreparedRaw:
 
 
 def prepare_raw_scene(source: Path, options: RenderOptions, *, style: StyleSettings,
-                      tools, work: Path, metering_reference: Path | None = None) -> PreparedRaw:
+                      tools, work: Path, metering_reference: Path | None = None,
+                      raw_developer=None) -> PreparedRaw:
     """Develop into caller-owned storage, without rendering or encoding."""
+    # The editor may reuse identical RAW developments across WB modes. The
+    # CLI continues to use its original, uncached developer.
+    developer = raw_developer or develop_raw
     scene = work / "scene.tif"
     denoise_strength = options.resolved_raw_denoise_strength()
     detail_strength = options.resolved_raw_detail_strength()
@@ -241,7 +245,7 @@ def prepare_raw_scene(source: Path, options: RenderOptions, *, style: StyleSetti
             meter_work = work / "fixed-camera-metering"
             meter_work.mkdir()
             meter_scene = meter_work / "scene.tif"
-            develop_raw(source, meter_scene, tools=tools, white_balance="camera",
+            developer(source, meter_scene, tools=tools, white_balance="camera",
                 temperature_k=None, tint=1.0, work_dir=meter_work)
             metering_preview = preview_raw(meter_scene)
             meter_scene.unlink()
@@ -252,7 +256,7 @@ def prepare_raw_scene(source: Path, options: RenderOptions, *, style: StyleSetti
                 os.replace(staged_meter, metering_reference)
         metering_decision = scene_decision(metering_preview,
             development_ev=RAW_DEVELOPMENT_EV, peak_nits=options.peak_nits)
-    develop_raw(
+    developer(
         source,
         scene,
         tools=tools,
@@ -293,7 +297,7 @@ def prepare_raw_scene(source: Path, options: RenderOptions, *, style: StyleSetti
         adaptive_work = work / "adaptive-development"
         adaptive_work.mkdir()
         scene = work / "scene-adaptive.tif"
-        develop_raw(
+        developer(
             source, scene, tools=tools, white_balance=white_balance,
             temperature_k=options.temperature_k, tint=options.tint,
             work_dir=adaptive_work, profile_overlay=development_overlay,
@@ -313,7 +317,7 @@ def prepare_raw_scene(source: Path, options: RenderOptions, *, style: StyleSetti
         reference_work = work / "color-reference-development"
         reference_work.mkdir()
         color_reference = work / "scene-color-reference.tif"
-        develop_raw(
+        developer(
             source, color_reference, tools=tools,
             white_balance=white_balance,
             temperature_k=options.temperature_k, tint=options.tint,
@@ -335,7 +339,7 @@ def prepare_raw_scene(source: Path, options: RenderOptions, *, style: StyleSetti
         camera_work = work / "camera-white-balance-reference"
         camera_work.mkdir()
         camera_reference = work / "scene-camera-reference.tif"
-        develop_raw(source, camera_reference, tools=tools,
+        developer(source, camera_reference, tools=tools,
             white_balance="camera", temperature_k=None, tint=1.0,
             work_dir=camera_work, profile_overlay=development_overlay)
         guarded_scene = work / "scene-raw-skin.tif"

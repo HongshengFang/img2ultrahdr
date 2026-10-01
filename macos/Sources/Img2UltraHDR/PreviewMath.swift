@@ -25,7 +25,7 @@ struct PreviewPacket: Decodable {
         guard let value, let data = try? JSONSerialization.data(withJSONObject:value),
               let packet = try? JSONDecoder().decode(Self.self,from:data), packet.version == 1,
               packet.width > 0, packet.height > 0, max(packet.width,packet.height) <= 1536,
-              packet.gpu_version == "scene-tone-1",packet.pixel_format == "rgba16FloatLE",
+              ["scene-tone-1", "scene-tone-2"].contains(packet.gpu_version),packet.pixel_format == "rgba16FloatLE",
               packet.row_bytes == packet.width*8,packet.scene_color_space == "linear-rec2020",
               packet.hdr_color_space == "linear-rec2020",packet.sdr_color_space == "linear-display-p3",
               packet.reference_white_nits == 203,packet.peak_nits == 1000,
@@ -45,10 +45,12 @@ struct AnyNumber: Decodable {
 
 enum PreviewMath {
     static func smooth(_ x: Double) -> Double { let t = min(1,max(0,x)); return t*t*(3-2*t) }
-    static func adjusted(_ y: Double, _ ev: Double, _ shadow: Double, _ highlight: Double) -> Double {
+    static func adjusted(_ y: Double, _ ev: Double, _ shadow: Double, _ highlight: Double, _ white: Double = 0, _ black: Double = 0) -> Double {
         var v = max(0,y*exp2(ev))
         v *= exp2(shadow*pow(max(1-v/0.18,0),2))
-        return v*exp2(highlight*smooth((v-0.18)/0.82))
+        v *= exp2(highlight*smooth((v-0.18)/0.82))
+        v *= exp2(black*pow(max(1-v/0.045,0),2))
+        return v*exp2(white*pow(v/(v+0.9),2))
     }
     static func percentile(_ sorted: [Double], _ p: Double) -> Double {
         guard !sorted.isEmpty else { return 0 }
@@ -94,7 +96,8 @@ enum PreviewMath {
         func put(_ i: Int, _ v: Double) { p[i] = Float(v.isFinite ? v : 0) }
         let ev = (packet.exposure["scene_adjustment_ev"] ?? 0)+recipe.exposure_ev-packet.anchor_recipe.exposure_ev
         put(0,ev);put(1,recipe.shadow_ev);put(2,recipe.highlight_ev)
-        let q = packet.luminance_quantiles.map { adjusted($0,ev,recipe.shadow_ev,recipe.highlight_ev) }.sorted()
+        put(34,recipe.white_ev); put(35,recipe.black_ev)
+        let q = packet.luminance_quantiles.map { adjusted($0,ev,recipe.shadow_ev,recipe.highlight_ev,recipe.white_ev,recipe.black_ev) }.sorted()
         let black = min(0.09,0.5*percentile(q,1)), power = n("contrast",1.1)
         let contrasted = q.map { contrast($0,black,power) }
         let lo = percentile(contrasted,10), mid = percentile(contrasted,50), hi = percentile(contrasted,95)

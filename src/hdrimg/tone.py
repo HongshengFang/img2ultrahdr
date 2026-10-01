@@ -91,7 +91,8 @@ def exposure_statistics(
 
 
 def apply_exposure_and_highlights(
-    rgb: np.ndarray, *, total_ev: float, highlight_ev: float, shadow_ev: float = 0.0
+    rgb: np.ndarray, *, total_ev: float, highlight_ev: float, shadow_ev: float = 0.0,
+    white_ev: float = 0.0, black_ev: float = 0.0,
 ) -> np.ndarray:
     exposed = np.nan_to_num(
         np.asarray(rgb, dtype=np.float32) * np.float32(2.0**total_ev),
@@ -104,13 +105,22 @@ def apply_exposure_and_highlights(
         y = luminance_rec2020(exposed)
         weight = np.maximum(1.0 - y / np.float32(0.18), 0.0) ** 2
         exposed *= np.exp2(np.float32(shadow_ev) * weight)[..., None]
-    if highlight_ev == 0.0:
-        return exposed
-    y = luminance_rec2020(exposed)
-    t = np.clip((y - 0.18) / (1.0 - 0.18), 0.0, 1.0)
-    weight = t * t * (3.0 - 2.0 * t)
-    scale = np.exp2(np.float32(highlight_ev) * weight)
-    return exposed * scale[..., None]
+    if highlight_ev:
+        y = luminance_rec2020(exposed)
+        t = np.clip((y - 0.18) / (1.0 - 0.18), 0.0, 1.0)
+        weight = t * t * (3.0 - 2.0 * t)
+        exposed *= np.exp2(np.float32(highlight_ev) * weight)[..., None]
+    # Endpoint controls act on scene-linear luminance, without clipping HDR at
+    # SDR white. Their curves are monotone throughout the supported ±2 EV.
+    if black_ev:
+        y = luminance_rec2020(exposed)
+        weight = np.maximum(1.0 - y / np.float32(0.045), 0.0) ** 2
+        exposed *= np.exp2(np.float32(black_ev) * weight)[..., None]
+    if white_ev:
+        y = luminance_rec2020(exposed)
+        weight = (y / (y + np.float32(0.9))) ** 2
+        exposed *= np.exp2(np.float32(white_ev) * weight)[..., None]
+    return exposed
 
 
 def sdr_curve(y: np.ndarray) -> np.ndarray:

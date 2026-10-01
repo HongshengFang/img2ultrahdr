@@ -1,6 +1,6 @@
 <!doctype html><html lang="zh"><meta charset="utf-8"><title>Img2UltraHDR 使用说明</title>
 <style>body{font:17px/1.7 -apple-system,sans-serif;max-width:780px;margin:50px auto;padding:0 24px;color:#25303b}h1{font-size:30px}code{background:#eee;padding:3px 6px;border-radius:4px}@media(prefers-color-scheme:dark){body{color:#eee;background:#202020}code{background:#333}a{color:#86b9ff}}</style>
-<h1>Img2UltraHDR</h1>
+<h1>Img2UltraHDR 0.3</h1>
 <p>拖入一张 CR2 或 RAF，等待默认效果生成。调整右侧滑块时显示实时预览；松开后完成精确更新。实时预览会复用最近的局部与颜色分析，最终导出始终使用完整精确处理。</p>
 <ul><li><b>HDR / SDR：</b>查看同次处理的两种效果。屏幕没有额外亮度余量时，HDR 画面会按当前显示条件适配。</li>
 <li><b>初始效果：</b>查看当前风格的默认处理。不是未经显影的原始 RAW。</li>
@@ -8,13 +8,13 @@
 <li><b>白平衡：</b>自动、相机和自定义可选。首次自定义从 5600 K 和居中色调开始；自动模式不显示推测的色温。</li>
 <li><b>导出：</b>保存 Ultra HDR JPEG；可另存 SDR，并可移除拍摄元数据。最终图像从高精度底稿生成。导出时允许取消。</li>
 <li><b>恢复：</b>重开原片会恢复调整，原片移动后可重新定位。相同内容可以恢复，内容不同的文件不会冒充原片。</li></ul>
-<h2>0.2 调整辅助</h2>
+<h2>调整辅助</h2>
 <ul><li><b>语言与外观：</b>工具栏齿轮或 ⌘, 打开设置，选择中文 / English，以及浅色 / 深色 / 跟随系统。</li>
 <li><b>直方图：</b>亮度或 RGB，可显示整张照片的预览、全尺寸或实际导出统计。HDR 白线区分 SDR 白，右侧按 EV 显示高光；橙线是屏幕当前范围。超过 SDR 白是正常 HDR 内容。</li>
 <li><b>边界提示：</b>直方图两端按钮或 J 键。蓝色是接近黑位，红色是接近输出上限，不表示 RAW 传感器过曝。SDR 阈值为编码值 ≤0.5（全部通道）和 ≥254.5（任一通道）；HDR 黑位亮度 ≤0.00001，相对通道上限的 99.9% 为高光提示。</li>
 <li><b>取色：</b>鼠标移入照片显示 RGB 和亮度。HDR RGB 为线性 Rec.2020 百分比，100% 对应参考白；SDR 为 Display P3 的 0–255。nit 是图像相对 203 nit 参考白的换算，不是测量到的屏幕亮度。</li>
 <li><b>白平衡：</b>切换模式先准备底稿；自定义色温、色调拖动时近似预览，松开后重新显影。大幅调整可能在精确更新时出现校正。</li></ul>
-<h2>首次启动与依赖</h2>
+<h2>0.3 新增与改进</h2><p>基础影调控件为曝光、高光、阴影、白色色阶、黑色色阶。后两项范围 −100～100，优先调整最亮区域和深暗部，默认为零。双击名称可重置单项，并可撤销。Edit 菜单只保留撤销、重做、剪切、拷贝、粘贴。</p><p>连续白平衡选择合并为最后一次请求；已完成的预览和相同显影结果可复用。首次切换到新模式仍需等待精确显影，等待期间保留上一张有效画面。</p><h2>首次启动与依赖</h2>
 <p>这是为当前 Mac 构建的本机版。请允许 macOS 的“访问文稿文件夹”请求，应用需要读取现有项目、Python 环境与照片。如果曾拒绝，可到“系统设置 → 隐私与安全性 → 文件与文件夹”启用 Img2UltraHDR 的文稿访问。</p>
 <p>应用依赖构建时记录的 Python 环境、RawTherapee、libultrahdr 和 ExifTool。移动项目、删除 Python 环境或卸载工具后，需要恢复它们并重新构建应用；不要求购买 Apple 开发者会员。开发说明见项目中的 <code>docs/macos-app.md</code>。</p>
 <p><a href="x-apple.systempreferences:com.apple.preference.security?Privacy_FilesAndFolders">打开系统隐私设置</a> · <a href="https://rawtherapee.com/downloads/">RawTherapee 下载</a></p>

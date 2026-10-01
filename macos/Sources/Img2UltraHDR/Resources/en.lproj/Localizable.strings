@@ -129,3 +129,9 @@
 "版本" = "Version";
 "构建" = "Build";
 "开发版本" = "Development build";
+"白色色阶" = "Whites";
+"黑色色阶" = "Blacks";
+"双击名称重置此项" = "Double-click the label to reset this adjustment";
+"正在准备白平衡…" = "Preparing white balance…";
+"正在复用白平衡显影缓存" = "Reusing white balance development cache";
+"旧任务暂未结束，后台仍在运行。请稍后点击重试。" = "The previous task is still stopping. The engine is running; retry shortly.";

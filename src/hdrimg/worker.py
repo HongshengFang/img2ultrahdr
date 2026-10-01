@@ -36,12 +36,29 @@ def signal_task_group(pid, sig):
         # Darwin can retain a group containing only zombies briefly after the
         # leader has been reaped. Such a group has nobody left to signal.
         # Ignore only that case; never hide a refusal to stop a live process.
-        listing = subprocess.check_output(['ps', '-axo', 'pgid=,stat='], text=True)
-        live = [line for line in listing.splitlines()
-                if len(parts := line.split()) == 2 and int(parts[0]) == pid and not parts[1].startswith('Z')]
-        if live:
-            raise
-        print(f'Task group {pid} already has no live processes', file=sys.stderr)
+        members = task_group_members(pid)
+        # Darwin can reject a group signal during process teardown even when
+        # its remaining members can be signalled individually. Restrict the
+        # fallback to this exact group and our own uid; never sweep by name.
+        for member, uid, state in members:
+            if uid != os.getuid():
+                raise PermissionError(f'Cannot stop task group {pid}: member {member} belongs to another user')
+            try:
+                if os.getpgid(member) != pid:
+                    continue
+                os.kill(member, sig)
+            except ProcessLookupError:
+                pass
+            except PermissionError:
+                if any(p == member for p, _, _ in task_group_members(pid)):
+                    raise
+        print(f'Task group {pid}: individual signal fallback ({len(members)} live members)', file=sys.stderr)
+
+
+def task_group_members(group):
+    listing = subprocess.check_output(['ps', '-axo', 'pid=,pgid=,uid=,stat='], text=True)
+    return [(int(parts[0]), int(parts[2]), parts[3]) for line in listing.splitlines()
+            if len(parts := line.split()) == 4 and int(parts[1]) == group and not parts[3].startswith('Z')]
 
 
 def watch_controller():
@@ -156,21 +173,26 @@ class Controller:
         if self.task and not self.task.done() and self.process is None:
             await self.started.wait()
         pid = self.process.pid if self.process else None
-        if self.process and self.process.returncode is None:
-            pid = self.process.pid
-            signal_task_group(pid, signal.SIGTERM)
-            try:
-                await asyncio.wait_for(self.process.wait(), 2)
-            except asyncio.TimeoutError:
-                pass
-            # The leader can exit before RawTherapee. Always sweep its group.
+        if self.process:
+            if self.process.returncode is None:
+                signal_task_group(pid, signal.SIGTERM)
+                try:
+                    await asyncio.wait_for(self.process.wait(), 2)
+                except asyncio.TimeoutError:
+                    pass
+            # A dead leader can still have live RawTherapee descendants.
             signal_task_group(pid, signal.SIGKILL)
+            deadline = time.monotonic() + 1
+            while task_group_members(pid):
+                if time.monotonic() >= deadline:
+                    raise RuntimeError('Previous task is still stopping; retry shortly')
+                await asyncio.sleep(.05)
         if self.task:
-            await self.task
+            await asyncio.wait_for(asyncio.shield(self.task), 1)
         if pid:
             import shutil
             root = Path(self.request['cache']) if self.request and self.request.get('cache') else Path.home() / 'Library/Caches/Img2UltraHDR'
-            for family, prefix in [('scenes', '.prepare-'), ('renders', '.render-')]:
+            for family, prefix in [('scenes', '.prepare-'), ('renders', '.render-'), ('developments', '.develop-')]:
                 for path in (root / family).glob(f'{prefix}{pid}-*'):
                     shutil.rmtree(path, ignore_errors=True)
             if self.request and self.request.get('destination'):
@@ -212,7 +234,12 @@ class Controller:
             emit({**identity, 'event': 'error', 'message': str(exc), 'error_code': error_code(exc)})
         finally:
             if self.process is not None:
-                signal_task_group(self.process.pid, signal.SIGKILL)
+                try:
+                    signal_task_group(self.process.pid, signal.SIGKILL)
+                except OSError:
+                    # stop() verifies the group before starting another job.
+                    # A cleanup failure must not terminate the controller.
+                    traceback.print_exc(file=sys.stderr)
             shutil.rmtree(scratch, ignore_errors=True)
             self.started.set()
 
@@ -239,10 +266,16 @@ class Controller:
                         await asyncio.sleep(0)
                     else:
                         emit({'event': 'error', 'id': request.get('id'), 'message': 'Unsupported command'})
-                except (ValueError, TypeError, AttributeError) as exc:
-                    emit({'event': 'error', 'message': str(exc)})
+                except Exception as exc:
+                    traceback.print_exc(file=sys.stderr)
+                    identity = {k: request.get(k) for k in ('id', 'session_id', 'revision')} if isinstance(request, dict) else {}
+                    emit({**identity, 'event': 'error', 'message': str(exc),
+                          'error_code': 'cancel_failed' if isinstance(exc, (OSError, RuntimeError, asyncio.TimeoutError)) else error_code(exc)})
         finally:
-            await self.stop()
+            try:
+                await self.stop()
+            except Exception:
+                traceback.print_exc(file=sys.stderr)
 
 
 def main():

@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "img2ultrahdr"
-version = "0.2.0"
+version = "0.3.0"
 description = "Convert camera RAW and standard images into natural SDR and Ultra HDR JPEGs"
 readme = "README.md"
 requires-python = ">=3.12"

@@ -53,12 +53,13 @@ extension EditorModel {
                             let window=NSApp.windows.first(where:{$0.contentView != nil && $0.title==AppVersion.windowTitle})
                             let report:[String:Any]=["frames":frames.count,"duration":duration,"retained_sample_window_seconds":(frames.last?.1 ?? 0)-(frames.first?.1 ?? 0),"presentation_buffer_limit":10000,"latency_p95_ms":percentile(latency),"frame_interval_p95_ms":percentile(gaps),"latencies_ms":latency,"frame_intervals_ms":gaps,"window_occluded":!(window?.occlusionState.contains(.visible) ?? false),"screen":window?.screen?.localizedName ?? "unknown","headroom":self.readouts.headroom,"supports_hdr":self.readouts.displaySupportsHDR,"rendered_frames":self.readouts.renderedFrames,"gpu_failure":self.readouts.failure ?? "","histogram_count":self.readouts.bins[768..<1024].reduce(UInt32(0),+),"pixel_count":(frame["width"] as? Int ?? 0)*(frame["height"] as? Int ?? 0),"method":"30 Hz native parameter updates with histogram and pixel probe; MTLDrawable.presentedTime; no hardware mouse timing"]
                             try? JSONSerialization.data(withJSONObject:report,options:.prettyPrinted).write(to:output.appendingPathComponent("presentation.json"))
+                            self.diagnostic(event:"preview-benchmark-complete"); self.captureWindow()
                             self.source=nil // Diagnostic fixtures never become the user's last photo.
                             NSApp.terminate(nil)
                         }
                         return
                     }
-                    let wave=sin(elapsed*3),group=Int(elapsed/3)%10
+                    let wave=sin(elapsed*3),group=Int(elapsed/3)%12
                     var current=anchor
                     switch group {
                     case 0:current.exposure_ev=wave*0.5
@@ -70,7 +71,9 @@ extension EditorModel {
                     case 6:current.exposure_ev=wave*0.3;current.shadow_ev=wave*0.3
                     case 7:current.exposure_ev=wave*0.5;self.hdr=Int(elapsed*2)%2==0
                     case 8:current.temperature_k+=Int(wave*1000)
-                    default:current.tint=wave*10
+                    case 9:current.tint=wave*10
+                    case 10:current.white_ev=wave*0.5
+                    default:current.black_ev=wave*0.5
                     }
                     self.recipe=current;self.status="实时预览"
                     func canvas(_ view:NSView)->PreviewMetalView? {
