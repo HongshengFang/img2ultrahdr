@@ -89,7 +89,12 @@ class Codec:
         # BT709, sRGB, full range (enum values verified against the header).
         return buf, Compressed(C.cast(buf, C.c_void_p), len(data), len(data), 0, 3, 1)
 
-    def encode(self, base_bytes, gain_bytes, max_ev):
+    def encode(self, base_bytes, gain_bytes, max_ev, *, hdr_capacity_max=None):
+        if not np.isfinite(max_ev) or max_ev <= 0:
+            raise ValueError('max_ev must be finite and positive')
+        capacity = 2 ** max_ev if hdr_capacity_max is None else hdr_capacity_max
+        if not np.isfinite(capacity) or capacity <= 1:
+            raise ValueError('hdr_capacity_max must be finite and greater than 1')
         base_buf, base = self.compressed(base_bytes)
         if self.lib.is_uhdr_image(base.data, base.size):
             raise ValueError('Input already contains an Ultra HDR gain map')
@@ -100,7 +105,7 @@ class Codec:
         meta.gamma[:] = [1] * 3
         meta.offset_sdr[:] = [0] * 3
         meta.offset_hdr[:] = [0] * 3
-        meta.hdr_capacity_min, meta.hdr_capacity_max, meta.use_base_cg = 1, 2 ** max_ev, 1
+        meta.hdr_capacity_min, meta.hdr_capacity_max, meta.use_base_cg = 1, capacity, 1
         enc = self.lib.uhdr_create_encoder()
         if not enc:
             raise MemoryError('Cannot allocate encoder')
@@ -114,7 +119,7 @@ class Codec:
         finally:
             self.lib.uhdr_release_encoder(enc)
 
-    def verify(self, data, original, max_ev):
+    def verify(self, data, original, max_ev, *, hdr_capacity_max=None):
         buf, compressed = self.compressed(data)
         dec = self.lib.uhdr_create_decoder()
         if not dec:
@@ -123,7 +128,8 @@ class Codec:
             self.check(self.lib.uhdr_dec_set_image(dec, C.byref(compressed)))
             self.check(self.lib.uhdr_dec_set_out_img_format(dec, 4))
             self.check(self.lib.uhdr_dec_set_out_color_transfer(dec, 0))
-            self.check(self.lib.uhdr_dec_set_out_max_display_boost(dec, 2 ** max_ev))
+            capacity = 2 ** max_ev if hdr_capacity_max is None else hdr_capacity_max
+            self.check(self.lib.uhdr_dec_set_out_max_display_boost(dec, capacity))
             self.check(self.lib.uhdr_dec_probe(dec))
             base = self.lib.uhdr_dec_get_base_image(dec).contents
             base_bytes = C.string_at(base.data, base.size)
@@ -142,6 +148,9 @@ class Codec:
                 raise ValueError('No JPEG scan')
             entropy_equal = scan(original) == scan(base_bytes)
             meta = self.lib.uhdr_dec_get_gainmap_metadata(dec).contents
+            if (not np.isclose(meta.hdr_capacity_max, capacity, rtol=1e-5)
+                    or not np.allclose(list(meta.max_content_boost), 2 ** max_ev, rtol=1e-5)):
+                raise RuntimeError('Encoded gain range / HDR headroom differ from requested metadata')
             gain_block = self.lib.uhdr_dec_get_gainmap_image(dec).contents
             gain_image = Image.open(io.BytesIO(C.string_at(gain_block.data, gain_block.size)))
             decoded_ev = np.asarray(gain_image.convert('L'), dtype=np.float32) / 255 * np.log2(meta.max_content_boost[0])

@@ -16,6 +16,10 @@ def test_jpeg_command_has_separate_options_and_dispatch(monkeypatch, tmp_path):
     assert args.protect == Path('regions.json')
     assert args.ai_size == 768 and args.max_ev == 2
     assert args.fp32 is False
+    assert args.look == 'conservative' and args.peak_nits == 1000
+    phone = cli._parser().parse_args(['jpeg-hdr', 'photo.jpg', '--output', 'phone.jpg',
+                                     '--look', 'phone', '--peak-nits', '800'])
+    assert phone.look == 'phone' and phone.peak_nits == 800
 
 
 def test_raw_help_never_imports_optional_ai(monkeypatch):

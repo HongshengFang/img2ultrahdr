@@ -16,6 +16,10 @@ def add_parser(commands: argparse._SubParsersAction) -> None:
     parser.add_argument("--ai-size", type=int, default=768)
     parser.add_argument("--max-ev", type=float, default=2.5)
     parser.add_argument("--strength", type=float, default=1.0)
+    parser.add_argument("--look", choices=("conservative", "phone"), default="conservative",
+                        help="phone lifts midtones and pale materials in HDR only")
+    parser.add_argument("--peak-nits", type=float, default=1000.,
+                        help="phone look's authored peak, relative to 203-nit SDR white")
     parser.add_argument("--protect", type=Path, help="SAM2 point/box protection JSON")
     parser.add_argument("--fp32", action="store_true")
     parser.add_argument("--overwrite", action="store_true")

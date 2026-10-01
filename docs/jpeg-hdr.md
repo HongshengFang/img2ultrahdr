@@ -39,10 +39,24 @@ D:\img2ultrahdr\.venv-jpeg\Scripts\img2uhdr.exe jpeg-hdr photo.jpg --output resu
 | `--ai-size` | 768 | AI 最长边；支持 384–1536，显存紧张时用 512 |
 | `--max-ev` | 2.5 | 增益上限，实际增益不强制拉满 |
 | `--strength` | 1 | 增益强度 0–3；0 为无增益对照 |
+| `--look` | conservative | `phone` 在 HDR 中提升中间调和浅色材质；SDR base 不变 |
+| `--peak-nits` | 1000 | `phone` 的设计峰值，支持 (203,4000]；按 203 nit SDR 参考白计算 headroom |
 | `--protect` | 无 | SAM2 点/框保护区域 JSON |
 | `--fp32` | 关闭 | FP32 推理对照 |
 
 默认采用 FP16 autocast，倒数、拟合、分位数等运算保留 FP32。IntrinsicHDR 各阶段顺序加载、运行、释放，再运行 SAM2；全分辨率增益处理使用 CPU。解码验证成功后才写入 Ultra HDR 文件，旁边的 `*_diagnostics/` 包含 EV 数组、增益图、保护上限图、SDR/伪彩色增益对照与 JSON 运行记录。
+
+### 更明显的手机 HDR 观感
+
+```powershell
+.\.venv-jpeg\Scripts\img2uhdr.exe jpeg-hdr photo.jpg --output outputs/photo_phone_ultrahdr.jpg --look phone --peak-nits 1000 --protect regions.json
+```
+
+单纯提升 0.7 EV，不一定让较暗的白丝袜超过 SDR 白色的亮度。`phone` 借用现有 RAW Phone Clear/Natural 共用的 `phone_hdr_luminance` 平滑材质曲线：一般中间调约 1.9 倍，随亮度连续提高浅色表面的增益，深暗部仍保留深度。JPEG 已丢失 RAW 测光信息，所以不复用 RAW 场景判定、白平衡、SDR 重塑或 V8 的完整配方；此模式不是 RAW Phone Clear 的等价结果。
+
+在原图分辨率按亮度计算这条曲线，与 guided AI 增益及主体下限取最大值，避免叠加曝光。再应用区域上限与 RGB 峰值约束；单通道增益保留原 RGB 比例。没有保护区域时，花朵、亮墙等浅色物体也会得到提升，因此需要为想保留亮度的花束指定 SAM2 区域。主体较强下限可以用于丝袜，但脸部应单独设置较低上限。区域名称不触发自动语义识别。
+
+设计峰值是创作参数，不是对屏幕发光亮度的测量。`HDRCapacityMax=peak_nits/203` 与 `MaxContentBoost=2**max_ev` 分开记录：前者描述完整 HDR 所需的显示余量，后者描述增益图编码范围。两者不必相等。显示设备会按 Google 规范利用可用余量适配；不能把 `--peak-nits 1000` 理解为任何屏幕上都达到 1000 nit。JPEG 量化也会使最终值轻微偏离编码前的上限。
 
 ## 保护区域
 
@@ -107,3 +121,11 @@ libultrahdr 1.5.1 在所有分母相同时会写出使用保留位 `0x08` 的 IS
 后续浏览器检查定位到 1.5.1 的旧 ISO 元数据布局：Chrome 154 在 HDR 已启用的显示设备上渲染旧文件时，与 SDR 的截图像素完全相同。仅展开元数据并修正 MPF 长度（单通道增加 24 字节）后，Chrome 的原生 `<img>` 渲染出现人物提亮。参考库解码前后的 HDR 数值相同，SDR 压缩扫描和像素一致。检查使用独立 Chrome 窗口及默认浏览器功能；自动化工具默认强制 sRGB 的启动参数被移除，以允许读取真实显示设备能力。截图差异证明浏览器渲染行为改变，不用于测量屏幕实际发光亮度。修复后的针对性测试为 **15 passed**；主观效果仍待用户查看新文件确认。
 
 补齐 Google v1.1 XMP 后，针对性套件仍为 **15 passed**，每个编解码样例同时验证 ISO+XMP 和隐藏 ISO 命名空间后的独立 XMP 解码。人物样图的两条解码路径得到相同参考 HDR 数值；Chrome 154 原生 `<img>` 的两种显示截图也逐像素一致。保留原 SDR 像素、扫描数据、ICC 和 EXIF。字段检查与独立解码属于本项目的验证，不表示 Google 或 ISO 提供了认证。
+
+### 手机效果与用户参考图对照
+
+读取用户另外提供的 Ultra HDR 原文件，参考图的丝袜中位数约 2.72 倍、脸部 2.14 倍、花朵 5.18 倍；上一版保护方案分别约 1.60、1.25、1.01 倍。前一版丝袜的 HDR 亮度中位数只有 SDR 白色的约 0.50 倍，解释了视觉变化较弱。
+
+`phone` 模式与同图 SAM2 区域实测：人物 `min_ev=1.1/max_ev=2.1`，丝袜 `1.85/2.1`，脸部 `1.0/1.25`，花束与左侧补充花束区域 `max_ev=.03`；整体 `max-ev=2.5`、设计峰值 1000 nit。完整参考解码下，丝袜中位数约 3.50 倍、脸部 2.19 倍、主花束 1.02 倍；丝袜约 65% 的 mask 像素超过 SDR 白色。只在完整 HDR 余量条件下报告这些倍数，实际显示会随屏幕适配。样图为 1024×1536，AI 512×768 FP16，约 8 秒（不含进程启动），PyTorch 峰值 allocated 1237 MiB / reserved 1388 MiB。
+
+新增测试验证曲线单调、深暗部、RGB 峰值、区域保护优先、strength=0、编码增益范围与显示余量分离及 XMP/ISO 独立解码；针对性套件 **18 passed**。这次本地 Chrome 154 检查中浏览器报告 HDR 能力为 false，图片加载成功，但未将本次 SDR 截图当作 HDR 实屏验证。最新成片仍需用户在可显示手机 HDR 照片的设备上确认。照片、参考原文件和区域坐标继续仅保存在本地。

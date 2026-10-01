@@ -13,6 +13,7 @@ pytest.importorskip('cv2')
 from hdrimg.jpeg_hdr import pipeline
 from hdrimg.jpeg_hdr.codec import Codec
 from hdrimg.jpeg_hdr.metadata import normalize_iso_metadata, ISO_NAMESPACE
+from hdrimg.jpeg_hdr.appearance import phone_gain_ev, constrain_gain
 from hdrimg.errors import DependencyError
 
 
@@ -142,3 +143,72 @@ def test_subject_floor_brightens_midtones_and_protection_wins(codec, monkeypatch
     args.output = tmp_path / 'zero.jpg'
     pipeline.run(args)
     assert np.max(np.load(tmp_path / 'zero_diagnostics/gain_ev_full.npy')) == 0
+
+
+def test_phone_luminance_curve_is_monotone_and_keeps_shadow_depth():
+    y = np.linspace(0, 1, 10001, dtype=np.float32)
+    gain = phone_gain_ev(y, peak_nits=1000)
+    target = y * np.exp2(gain)
+    assert np.all(np.diff(target) >= -1e-6)
+    assert target[-1] == pytest.approx(1000 / 203)
+    assert gain[y < .015].max() < .01
+    assert np.exp2(gain[np.argmin(abs(y - .31))]) > 2.5
+    assert np.exp2(gain[np.argmin(abs(y - .19))]) > 2
+    # A saturated material must respect the brightest RGB channel as well as
+    # luminance; the overlapping flower cap must still win over subject lift.
+    rgb = np.array([[[.1, .2, .9], [.9, .9, .9]]], np.float32)
+    constrained = constrain_gain(np.full((1, 2), 3.), rgb,
+                                 np.array([[3., .03]]), max_ev=3., peak_ratio=4.)
+    assert (rgb * np.exp2(constrained)[..., None]).max() <= 4.00001
+    assert constrained[0, 1] == pytest.approx(.03)
+
+
+@pytest.mark.integration
+def test_gain_range_and_display_headroom_are_independent(codec):
+    base = jpeg(Image.fromarray(np.full((64, 96, 3), 120, np.uint8)))
+    gain = jpeg(Image.fromarray(np.full((64, 96), 170, np.uint8)))
+    encoded = codec.encode(base, gain, 3., hdr_capacity_max=4.)
+    report = codec.verify(encoded, base, 3., hdr_capacity_max=4.)
+    assert report['max_content_boost'] == [8.] * 3
+    assert report['hdr_capacity_max'] == pytest.approx(4.)
+    assert report['gainmap_xmp']['GainMapMax'] == pytest.approx(3.)
+    assert report['gainmap_xmp']['HDRCapacityMax'] == pytest.approx(2.)
+    assert report['hdr_rgb_abs_error_p99'] < .015
+    xmp_only = encoded.replace(ISO_NAMESPACE, b'x' * len(ISO_NAMESPACE))
+    xmp_report = codec.verify(xmp_only, base, 3., hdr_capacity_max=4.)
+    assert xmp_report['hdr_linear_rgb_max'] == report['hdr_linear_rgb_max']
+
+
+@pytest.mark.integration
+def test_phone_pipeline_lifts_midtones_but_protection_still_wins(codec, monkeypatch, tmp_path):
+    rgb = np.full((64, 96, 3), 150, np.uint8)
+    rgb[:, :32] = 245
+    source = tmp_path / 'source.jpg'
+    source.write_bytes(jpeg(Image.fromarray(rgb)))
+    monkeypatch.setattr(pipeline, 'predict_hdr', lambda linear, **kwargs: linear)
+    def fake_protection(image, prompts, *args):
+        cap = np.full(image.shape[:2], np.inf, np.float32)
+        cap[:, :32] = .03
+        return cap
+    monkeypatch.setattr(pipeline, 'sam_protect', fake_protection)
+    protection = tmp_path / 'protect.json'
+    protection.write_text(json.dumps({'regions': [{'points': [[10, 30]], 'max_ev': .03}]}))
+    args = Namespace(input=source, output=tmp_path/'phone.jpg', ai_size=768,
+                     max_ev=3, strength=1, protect=protection, fp32=False,
+                     overwrite=False, look='phone', peak_nits=1000.)
+    pipeline.run(args)
+    diagnostic = tmp_path / 'phone_diagnostics'
+    gain = np.load(diagnostic/'gain_ev_full.npy')
+    report = json.loads((diagnostic/'report.json').read_text())
+    assert gain[:, :32].max() <= .03
+    assert np.exp2(gain[:, 40:]).mean() > 2.5
+    assert report['verification']['sdr_pixels_identical']
+    assert report['verification']['hdr_capacity_max'] == pytest.approx(1000/203, rel=1e-5)
+    args.strength = 0
+    args.output = tmp_path/'disabled.jpg'
+    pipeline.run(args)
+    assert np.max(np.load(tmp_path/'disabled_diagnostics/gain_ev_full.npy')) == 0
+    args.peak_nits = float('nan')
+    args.output = tmp_path/'invalid.jpg'
+    with pytest.raises(ValueError, match='peak-nits'):
+        pipeline.run(args)

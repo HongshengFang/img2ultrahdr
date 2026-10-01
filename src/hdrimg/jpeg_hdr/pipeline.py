@@ -8,6 +8,7 @@ import torch
 from .ai import predict_hdr, sam_protect
 from .codec import Codec
 from .runtime import runtime_dir
+from .appearance import phone_gain_ev, constrain_gain, SDR_WHITE_NITS
 
 def srgb_linear(rgb):
     return np.where(rgb <= 0.04045, rgb / 12.92, ((rgb + 0.055) / 1.055) ** 2.4).astype(np.float32)
@@ -43,6 +44,13 @@ def run(args):
         raise ValueError('max-ev must be (0,5]; ai-size must be [384,1536]')
     if not np.isfinite(args.strength) or not 0 <= args.strength <= 3:
         raise ValueError('strength must be finite and within [0,3]')
+    look = getattr(args, 'look', 'conservative')
+    peak_nits = getattr(args, 'peak_nits', 1000.)
+    if look not in ('conservative', 'phone'):
+        raise ValueError('look must be conservative or phone')
+    if not np.isfinite(peak_nits) or not SDR_WHITE_NITS < peak_nits <= 4000:
+        raise ValueError('peak-nits must be finite and within (203,4000]')
+    peak_ratio = peak_nits / SDR_WHITE_NITS if look == 'phone' else None
     base_bytes = source.read_bytes()
     codec = Codec()
     buffer, descriptor = codec.compressed(base_bytes)
@@ -118,17 +126,22 @@ def run(args):
     full_floor = np.maximum(fast_guided(low_guide.astype(np.float32), floor, high_guide.astype(np.float32)), 0)
     full_floor *= np.clip(high_y / .08, 0, 1) * args.strength
     full_gain = np.maximum(full_gain, full_floor)
+    if look == 'phone':
+        # A finished JPEG needs a broad HDR midtone preference as well as AI
+        # highlight inference. Taking the maximum avoids stacking two boosts.
+        full_gain = np.maximum(full_gain, phone_gain_ev(high_y, peak_nits=peak_nits) * args.strength)
     # Reapply the cap after filtering, so boundary filtering cannot undo guards.
     full_cap = cv2.resize(cap, (w, h), interpolation=cv2.INTER_NEAREST)
-    full_gain = np.minimum(np.clip(full_gain, 0, args.max_ev), full_cap)
+    full_gain = constrain_gain(full_gain, linear, full_cap,
+                               max_ev=args.max_ev, peak_ratio=peak_ratio)
     full_gain[high_y < 0.005] = 0
     if not np.isfinite(full_gain).all():
         raise ValueError('Nonfinite gain field')
     out.parent.mkdir(parents=True, exist_ok=True)
     gain_bytes = io.BytesIO()
     Image.fromarray(np.rint(full_gain / args.max_ev * 255).astype(np.uint8)).save(gain_bytes, format='JPEG', quality=98)
-    encoded = codec.encode(base_bytes, gain_bytes.getvalue(), args.max_ev)
-    verification = codec.verify(encoded, base_bytes, args.max_ev)
+    encoded = codec.encode(base_bytes, gain_bytes.getvalue(), args.max_ev, hdr_capacity_max=peak_ratio)
+    verification = codec.verify(encoded, base_bytes, args.max_ev, hdr_capacity_max=peak_ratio)
     out.write_bytes(encoded)
     diagnostics = out.parent / (out.stem + '_diagnostics')
     diagnostics.mkdir(exist_ok=True)
@@ -157,7 +170,11 @@ def run(args):
                   peak_torch_allocated_mib=torch.cuda.max_memory_allocated()/2**20 if device=='cuda' else None,
                   peak_torch_reserved_mib=torch.cuda.max_memory_reserved()/2**20 if device=='cuda' else None,
                   exposure_anchor_ev=exposure_ev, gain_ev_percentiles=np.percentile(full_gain,[0,50,90,99,100]).tolist(),
-                  max_ev=args.max_ev, strength=args.strength, sam2_protection=bool(args.protect),
+                  max_ev=args.max_ev, strength=args.strength, look=look,
+                  authored_peak_nits=peak_nits if look == 'phone' else None,
+                  sdr_reference_white_nits=SDR_WHITE_NITS if look == 'phone' else None,
+                  hdr_capacity_max=peak_ratio if look == 'phone' else 2 ** args.max_ev,
+                  sam2_protection=bool(args.protect),
                   protection_regions=spec['regions'] if args.protect else [],
                   input_linearization='standard inverse sRGB; no SingleHDR TensorFlow camera-response estimation',
                   verification=verification)
