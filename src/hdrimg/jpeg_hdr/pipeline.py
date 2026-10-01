@@ -9,6 +9,7 @@ from .ai import predict_hdr, sam_protect
 from .codec import Codec
 from .runtime import runtime_dir
 from .appearance import phone_gain_ev, constrain_gain, SDR_WHITE_NITS
+from .edges import protection_envelope
 
 def srgb_linear(rgb):
     return np.where(rgb <= 0.04045, rgb / 12.92, ((rgb + 0.055) / 1.055) ** 2.4).astype(np.float32)
@@ -130,8 +131,14 @@ def run(args):
         # A finished JPEG needs a broad HDR midtone preference as well as AI
         # highlight inference. Taking the maximum avoids stacking two boosts.
         full_gain = np.maximum(full_gain, phone_gain_ev(high_y, peak_nits=peak_nits) * args.strength)
-    # Reapply the cap after filtering, so boundary filtering cannot undo guards.
-    full_cap = cv2.resize(cap, (w, h), interpolation=cv2.INTER_NEAREST)
+    # Reapply protection after all positive gains, but do not put a binary,
+    # enlarged segmentation outline into the gain map. Only lower nearby caps;
+    # protected interiors and overlapping upper limits continue to win.
+    if args.protect:
+        full_cap, edge_record = protection_envelope(cap, high_y)
+    else:
+        full_cap = np.full((h, w), args.max_ev, np.float32)
+        edge_record = {'method': 'no semantic protection'}
     full_gain = constrain_gain(full_gain, linear, full_cap,
                                max_ev=args.max_ev, peak_ratio=peak_ratio)
     full_gain[high_y < 0.005] = 0
@@ -149,6 +156,7 @@ def run(args):
     np.save(diagnostics / 'gain_ev_low.npy', gain.astype(np.float32))
     np.save(diagnostics / 'gain_ev_full.npy', full_gain.astype(np.float32))
     np.save(diagnostics / 'subject_floor_ev_full.npy', full_floor.astype(np.float32))
+    np.save(diagnostics / 'protection_cap_ev_full.npy', full_cap.astype(np.float32))
     Image.fromarray(np.rint(full_gain / args.max_ev * 255).astype(np.uint8)).save(diagnostics / 'gainmap.png')
     Image.fromarray(np.rint(full_cap / args.max_ev * 255).astype(np.uint8)).save(diagnostics / 'protection_cap.png')
     # Preview is a false-color map beside the SDR. It cannot preview actual HDR.
@@ -175,6 +183,7 @@ def run(args):
                   sdr_reference_white_nits=SDR_WHITE_NITS if look == 'phone' else None,
                   hdr_capacity_max=peak_ratio if look == 'phone' else 2 ** args.max_ev,
                   sam2_protection=bool(args.protect),
+                  protection_transition=edge_record,
                   protection_regions=spec['regions'] if args.protect else [],
                   input_linearization='standard inverse sRGB; no SingleHDR TensorFlow camera-response estimation',
                   verification=verification)

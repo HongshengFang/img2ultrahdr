@@ -14,12 +14,13 @@ from hdrimg.jpeg_hdr import pipeline
 from hdrimg.jpeg_hdr.codec import Codec
 from hdrimg.jpeg_hdr.metadata import normalize_iso_metadata, ISO_NAMESPACE
 from hdrimg.jpeg_hdr.appearance import phone_gain_ev, constrain_gain
+from hdrimg.jpeg_hdr.edges import protection_envelope
 from hdrimg.errors import DependencyError
 
 
-def jpeg(image, **kwargs):
+def jpeg(image, quality=100, **kwargs):
     buf = io.BytesIO()
-    image.save(buf, format='JPEG', quality=100, **kwargs)
+    image.save(buf, format='JPEG', quality=quality, **kwargs)
     return buf.getvalue()
 
 
@@ -138,7 +139,10 @@ def test_subject_floor_brightens_midtones_and_protection_wins(codec, monkeypatch
     pipeline.run(args)
     gain = np.load(tmp_path / 'adapted_diagnostics/gain_ev_full.npy')
     assert gain[:, :32].max() <= .03
-    assert gain[:, 40:].mean() == pytest.approx(.7, abs=.001)
+    # The protection transition now extends outside the protected core; the
+    # subject floor remains intact farther away, rather than meeting a hard cut.
+    assert gain[:, 70:].mean() == pytest.approx(.7, abs=.001)
+    assert np.abs(np.diff(gain, axis=1)).max() <= .025001
     args.strength = 0
     args.output = tmp_path / 'zero.jpg'
     pipeline.run(args)
@@ -201,7 +205,7 @@ def test_phone_pipeline_lifts_midtones_but_protection_still_wins(codec, monkeypa
     gain = np.load(diagnostic/'gain_ev_full.npy')
     report = json.loads((diagnostic/'report.json').read_text())
     assert gain[:, :32].max() <= .03
-    assert np.exp2(gain[:, 40:]).mean() > 2.5
+    assert np.exp2(gain[:, 80:]).mean() > 2.5
     assert report['verification']['sdr_pixels_identical']
     assert report['verification']['hdr_capacity_max'] == pytest.approx(1000/203, rel=1e-5)
     args.strength = 0
@@ -212,3 +216,47 @@ def test_phone_pipeline_lifts_midtones_but_protection_still_wins(codec, monkeypa
     args.output = tmp_path/'invalid.jpg'
     with pytest.raises(ValueError, match='peak-nits'):
         pipeline.run(args)
+
+
+def test_protection_transition_removes_coarse_mask_steps_without_relaxing_core():
+    yy, xx = np.mgrid[:32, :32]
+    protected = (xx - 16)**2 + (yy - 16)**2 < 36
+    low = np.where(protected, .03, 2.5).astype(np.float32)
+    y = np.full((256, 256), .6, np.float32)
+    cap, record = protection_envelope(low, y)
+    assert cap[128, 128] <= .03
+    assert cap[0, 0] == pytest.approx(2.5)
+    for axis in (0, 1):
+        assert np.abs(np.diff(cap, axis=axis)).max() <= .025001
+    assert record['gradient_allowance_violation_ev'] < 1e-6
+    assert record['changed_pixel_fraction'] > 0
+    assert np.isfinite(cap).all() and cap.min() >= 0
+
+
+@pytest.mark.integration
+def test_encoded_gain_has_no_new_contour_on_a_flat_surface(codec):
+    # Simulate a flower cap cutting through neighboring diffuse fabric. Check
+    # the JPEG that a viewer actually reconstructs, not just the float field.
+    low = np.full((16, 32), 2.5, np.float32); low[:, :12] = .03
+    y = np.full((128, 256), .6, np.float32)
+    smooth, record = protection_envelope(low, y)
+    base = jpeg(Image.fromarray(np.full((128, 256, 3), 200, np.uint8)))
+    gain = jpeg(Image.fromarray(np.rint(smooth / 2.5 * 255).astype(np.uint8)), quality=98)
+    report = codec.verify(codec.encode(base, gain, 2.5), base, 2.5)
+    encoded_ev = np.asarray(Image.open(io.BytesIO(gain)), np.float32) / 255 * 2.5
+    assert np.abs(np.diff(encoded_ev, axis=1)).max() < .05
+    assert encoded_ev[:, :80].max() < .05
+    assert encoded_ev[:, -16:].min() > 2.4
+    assert report['sdr_pixels_identical'] and report['jpeg_scan_identical']
+
+
+def test_transition_follows_real_source_edges_and_respects_overlapping_caps():
+    y = np.full((64, 256), .8, np.float32); y[:, 128:] = .05
+    low = np.full((64, 256), 2.5, np.float32); low[:, :96] = .03
+    low[16:48, 220:240] = .4
+    cap, _ = protection_envelope(low, y)
+    guide = np.log2(np.maximum(y, .01))
+    allowance = .025 + .25 * np.abs(np.diff(guide, axis=1))
+    assert np.all(np.abs(np.diff(cap, axis=1)) <= allowance + 1e-6)
+    assert cap[32, 128] > cap[32, 127] + .9
+    assert cap[16:48, 220:240].max() <= np.float32(.4)
