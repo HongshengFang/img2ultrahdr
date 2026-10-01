@@ -7,6 +7,7 @@ build/
 dist/
 *.egg-info/
 samples/
+pics/
 outputs/
 result/
 result_natural/
@@ -22,3 +23,7 @@ jpg_hdr_sample_effect/
 *_scene.tif
 *_hdr.rgba16f
 *_decoded_*.raw
+
+macos/.build/
+macos/.swiftpm/
+*.app/

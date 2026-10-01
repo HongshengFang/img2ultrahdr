@@ -80,7 +80,7 @@ def finish_float_render(*, scene, sdr, hdr_path, final_hdr, work, chunk_rows, ga
         render_pair(source, reference, work/'reference.rgba16f',
                     sdr_exposure_ev=0, subject_adaptation_strength=0,
                     _allow_subject=False, _allow_histogram=False,
-                    _linear_sdr_output=linear, **reference_options)
+                    _linear_sdr_output=linear, _reference_sdr_only=True, **reference_options)
         detection = {'status': 'disabled', 'faces': []}
         if subject_strength > 0 and tone['phone_dark_weight'] < .5:
             _, _, detection = detect_subject_fields(reference,
@@ -109,43 +109,56 @@ def finish_float_render(*, scene, sdr, hdr_path, final_hdr, work, chunk_rows, ga
         del requested
     maximum = 1.
     budget_min, budget_max = 0., 0.
-    with final_hdr.open('wb') as destination:
-        for start in range(0, h, chunk_rows):
-            stop = min(h, start+chunk_rows)
-            a = np.asarray(sdr[start:stop], np.float32)
-            b = np.array(hdr[start:stop, :, :3], np.float32)
-            unadjusted_b = luminance_rec2020(b)
-            if field is not None:
-                ay, by = a @ coefficients, luminance_rec2020(b)
-                new_a = apply_exposure_field(ay, sdr_field[start:stop], upper=1)
-                hdr_upper = 1+(peak_nits/203-1)*reference_options['hdr_strength']
-                new_b = apply_exposure_field(by, hdr_field[start:stop], upper=hdr_upper)
-                a = compress_gamut(a*np.divide(new_a, ay, out=np.ones_like(ay), where=ay>1e-8)[..., None],
-                                   target=gamut, upper=1)
-                b = compress_gamut(b*np.divide(new_b, by, out=np.ones_like(by), where=by>1e-8)[..., None],
-                                   target='rec2020', upper=peak_nits/203)
-                sdr[start:stop] = a
-            if enabled and RECIPE.hdr_separation_ev > 0:
-                before = luminance_rec2020(b)
-                upper = 1+(peak_nits/203-1)*reference_options['hdr_strength']
-                requested = redistribution_curve(before, upper=upper,
-                    amount=RECIPE.hdr_separation_ev*reference_options['hdr_strength'],
-                    dark_daylight=tone.get('phone_clear_daylit_dark_weight',0.),
-                    indoor=tone['phone_indoor_weight'])
-                # For this first allocation family, the stricter skin budget
-                # applies to ALL pixels. Composition is measured against the
-                # float image before any local field, not reset between stages.
-                adjusted = np.minimum(requested,unadjusted_b*np.float32(2**.5))
-                adjusted = np.maximum(adjusted,unadjusted_b*np.float32(2**-.5))
-                b = compress_gamut(b*np.divide(adjusted,before,out=np.ones_like(before),where=before>1e-8)[...,None],
-                                   target='rec2020',upper=peak_nits/203)
-            actual_ev = np.log2(np.maximum(luminance_rec2020(b),1e-7)/np.maximum(unadjusted_b,1e-7))
-            budget_min = min(budget_min,float(actual_ev.min()))
-            budget_max = max(budget_max,float(actual_ev.max()))
-            in_sdr = b @ REC2020_TO_DISPLAY_P3.T if gamut == 'display-p3' else rec2020_to_linear_srgb(b)
-            maximum = max(maximum, float(np.max((np.maximum(in_sdr, 0)+1/64)/(a+1/64))))
-            rgba = np.concatenate((b, np.ones((*b.shape[:2], 1), np.float32)), axis=-1)
-            destination.write(rgba.astype('<f2').tobytes())
+    def finish_chunk(start):
+        stop = min(h, start+chunk_rows)
+        a = np.asarray(sdr[start:stop], np.float32)
+        b = np.array(hdr[start:stop, :, :3], np.float32)
+        unadjusted_b = luminance_rec2020(b)
+        if field is not None:
+            ay, by = a @ coefficients, luminance_rec2020(b)
+            new_a = apply_exposure_field(ay, sdr_field[start:stop], upper=1)
+            hdr_upper = 1+(peak_nits/203-1)*reference_options['hdr_strength']
+            new_b = apply_exposure_field(by, hdr_field[start:stop], upper=hdr_upper)
+            a = compress_gamut(a*np.divide(new_a, ay, out=np.ones_like(ay), where=ay>1e-8)[..., None],
+                               target=gamut, upper=1)
+            b = compress_gamut(b*np.divide(new_b, by, out=np.ones_like(by), where=by>1e-8)[..., None],
+                               target='rec2020', upper=peak_nits/203)
+            sdr[start:stop] = a
+        if enabled and RECIPE.hdr_separation_ev > 0:
+            before = luminance_rec2020(b)
+            upper = 1+(peak_nits/203-1)*reference_options['hdr_strength']
+            requested = redistribution_curve(before, upper=upper,
+                amount=RECIPE.hdr_separation_ev*reference_options['hdr_strength'],
+                dark_daylight=tone.get('phone_clear_daylit_dark_weight',0.),
+                indoor=tone['phone_indoor_weight'])
+            # For this first allocation family, the stricter skin budget
+            # applies to ALL pixels. Composition is measured against the
+            # float image before any local field, not reset between stages.
+            adjusted = np.minimum(requested,unadjusted_b*np.float32(2**.5))
+            adjusted = np.maximum(adjusted,unadjusted_b*np.float32(2**-.5))
+            b = compress_gamut(b*np.divide(adjusted,before,out=np.ones_like(before),where=before>1e-8)[...,None],
+                               target='rec2020',upper=peak_nits/203)
+        actual_ev = np.log2(np.maximum(luminance_rec2020(b),1e-7)/np.maximum(unadjusted_b,1e-7))
+        local_min, local_max = float(actual_ev.min()), float(actual_ev.max())
+        in_sdr = b @ REC2020_TO_DISPLAY_P3.T if gamut == 'display-p3' else rec2020_to_linear_srgb(b)
+        local_gain = float(np.max((np.maximum(in_sdr, 0)+1/64)/(a+1/64)))
+        rgba = np.concatenate((b, np.ones((*b.shape[:2], 1), np.float32)), axis=-1)
+        return rgba.astype('<f2').tobytes(), local_gain, local_min, local_max
+    # Independent row blocks retain the exact operation order within a pixel.
+    # Keep full-size processing serial to bound resident memory.
+    from concurrent.futures import ThreadPoolExecutor
+    from contextlib import nullcontext
+    starts = range(0, h, chunk_rows)
+    policy = reference_options.get('_processing_policy')
+    parallel = h*w <= 4_000_000 and len(starts)>1 and (policy is None or policy.parallel_preview)
+    workers = min(4, max(1, policy.preview_workers)) if policy is not None else 3
+    with final_hdr.open('wb') as destination, (ThreadPoolExecutor(max_workers=workers) if parallel else nullcontext()) as executor:
+        chunks = executor.map(finish_chunk, starts) if parallel else map(finish_chunk, starts)
+        for pixels, gain, lower, upper in chunks:
+            destination.write(pixels)
+            maximum = max(maximum, gain)
+            budget_min = min(budget_min, lower)
+            budget_max = max(budget_max, upper)
     del hdr
     record['experimental_recipe'] = asdict(RECIPE)
     record['composed_hdr_ev_min_max'] = [budget_min,budget_max]
@@ -301,4 +314,3 @@ def _alternative_local_field(rgb: np.ndarray, *, person: Image.Image | None,
         'outdoor_contrast_weight': outdoor_contrast,
         'image_edge_constraint': boundary,
     }
-

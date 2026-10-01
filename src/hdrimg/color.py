@@ -57,6 +57,10 @@ _M2_INV = np.linalg.inv(_M2).astype(np.float32)
 
 
 def _matmul(rgb: np.ndarray, matrix: np.ndarray) -> np.ndarray:
+    from .accelerator import matmul
+    accelerated = matmul(np.asarray(rgb, dtype=np.float32), matrix)
+    if accelerated is not None:
+        return accelerated
     return np.asarray(rgb, dtype=np.float32) @ matrix.T
 
 
@@ -222,6 +226,19 @@ def compress_gamut(
 ) -> np.ndarray:
     """Compress chroma in OKLab until every pixel fits the target RGB cube."""
     values = np.asarray(rgb, dtype=np.float32)
+    from .accelerator import library, matrix_kernel_compatible
+    if library() is not None and matrix_kernel_compatible() and values.ndim >= 2:
+        width = values.shape[-2]
+        aligned = width - width % 4
+        if aligned and aligned != width:
+            # Accelerate rounds complete four-pixel tiles and scalar row tails
+            # differently. Split those independent pixels before packing the
+            # active gamut search, preserving both original arithmetic paths.
+            prefix = compress_gamut(values[..., :aligned, :], target=target,
+                                    upper=upper, iterations=iterations)
+            tail = compress_gamut(values[..., aligned:, :], target=target,
+                                  upper=upper, iterations=iterations)
+            return np.concatenate((prefix, tail), axis=-2)
     if target == "srgb":
         to_srgb = values
         from_srgb = lambda value: value
@@ -244,6 +261,29 @@ def compress_gamut(
     valid = np.all((original >= 0.0) & (original <= upper), axis=-1)
     if np.all(valid):
         return original
+
+    # In the app, complete four-pixel tiles use the same fused arithmetic as
+    # Accelerate. Only out-of-gamut pixels need the twelve-step chroma search.
+    # Pad packed tiles so their rounding remains the original vector rounding;
+    # retain the reference path for rows with scalar tails.
+    if library() is not None and matrix_kernel_compatible() and values.ndim >= 2 and values.shape[-2] % 4 == 0:
+        active = ~valid
+        count = int(np.count_nonzero(active))
+        packed = np.zeros(((count + 3) // 4 * 4, 3), dtype=np.float32)
+        packed[:count] = lab[active]
+        lo = np.zeros(len(packed), np.float32)
+        hi = np.ones(len(packed), np.float32)
+        for _ in range(iterations):
+            mid = (lo + hi) * 0.5
+            candidate_lab = packed.copy()
+            candidate_lab[:, 1:] *= mid[:, None]
+            candidate = convert(candidate_lab)
+            inside = np.all((candidate >= 0.0) & (candidate <= upper), axis=-1)
+            lo = np.where(inside, mid, lo)
+            hi = np.where(inside, hi, mid)
+        packed[:, 1:] *= lo[:, None]
+        original[active] = convert(packed)[:count]
+        return np.clip(original, 0.0, upper)
 
     lo = np.zeros(lab.shape[:-1], dtype=np.float32)
     hi = np.ones(lab.shape[:-1], dtype=np.float32)

@@ -8,6 +8,9 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Mapping, Sequence
 
+# Optional per-process observer; CLI behavior is unchanged when unset.
+PROGRESS_CALLBACK = None
+
 from .errors import DependencyError, ProcessingError
 
 
@@ -31,6 +34,10 @@ def _brew_prefix(formula: str) -> Path | None:
 
 
 def find_tool(name: str) -> Path | None:
+    override = os.environ.get("HDRIMG_TOOL_" + name.upper().replace("-", "_"))
+    if override:
+        path = Path(override)
+        return path.resolve() if path.is_file() and os.access(path, os.X_OK) else None
     direct = shutil.which(name)
     if direct:
         return Path(direct).resolve()
@@ -70,6 +77,8 @@ def run_checked(
     env: Mapping[str, str] | None = None,
 ) -> subprocess.CompletedProcess[str]:
     command = [os.fspath(part) for part in args]
+    if PROGRESS_CALLBACK is not None:
+        PROGRESS_CALLBACK(label)
     try:
         result = subprocess.run(
             command,

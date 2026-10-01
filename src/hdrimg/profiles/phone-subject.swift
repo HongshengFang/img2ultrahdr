@@ -7,7 +7,7 @@ import ImageIO
 import UniformTypeIdentifiers
 
 let args = CommandLine.arguments
-guard args.count == 3 else {
+guard args.count == 3 || (args.count == 4 && args[3] == "--tile-faces-first") else {
     fputs("usage: phone_subject_probe input.jpg output_prefix\n", stderr)
     exit(2)
 }
@@ -19,7 +19,16 @@ do {
     person.qualityLevel = .accurate
     person.outputPixelFormat = kCVPixelFormatType_OneComponent8
     let handler = VNImageRequestHandler(url: input, options: [:])
-    try handler.perform([faces, person])
+    if args.count == 4 {
+        // Tile callers only consume the matte after a >= .65 face detection.
+        // Avoid the expensive segmentation when its output would be discarded.
+        try handler.perform([faces])
+        if (faces.results ?? []).contains(where: { $0.confidence >= 0.65 }) {
+            try handler.perform([person])
+        }
+    } else {
+        try handler.perform([faces, person])
+    }
     var result: [String: Any] = ["faces": (faces.results ?? []).map { face in
         let b = face.boundingBox
         return ["x": b.minX, "y": 1-b.maxY, "width": b.width,

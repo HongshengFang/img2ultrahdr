@@ -23,7 +23,7 @@ from .color import (
     srgb_oetf,
 )
 from .errors import ProcessingError
-from .look import resolve_look
+from .look import LookDecision, resolve_look
 from .phone_subject import detect_subject_fields
 from .phone_skin import build_skin_context, protect_skin_illuminant, refine_phone_skin_color
 from .phone_edges import person_boundary_protection
@@ -68,6 +68,21 @@ class SceneInfo:
 
 
 @dataclass(frozen=True)
+class RenderPolicy:
+    """Feature decisions are independent from the provenance of slider values."""
+    automatic_tone: bool = True
+    automatic_color: bool = True
+    manual_exposure_bonus: bool = False
+    parallel_preview: bool = True
+    preview_workers: int = 3
+
+    @classmethod
+    def from_legacy_look(cls, look: LookDecision) -> "RenderPolicy":
+        return cls(look.contrast_source == "auto", look.saturation_source == "auto",
+                   look.exposure_source == "manual", False)
+
+
+@dataclass(frozen=True)
 class RenderInfo:
     scene: SceneInfo
     exposure: dict[str, float]
@@ -97,13 +112,14 @@ def _tone_mapping_parameters(
     automatic_look: bool = False,
     max_preview_edge: int = 2048,
     scene_decision: PhoneSceneDecision | None = None,
+    shadow_ev: float = 0.0,
 ) -> dict[str, float]:
     height, width = scene.shape[:2]
     step = max(1, int(np.ceil(max(height, width) / max_preview_edge)))
     preview = apply_exposure_and_highlights(
         scene[::step, ::step, :3],
         total_ev=stats.scene_adjustment_ev,
-        highlight_ev=highlight_ev,
+        highlight_ev=highlight_ev, shadow_ev=shadow_ev,
     )
     y = luminance_rec2020(preview)
     y = y[np.isfinite(y) & (y >= 0.0)]
@@ -323,8 +339,18 @@ def _render_pair(
     _skin_context: tuple[Image.Image | None, dict] | None = None,
     _scene_decision: PhoneSceneDecision | None = None,
     _linear_sdr_output: Path | None = None,
+    _preview_output: Path | None = None,
+    _skip_sdr_jpeg: bool = False,
+    _reference_sdr_only: bool = False,
     _float_work: Path | None = None,
-) -> RenderInfo:
+    edit_exposure_ev: float = 0.0,
+    shadow_ev: float = 0.0,
+    saturation_scale: float = 1.0,
+    _analysis: dict | None = None,
+    _processing_policy: RenderPolicy | None = None,
+) -> RenderInfo | None:
+    if _reference_sdr_only and (_allow_subject or _allow_histogram or _linear_sdr_output is None):
+        raise ValueError('SDR-only rendering is restricted to independent analysis references')
     style = style or DEFAULT_STYLE
     # Two-code JPEG reversals appeared on soft monotone edges at quality 95.
     # Clear's final base uses 98; explicit internal overrides and other styles
@@ -338,22 +364,30 @@ def _render_pair(
         from .phone_clear import refine_clear_color
         refine_color = refine_clear_color
     scene, scene_info = open_scene(scene_path)
-    base_stats = exposure_statistics(
-        scene,
-        auto_exposure=auto_exposure,
-        exposure_ev=0.0,
-        development_ev=development_ev,
-    )
-    look = resolve_look(
-        scene,
-        base_scene_adjustment_ev=base_stats.scene_adjustment_ev,
-        enabled=auto_look,
-        auto_exposure=auto_exposure,
-        exposure_ev=exposure_ev,
-        contrast=contrast,
-        saturation=saturation,
-    )
-    if style.clear_float and look.contrast_source == 'auto':
+    if _analysis is None:
+        base_stats = exposure_statistics(
+            scene,
+            auto_exposure=auto_exposure,
+            exposure_ev=0.0,
+            development_ev=development_ev,
+        )
+        look = resolve_look(
+            scene,
+            base_scene_adjustment_ev=base_stats.scene_adjustment_ev,
+            enabled=auto_look,
+            auto_exposure=auto_exposure,
+            exposure_ev=exposure_ev,
+            contrast=contrast,
+            saturation=saturation,
+        )
+    else:
+        base_stats = ExposureStats(**_analysis["base_stats"])
+        look = LookDecision(**_analysis["look"])
+    if edit_exposure_ev or saturation_scale != 1.0:
+        look = replace(look, exposure_ev=look.exposure_ev + edit_exposure_ev,
+                       saturation=look.saturation * saturation_scale)
+    policy = _processing_policy or RenderPolicy.from_legacy_look(look)
+    if style.clear_float and policy.automatic_tone:
         from .phone_clear import scene_decision as clear_scene_decision
         if style.clear_v8:
             from .phone_clear_v8 import scene_decision as clear_scene_decision
@@ -368,12 +402,10 @@ def _render_pair(
         look = replace(look, contrast=resolved,
             metrics={**look.metrics, 'clear_high_dynamic_range_weight':weight},
             suggested={**look.suggested, 'contrast':resolved})
-    stats = exposure_statistics(
-        scene,
-        auto_exposure=auto_exposure,
-        exposure_ev=look.exposure_ev,
-        development_ev=development_ev,
-    )
+    total_ev = base_stats.auto_ev + look.exposure_ev
+    stats = replace(
+        base_stats, total_ev=total_ev,
+        scene_adjustment_ev=total_ev - base_stats.development_ev)
     if stats.finite_fraction < 0.999:
         raise ProcessingError(
             f"Scene TIFF has too many invalid pixels ({stats.finite_fraction:.3%} finite)"
@@ -386,10 +418,11 @@ def _render_pair(
     else:
         sdr_pixels = np.empty((scene_info.height, scene_info.width, 3), dtype=np.uint8)
     boost = max_content_boost(peak_nits, hdr_strength)
+    analysis_scene = np.load(_analysis["sample"], mmap_mode="r") if _analysis else scene
     tone_mapping = _tone_mapping_parameters(
-        scene,
+        analysis_scene,
         stats,
-        highlight_ev=highlight_ev,
+        highlight_ev=highlight_ev, shadow_ev=shadow_ev,
         peak_nits=peak_nits,
         contrast=look.contrast,
         style=style,
@@ -397,8 +430,8 @@ def _render_pair(
         sdr_adaptation_strength=sdr_adaptation_strength,
         hdr_midtone_gain=hdr_midtone_gain,
         hdr_shoulder_strength=hdr_shoulder_strength,
-        manual_exposure_ev=look.exposure_ev if look.exposure_source == "manual" else 0.0,
-        automatic_look=look.contrast_source == "auto",
+        manual_exposure_ev=look.exposure_ev if policy.manual_exposure_bonus else 0.0,
+        automatic_look=policy.automatic_tone,
         scene_decision=_scene_decision,
     )
     tone_mapping["saturation"] = look.saturation
@@ -407,19 +440,19 @@ def _render_pair(
     effective_sdr_ev = tone_mapping.get("sdr_effective_exposure_ev", sdr_exposure_ev)
     compress_illumination = compress_dark_scene_illumination
     display_curve = sdr_curve
-    if style.clear_float and look.contrast_source == 'auto':
+    if style.clear_float and policy.automatic_tone:
         from .phone_clear import compress_clear_illumination, clear_display_curve
         compress_illumination = compress_clear_illumination
         display_curve = lambda values: clear_display_curve(
             values, tone_mapping['phone_clear_daylit_dark_weight'])
-    neutral_protection = style.algorithm_version >= 4 and look.saturation_source == "auto"
+    neutral_protection = style.algorithm_version >= 4 and policy.automatic_color
     if style.algorithm_version >= 4:
         tone_mapping["phone_neutral_protection"] = float(neutral_protection)
     measured_gain_max = 1.0
     illuminant_gains = np.ones(3, dtype=np.float32)
     shadow_red_offset = 0.0
-    if (4 <= style.algorithm_version < 6 and look.saturation_source == "auto"
-            and look.contrast_source == "auto"):
+    if (4 <= style.algorithm_version < 6 and policy.automatic_color
+            and policy.automatic_tone):
         color_step = max(1, int(np.ceil(max(scene_info.height, scene_info.width) / 1024)))
         shadow_red_offset = phone_shadow_red_offset(
             np.asarray(scene[::color_step, ::color_step], dtype=np.float32)
@@ -428,7 +461,7 @@ def _render_pair(
             dark_fraction=tone_mapping["phone_dark_fraction"],
         )
         tone_mapping["phone_shadow_red_offset"] = shadow_red_offset
-    if 4 <= style.algorithm_version < 6 and look.saturation_source == "auto":
+    if 4 <= style.algorithm_version < 6 and policy.automatic_color:
         color_step = max(1, int(np.ceil(max(scene_info.height, scene_info.width) / 1024)))
         illuminant_gains, illuminant_strength = phone_illuminant_gains(
             np.asarray(scene[::color_step, ::color_step], dtype=np.float32)
@@ -452,8 +485,8 @@ def _render_pair(
             **{f"phone_illuminant_{channel}_gain": 1.0
                for channel in ("red", "green", "blue")},
         })
-    shared_hdr_chroma = (style.algorithm_version >= 4 and look.contrast_source == "auto"
-                         and look.saturation_source == "auto")
+    shared_hdr_chroma = (style.algorithm_version >= 4 and policy.automatic_tone
+                         and policy.automatic_color)
     skin_strength = 1.0 if skin_protection_strength is None else skin_protection_strength
     skin_enabled = (style.algorithm_version >= 5 and shared_hdr_chroma
                     and skin_strength > 0 and tone_mapping["phone_dark_weight"] < .5)
@@ -487,7 +520,7 @@ def _render_pair(
     illumination_image: Image.Image | None = None
     detail_strength = (
         0.90 * style.local_contrast / 0.22
-        if style.algorithm_version >= 4 and look.contrast_source == "auto" else 0.0
+        if style.algorithm_version >= 4 and policy.automatic_tone else 0.0
     )
     if style.clear_float:
         detail_strength = 0.0
@@ -498,7 +531,7 @@ def _render_pair(
         preview = apply_exposure_and_highlights(
             scene[::step, ::step],
             total_ev=stats.scene_adjustment_ev,
-            highlight_ev=highlight_ev,
+            highlight_ev=highlight_ev, shadow_ev=shadow_ev,
         )
         preview = apply_scene_contrast(
             preview,
@@ -514,7 +547,7 @@ def _render_pair(
             ev=style.midtone_lift_ev,
         )
         base_image = Image.fromarray(guided_log_luminance_base(preview_y), mode="F")
-        if style.algorithm_version >= 4 and look.contrast_source == "auto":
+        if style.algorithm_version >= 4 and policy.automatic_tone:
             illumination_image = Image.fromarray(guided_log_luminance_base(
                 preview_y, radius_fraction=.08, epsilon=1.0), mode="F")
         if detail_strength > 0.0:
@@ -524,94 +557,169 @@ def _render_pair(
 
     skin_weight_sum = 0.0
     skin_supported_pixels = 0
-    with hdr_raw_path.open("wb") as hdr_file:
-        for start in range(0, scene_info.height, chunk_rows):
-            stop = min(scene_info.height, start + chunk_rows)
-            shared = apply_exposure_and_highlights(
-                correct_phone_shadow_red(scene[start:stop], offset=shadow_red_offset,
-                                         development_ev=stats.development_ev),
-                total_ev=stats.scene_adjustment_ev,
-                highlight_ev=highlight_ev,
-            )
-            shared = apply_scene_contrast(
-                shared,
-                black_luminance=tone_mapping["black_luminance"],
-                contrast=tone_mapping["contrast"],
-                pivot=tone_mapping["contrast_pivot"],
-            )
-            y = luminance_rec2020(shared)
-            edge_rows = (resize_base_rows(edge_image, width=scene_info.width,
+    def render_chunk(start):
+        measured_gain_max = 1.0
+        skin_weight_sum = 0.0
+        skin_supported_pixels = 0
+        stop = min(scene_info.height, start + chunk_rows)
+        shared = apply_exposure_and_highlights(
+            correct_phone_shadow_red(scene[start:stop], offset=shadow_red_offset,
+                                     development_ev=stats.development_ev),
+            total_ev=stats.scene_adjustment_ev,
+            highlight_ev=highlight_ev, shadow_ev=shadow_ev,
+        )
+        shared = apply_scene_contrast(
+            shared,
+            black_luminance=tone_mapping["black_luminance"],
+            contrast=tone_mapping["contrast"],
+            pivot=tone_mapping["contrast_pivot"],
+        )
+        y = luminance_rec2020(shared)
+        edge_rows = (resize_base_rows(edge_image, width=scene_info.width,
+            full_height=scene_info.height, start=start, stop=stop)
+            if edge_image is not None else None)
+        skin_rows = None
+        if skin_enabled:
+            person_image = _skin_context[0]
+            person_rows = (resize_base_rows(person_image, width=scene_info.width,
                 full_height=scene_info.height, start=start, stop=stop)
-                if edge_image is not None else None)
-            skin_rows = None
-            if skin_enabled:
-                person_image = _skin_context[0]
-                person_rows = (resize_base_rows(person_image, width=scene_info.width,
-                    full_height=scene_info.height, start=start, stop=stop)
-                    if person_image is not None else .35)
-                shared, skin_rows = protect_skin_illuminant(
-                    shared, illuminant_gains, person_rows, strength=skin_strength)
-                skin_weight_sum += float(np.sum(skin_rows, dtype=np.float64))
-                skin_supported_pixels += int(np.count_nonzero(skin_rows > .25))
-            elif not np.array_equal(illuminant_gains, np.ones(3, dtype=np.float32)):
-                shared = scale_rgb_to_luminance(shared * illuminant_gains, y)
-            color_protection = {"skin_protection": skin_rows}
-            if style.pale_boundaries:
-                # Retain the RAW color of faint warm pixels on a detected
-                # person, even where chroma-based skin confidence is zero.
-                # No detector means no extra person-wide protection.
-                color_protection["person_protection"] = (
-                    person_rows * skin_strength
-                    if skin_enabled and person_image is not None else None
-                )
-            if style.midtone_lift_ev:
-                mapped = lift_midtones(
-                    y,
-                    low=tone_mapping["midtone_low"],
-                    center=tone_mapping["midtone_center"],
-                    high=tone_mapping["midtone_high"],
-                    ev=style.midtone_lift_ev,
-                )
-                shared = scale_rgb_to_luminance(shared, mapped)
-                y = mapped
-            if base_image is not None:
-                base_rows = resize_base_rows(
-                    base_image,
-                    width=scene_info.width,
-                    full_height=scene_info.height,
-                    start=start,
-                    stop=stop,
-                )
-                mapped = apply_local_contrast(
-                    y, base_log=base_rows, strength=style.local_contrast, protection=edge_rows
-                )
-                shared = scale_rgb_to_luminance(shared, mapped)
-                y = mapped
-
-            sdr_input = y * np.float32(2.0**effective_sdr_ev)
-            illumination_rows = None
-            if illumination_image is not None or (style.clear_float and look.contrast_source == 'auto'):
-                illumination_rows = (np.log2(np.maximum(y, 1e-4)) if style.clear_float else
-                    resize_base_rows(illumination_image, width=scene_info.width,
-                                    full_height=scene_info.height, start=start, stop=stop))
-                sdr_input = compress_illumination(
-                    y, base_log=illumination_rows, exposure_ev=effective_sdr_ev,
-                    dark_weight=tone_mapping["phone_dark_weight"],
-                    dark_fraction=tone_mapping["phone_dark_fraction"],
-                    highlight_ratio=tone_mapping["phone_raw_p99"]/max(tone_mapping["phone_raw_p90"], .01),
-                    high_key_weight=tone_mapping["phone_high_key_weight"],
-                )
-            sdr_y = highlight_shoulder(
-                sdr_input,
-                start=tone_mapping["sdr_shoulder_start"],
-                span=tone_mapping["sdr_shoulder_span"],
-                strength=tone_mapping["sdr_shoulder_strength"],
+                if person_image is not None else .35)
+            shared, skin_rows = protect_skin_illuminant(
+                shared, illuminant_gains, person_rows, strength=skin_strength)
+            skin_weight_sum += float(np.sum(skin_rows, dtype=np.float64))
+            skin_supported_pixels += int(np.count_nonzero(skin_rows > .25))
+        elif not np.array_equal(illuminant_gains, np.ones(3, dtype=np.float32)):
+            shared = scale_rgb_to_luminance(shared * illuminant_gains, y)
+        color_protection = {"skin_protection": skin_rows}
+        if style.pale_boundaries:
+            # Retain the RAW color of faint warm pixels on a detected
+            # person, even where chroma-based skin confidence is zero.
+            # No detector means no extra person-wide protection.
+            color_protection["person_protection"] = (
+                person_rows * skin_strength
+                if skin_enabled and person_image is not None else None
             )
-            sdr_target_before_style = display_curve(sdr_y)
-            sdr_target = sdr_target_before_style
-            if style.algorithm_version >= 2:
-                sdr_target = phone_sdr_luminance(
-                    sdr_target,
+        if style.midtone_lift_ev:
+            mapped = lift_midtones(
+                y,
+                low=tone_mapping["midtone_low"],
+                center=tone_mapping["midtone_center"],
+                high=tone_mapping["midtone_high"],
+                ev=style.midtone_lift_ev,
+            )
+            shared = scale_rgb_to_luminance(shared, mapped)
+            y = mapped
+        if base_image is not None:
+            base_rows = resize_base_rows(
+                base_image,
+                width=scene_info.width,
+                full_height=scene_info.height,
+                start=start,
+                stop=stop,
+            )
+            mapped = apply_local_contrast(
+                y, base_log=base_rows, strength=style.local_contrast, protection=edge_rows
+            )
+            shared = scale_rgb_to_luminance(shared, mapped)
+            y = mapped
+
+        sdr_input = y * np.float32(2.0**effective_sdr_ev)
+        illumination_rows = None
+        if illumination_image is not None or (style.clear_float and policy.automatic_tone):
+            illumination_rows = (np.log2(np.maximum(y, 1e-4)) if style.clear_float else
+                resize_base_rows(illumination_image, width=scene_info.width,
+                                full_height=scene_info.height, start=start, stop=stop))
+            sdr_input = compress_illumination(
+                y, base_log=illumination_rows, exposure_ev=effective_sdr_ev,
+                dark_weight=tone_mapping["phone_dark_weight"],
+                dark_fraction=tone_mapping["phone_dark_fraction"],
+                highlight_ratio=tone_mapping["phone_raw_p99"]/max(tone_mapping["phone_raw_p90"], .01),
+                high_key_weight=tone_mapping["phone_high_key_weight"],
+            )
+        sdr_y = highlight_shoulder(
+            sdr_input,
+            start=tone_mapping["sdr_shoulder_start"],
+            span=tone_mapping["sdr_shoulder_span"],
+            strength=tone_mapping["sdr_shoulder_strength"],
+        )
+        sdr_target_before_style = display_curve(sdr_y)
+        sdr_target = sdr_target_before_style
+        if style.algorithm_version >= 2:
+            sdr_target = phone_sdr_luminance(
+                sdr_target,
+                contrast=tone_mapping["phone_sdr_contrast"],
+                pivot=tone_mapping["phone_sdr_pivot"],
+                shadow_lift=tone_mapping["phone_sdr_shadow_lift"],
+                source=y,
+                dark_shoulder=tone_mapping["phone_sdr_dark_shoulder"],
+                source_start=tone_mapping["hdr_source_highlight_start"],
+                source_anchor=tone_mapping["hdr_source_highlight_anchor"],
+            )
+        detail_rows = None
+        if detail_base_image is not None:
+            detail_rows = resize_base_rows(
+                detail_base_image, width=scene_info.width,
+                full_height=scene_info.height, start=start, stop=stop,
+            )
+            sdr_target = restore_display_detail(
+                sdr_target, source_y=y, base_log=detail_rows, strength=detail_strength,
+                protection=edge_rows,
+            )
+        sdr_2020 = scale_rgb_to_luminance(shared, sdr_target)
+        if style.sdr_gamut == "display-p3":
+            sdr_linear = rec2020_to_linear_display_p3(sdr_2020)
+        else:
+            sdr_linear = rec2020_to_linear_srgb(sdr_2020)
+        sdr_linear = adjust_oklab_chroma(
+            sdr_linear,
+            target=style.sdr_gamut,
+            amount=look.saturation,
+            warm_color_separation=warm_color_separation,
+            vibrance=style.vibrance,
+        )
+        if style.algorithm_version >= 2:
+            sdr_linear = refine_color(
+                sdr_linear, target=style.sdr_gamut,
+                dark_weight=tone_mapping["phone_dark_weight"],
+                indoor_weight=tone_mapping["phone_indoor_weight"],
+                neutral_protection=neutral_protection,
+                **color_protection,
+            )
+        sdr_linear = compress_gamut(sdr_linear, target=style.sdr_gamut, upper=1.0)
+        sdr_pixels[start:stop] = sdr_linear if style.clear_float else _quantize_sdr(sdr_linear)
+
+        if _reference_sdr_only:
+            return b'', 1.0, skin_weight_sum, skin_supported_pixels
+
+        if style.algorithm_version >= 2:
+            sdr_output_y = sdr_linear @ (
+                DISPLAY_P3_TO_XYZ[1] if style.sdr_gamut == "display-p3" else SRGB_TO_XYZ[1]
+            )
+            if sdr_exposure_ev == 0.0:
+                hdr_reference_y = sdr_output_y
+                hdr_reference_color = sdr_linear
+                reference_restore_ratio = sdr_target_before_style / np.maximum(sdr_target, 1e-5)
+            else:
+                # Keep the existing --sdr-exposure-ev contract: it alters
+                # the fallback and gain map, not the desired HDR image.
+                reference_input = y * np.float32(2.0 ** (effective_sdr_ev - sdr_exposure_ev))
+                if illumination_rows is not None:
+                    reference_input = compress_illumination(
+                        y, base_log=illumination_rows, exposure_ev=effective_sdr_ev-sdr_exposure_ev,
+                        dark_weight=tone_mapping["phone_dark_weight"],
+                        dark_fraction=tone_mapping["phone_dark_fraction"],
+                        highlight_ratio=tone_mapping["phone_raw_p99"]/max(tone_mapping["phone_raw_p90"], .01),
+                        high_key_weight=tone_mapping["phone_high_key_weight"],
+                    )
+                reference_y = highlight_shoulder(
+                    reference_input,
+                    start=tone_mapping["sdr_shoulder_start"],
+                    span=tone_mapping["sdr_shoulder_span"],
+                    strength=tone_mapping["sdr_shoulder_strength"],
+                )
+                reference_target_before_style = display_curve(reference_y)
+                reference_target = phone_sdr_luminance(
+                    reference_target_before_style,
                     contrast=tone_mapping["phone_sdr_contrast"],
                     pivot=tone_mapping["phone_sdr_pivot"],
                     shadow_lift=tone_mapping["phone_sdr_shadow_lift"],
@@ -620,179 +728,138 @@ def _render_pair(
                     source_start=tone_mapping["hdr_source_highlight_start"],
                     source_anchor=tone_mapping["hdr_source_highlight_anchor"],
                 )
-            detail_rows = None
-            if detail_base_image is not None:
-                detail_rows = resize_base_rows(
-                    detail_base_image, width=scene_info.width,
-                    full_height=scene_info.height, start=start, stop=stop,
+                if detail_rows is not None:
+                    reference_target = restore_display_detail(
+                        reference_target, source_y=y, base_log=detail_rows,
+                        strength=detail_strength, protection=edge_rows,
+                    )
+                reference_2020 = scale_rgb_to_luminance(shared, reference_target)
+                if style.sdr_gamut == "display-p3":
+                    reference_linear = rec2020_to_linear_display_p3(reference_2020)
+                else:
+                    reference_linear = rec2020_to_linear_srgb(reference_2020)
+                reference_linear = adjust_oklab_chroma(
+                    reference_linear, target=style.sdr_gamut,
+                    amount=look.saturation,
+                    warm_color_separation=warm_color_separation,
+                    vibrance=style.vibrance,
                 )
-                sdr_target = restore_display_detail(
-                    sdr_target, source_y=y, base_log=detail_rows, strength=detail_strength,
-                    protection=edge_rows,
-                )
-            sdr_2020 = scale_rgb_to_luminance(shared, sdr_target)
-            if style.sdr_gamut == "display-p3":
-                sdr_linear = rec2020_to_linear_display_p3(sdr_2020)
-            else:
-                sdr_linear = rec2020_to_linear_srgb(sdr_2020)
-            sdr_linear = adjust_oklab_chroma(
-                sdr_linear,
-                target=style.sdr_gamut,
-                amount=look.saturation,
-                warm_color_separation=warm_color_separation,
-                vibrance=style.vibrance,
-            )
-            if style.algorithm_version >= 2:
-                sdr_linear = refine_color(
-                    sdr_linear, target=style.sdr_gamut,
+                reference_linear = refine_color(
+                    reference_linear, target=style.sdr_gamut,
                     dark_weight=tone_mapping["phone_dark_weight"],
                     indoor_weight=tone_mapping["phone_indoor_weight"],
                     neutral_protection=neutral_protection,
                     **color_protection,
                 )
-            sdr_linear = compress_gamut(sdr_linear, target=style.sdr_gamut, upper=1.0)
-            sdr_pixels[start:stop] = sdr_linear if style.clear_float else _quantize_sdr(sdr_linear)
-
-            if style.algorithm_version >= 2:
-                sdr_output_y = sdr_linear @ (
+                reference_linear = compress_gamut(reference_linear, target=style.sdr_gamut, upper=1.0)
+                hdr_reference_color = reference_linear
+                hdr_reference_y = reference_linear @ (
                     DISPLAY_P3_TO_XYZ[1] if style.sdr_gamut == "display-p3" else SRGB_TO_XYZ[1]
                 )
-                if sdr_exposure_ev == 0.0:
-                    hdr_reference_y = sdr_output_y
-                    hdr_reference_color = sdr_linear
-                    reference_restore_ratio = sdr_target_before_style / np.maximum(sdr_target, 1e-5)
-                else:
-                    # Keep the existing --sdr-exposure-ev contract: it alters
-                    # the fallback and gain map, not the desired HDR image.
-                    reference_input = y * np.float32(2.0 ** (effective_sdr_ev - sdr_exposure_ev))
-                    if illumination_rows is not None:
-                        reference_input = compress_illumination(
-                            y, base_log=illumination_rows, exposure_ev=effective_sdr_ev-sdr_exposure_ev,
-                            dark_weight=tone_mapping["phone_dark_weight"],
-                            dark_fraction=tone_mapping["phone_dark_fraction"],
-                            highlight_ratio=tone_mapping["phone_raw_p99"]/max(tone_mapping["phone_raw_p90"], .01),
-                            high_key_weight=tone_mapping["phone_high_key_weight"],
-                        )
-                    reference_y = highlight_shoulder(
-                        reference_input,
-                        start=tone_mapping["sdr_shoulder_start"],
-                        span=tone_mapping["sdr_shoulder_span"],
-                        strength=tone_mapping["sdr_shoulder_strength"],
-                    )
-                    reference_target_before_style = display_curve(reference_y)
-                    reference_target = phone_sdr_luminance(
-                        reference_target_before_style,
-                        contrast=tone_mapping["phone_sdr_contrast"],
-                        pivot=tone_mapping["phone_sdr_pivot"],
-                        shadow_lift=tone_mapping["phone_sdr_shadow_lift"],
-                        source=y,
-                        dark_shoulder=tone_mapping["phone_sdr_dark_shoulder"],
-                        source_start=tone_mapping["hdr_source_highlight_start"],
-                        source_anchor=tone_mapping["hdr_source_highlight_anchor"],
-                    )
-                    if detail_rows is not None:
-                        reference_target = restore_display_detail(
-                            reference_target, source_y=y, base_log=detail_rows,
-                            strength=detail_strength, protection=edge_rows,
-                        )
-                    reference_2020 = scale_rgb_to_luminance(shared, reference_target)
-                    if style.sdr_gamut == "display-p3":
-                        reference_linear = rec2020_to_linear_display_p3(reference_2020)
-                    else:
-                        reference_linear = rec2020_to_linear_srgb(reference_2020)
-                    reference_linear = adjust_oklab_chroma(
-                        reference_linear, target=style.sdr_gamut,
-                        amount=look.saturation,
-                        warm_color_separation=warm_color_separation,
-                        vibrance=style.vibrance,
-                    )
-                    reference_linear = refine_color(
-                        reference_linear, target=style.sdr_gamut,
-                        dark_weight=tone_mapping["phone_dark_weight"],
-                        indoor_weight=tone_mapping["phone_indoor_weight"],
-                        neutral_protection=neutral_protection,
-                        **color_protection,
-                    )
-                    reference_linear = compress_gamut(reference_linear, target=style.sdr_gamut, upper=1.0)
-                    hdr_reference_color = reference_linear
-                    hdr_reference_y = reference_linear @ (
-                        DISPLAY_P3_TO_XYZ[1] if style.sdr_gamut == "display-p3" else SRGB_TO_XYZ[1]
-                    )
-                    reference_restore_ratio = reference_target_before_style / np.maximum(reference_target, 1e-5)
-                if tone_mapping["phone_hdr_dark_restore"] > 0.0:
-                    hdr_reference_y *= np.power(
-                        np.maximum(reference_restore_ratio, 1.0),
-                        tone_mapping["phone_hdr_dark_restore"],
-                    )
-                hdr_y = phone_hdr_luminance(
-                    hdr_reference_y,
-                    source_y=y,
-                    source_highlight_start=tone_mapping["hdr_source_highlight_start"],
-                    source_highlight_anchor=tone_mapping["hdr_source_highlight_anchor"],
-                    dark_weight=tone_mapping["phone_dark_weight"],
-                    dark_highlight_power=tone_mapping["phone_hdr_dark_highlight_power"],
-                    manual_highlight_bonus=tone_mapping["hdr_manual_highlight_bonus"],
-                    manual_highlight_start=tone_mapping["hdr_manual_highlight_start"],
-                    manual_highlight_anchor=tone_mapping["hdr_manual_highlight_anchor"],
-                    midtone_gain=tone_mapping["hdr_midtone_gain"],
-                    peak_target=tone_mapping["phone_hdr_peak_ratio"],
-                    peak_limit=peak_nits / 203.0,
-                    highlight_anchor=tone_mapping["hdr_sdr_highlight_anchor"],
-                    shoulder_strength=tone_mapping["hdr_shoulder_strength"],
-                    hdr_strength=hdr_strength,
-                    smooth_highlights=style.algorithm_version >= 4,
-                    dark_intermediate_lift=(0.12 * tone_mapping["phone_dark_weight"]
-                        * np.clip((tone_mapping["phone_raw_p99"] / max(tone_mapping["phone_raw_p90"], .01)-4)/2, 0, 1)
-                        * (1-tone_mapping["phone_hdr_dark_restore"])
-                        if style.algorithm_version >= 4 and look.contrast_source == "auto" else 0),
+                reference_restore_ratio = reference_target_before_style / np.maximum(reference_target, 1e-5)
+            if tone_mapping["phone_hdr_dark_restore"] > 0.0:
+                hdr_reference_y *= np.power(
+                    np.maximum(reference_restore_ratio, 1.0),
+                    tone_mapping["phone_hdr_dark_restore"],
                 )
-                if shared_hdr_chroma:
-                    reference_srgb = (hdr_reference_color @ DISPLAY_P3_TO_SRGB.T
-                                      if style.sdr_gamut == "display-p3" else hdr_reference_color)
-                    hdr_2020 = scale_rgb_to_luminance(linear_srgb_to_rec2020(reference_srgb), hdr_y)
-                else:
-                    hdr_2020 = scale_rgb_to_luminance(shared, hdr_y)
+            hdr_y = phone_hdr_luminance(
+                hdr_reference_y,
+                source_y=y,
+                source_highlight_start=tone_mapping["hdr_source_highlight_start"],
+                source_highlight_anchor=tone_mapping["hdr_source_highlight_anchor"],
+                dark_weight=tone_mapping["phone_dark_weight"],
+                dark_highlight_power=tone_mapping["phone_hdr_dark_highlight_power"],
+                manual_highlight_bonus=tone_mapping["hdr_manual_highlight_bonus"],
+                manual_highlight_start=tone_mapping["hdr_manual_highlight_start"],
+                manual_highlight_anchor=tone_mapping["hdr_manual_highlight_anchor"],
+                midtone_gain=tone_mapping["hdr_midtone_gain"],
+                peak_target=tone_mapping["phone_hdr_peak_ratio"],
+                peak_limit=peak_nits / 203.0,
+                highlight_anchor=tone_mapping["hdr_sdr_highlight_anchor"],
+                shoulder_strength=tone_mapping["hdr_shoulder_strength"],
+                hdr_strength=hdr_strength,
+                smooth_highlights=style.algorithm_version >= 4,
+                dark_intermediate_lift=(0.12 * tone_mapping["phone_dark_weight"]
+                    * np.clip((tone_mapping["phone_raw_p99"] / max(tone_mapping["phone_raw_p90"], .01)-4)/2, 0, 1)
+                    * (1-tone_mapping["phone_hdr_dark_restore"])
+                    if style.algorithm_version >= 4 and policy.automatic_tone else 0),
+            )
+            if shared_hdr_chroma:
+                reference_srgb = (hdr_reference_color @ DISPLAY_P3_TO_SRGB.T
+                                  if style.sdr_gamut == "display-p3" else hdr_reference_color)
+                hdr_2020 = scale_rgb_to_luminance(linear_srgb_to_rec2020(reference_srgb), hdr_y)
             else:
-                hdr_2020 = scale_rgb_to_luminance(
-                    shared,
-                    hdr_curve_with_highlight_expansion(
-                        y,
-                        peak_nits=peak_nits,
-                        hdr_strength=hdr_strength,
-                        highlight_start=tone_mapping["hdr_highlight_start"],
-                        highlight_anchor=tone_mapping["hdr_highlight_anchor"],
-                        highlight_lift=tone_mapping["hdr_highlight_lift"],
-                    ),
-                )
-            if not shared_hdr_chroma:
-                hdr_2020 = adjust_oklab_chroma(
-                    hdr_2020,
-                    target="rec2020",
-                    amount=look.saturation,
-                    warm_color_separation=warm_color_separation,
-                    vibrance=style.vibrance,
-                )
-                if style.algorithm_version >= 2:
-                    hdr_2020 = refine_color(
-                        hdr_2020, target="rec2020",
-                        dark_weight=tone_mapping["phone_dark_weight"],
-                        indoor_weight=tone_mapping["phone_indoor_weight"],
-                        neutral_protection=neutral_protection,
-                        **color_protection,
-                    )
-            hdr_2020 = compress_gamut(
-                hdr_2020, target="rec2020",
-                upper=peak_nits / 203.0 if style.algorithm_version >= 2 else boost,
+                hdr_2020 = scale_rgb_to_luminance(shared, hdr_y)
+        else:
+            hdr_2020 = scale_rgb_to_luminance(
+                shared,
+                hdr_curve_with_highlight_expansion(
+                    y,
+                    peak_nits=peak_nits,
+                    hdr_strength=hdr_strength,
+                    highlight_start=tone_mapping["hdr_highlight_start"],
+                    highlight_anchor=tone_mapping["hdr_highlight_anchor"],
+                    highlight_lift=tone_mapping["hdr_highlight_lift"],
+                ),
+            )
+        if not shared_hdr_chroma:
+            hdr_2020 = adjust_oklab_chroma(
+                hdr_2020,
+                target="rec2020",
+                amount=look.saturation,
+                warm_color_separation=warm_color_separation,
+                vibrance=style.vibrance,
             )
             if style.algorithm_version >= 2:
-                # Gain-map metadata is channel-wise for the selected encoder
-                # mode; a luminance-only maximum can clip saturated colors.
-                hdr_p3 = hdr_2020 @ REC2020_TO_DISPLAY_P3.T if style.sdr_gamut == "display-p3" else rec2020_to_linear_srgb(hdr_2020)
-                ratio = (np.maximum(hdr_p3, 0.0) + 1.0 / 64.0) / (sdr_linear + 1.0 / 64.0)
-                measured_gain_max = max(measured_gain_max, float(np.max(ratio)))
-            alpha = np.ones((*hdr_2020.shape[:2], 1), dtype=np.float32)
-            rgba = np.concatenate((hdr_2020, alpha), axis=-1).astype("<f4" if style.clear_float else "<f2")
-            hdr_file.write(rgba.tobytes(order="C"))
+                hdr_2020 = refine_color(
+                    hdr_2020, target="rec2020",
+                    dark_weight=tone_mapping["phone_dark_weight"],
+                    indoor_weight=tone_mapping["phone_indoor_weight"],
+                    neutral_protection=neutral_protection,
+                    **color_protection,
+                )
+        hdr_2020 = compress_gamut(
+            hdr_2020, target="rec2020",
+            upper=peak_nits / 203.0 if style.algorithm_version >= 2 else boost,
+        )
+        if style.algorithm_version >= 2:
+            # Gain-map metadata is channel-wise for the selected encoder
+            # mode; a luminance-only maximum can clip saturated colors.
+            hdr_p3 = hdr_2020 @ REC2020_TO_DISPLAY_P3.T if style.sdr_gamut == "display-p3" else rec2020_to_linear_srgb(hdr_2020)
+            ratio = (np.maximum(hdr_p3, 0.0) + 1.0 / 64.0) / (sdr_linear + 1.0 / 64.0)
+            measured_gain_max = max(measured_gain_max, float(np.max(ratio)))
+        alpha = np.ones((*hdr_2020.shape[:2], 1), dtype=np.float32)
+        rgba = np.concatenate((hdr_2020, alpha), axis=-1).astype("<f4" if style.clear_float else "<f2")
+        return rgba.tobytes(order="C"), measured_gain_max, skin_weight_sum, skin_supported_pixels
+
+    starts = range(0, scene_info.height, chunk_rows)
+    # Only preview-sized images use concurrent independent rows. Full-size
+    # exports retain bounded serial allocation on a 16 GB Mac. Results and
+    # floating-point summary reductions are consumed in original row order.
+    from concurrent.futures import ThreadPoolExecutor
+    from contextlib import nullcontext
+    parallel = policy.parallel_preview and scene_info.width * scene_info.height <= 4_000_000 and len(starts) > 1
+    with ThreadPoolExecutor(max_workers=min(4, max(1, policy.preview_workers))) if parallel else nullcontext() as executor:
+        chunks = executor.map(render_chunk, starts) if parallel else map(render_chunk, starts)
+        with hdr_raw_path.open("wb") as hdr_file:
+            for data, maximum, skin_sum, supported in chunks:
+                hdr_file.write(data)
+                measured_gain_max = max(measured_gain_max, maximum)
+                skin_weight_sum += skin_sum
+                skin_supported_pixels += supported
+
+    if _reference_sdr_only:
+        # Local-exposure analysis consumes this SDR reference only. Computing
+        # and encoding its discarded HDR twin cannot affect the reference.
+        if not style.clear_float:
+            raise ValueError('The independent float reference requires a float SDR style')
+        tifffile.imwrite(_linear_sdr_output, sdr_pixels, photometric='rgb')
+        encoded = np.empty(sdr_pixels.shape, dtype=np.uint8)
+        for start in range(0, scene_info.height, chunk_rows):
+            encoded[start:start+chunk_rows] = _quantize_sdr(sdr_pixels[start:start+chunk_rows])
+        Image.fromarray(encoded, mode='RGB').save(sdr_path, format='JPEG', quality=sdr_quality,
+            subsampling=0, optimize=True, icc_profile=_sdr_icc_bytes(style.sdr_gamut))
+        return None
 
     if skin_enabled:
         pixels = scene_info.width * scene_info.height
@@ -802,7 +869,7 @@ def _render_pair(
         })
     subject_strength = 1.0 if subject_adaptation_strength is None else subject_adaptation_strength
     if (not style.clear_float and style.algorithm_version >= 4 and _allow_subject and subject_strength > 0
-            and look.contrast_source == "auto" and look.saturation_source == "auto"
+            and policy.automatic_tone and policy.automatic_color
             and tone_mapping["phone_dark_weight"] < .5):
         # Build cues from an SDR-independent reference. Reusing the actual
         # fallback here would violate --sdr-exposure-ev's HDR independence.
@@ -821,8 +888,10 @@ def _render_pair(
                 preview_scene, reference, work / "reference.rgba16f",
                 auto_exposure=auto_exposure, exposure_ev=exposure_ev,
                 sdr_exposure_ev=0, development_ev=development_ev,
-                highlight_ev=highlight_ev, hdr_strength=hdr_strength, peak_nits=peak_nits,
+                highlight_ev=highlight_ev, shadow_ev=shadow_ev, hdr_strength=hdr_strength, peak_nits=peak_nits,
                 auto_look=auto_look, contrast=contrast, saturation=saturation,
+                edit_exposure_ev=edit_exposure_ev, saturation_scale=saturation_scale,
+                _processing_policy=policy,
                 warm_color_separation=warm_color_separation, style=style,
                 sdr_adaptation_strength=sdr_adaptation_strength,
                 hdr_midtone_gain=hdr_midtone_gain, hdr_shoulder_strength=hdr_shoulder_strength,
@@ -865,7 +934,7 @@ def _render_pair(
             raw.flush()
             del raw
     if (not style.clear_float and style.algorithm_version >= 4 and _allow_histogram and style.local_contrast > 0
-            and look.contrast_source == "auto" and look.saturation_source == "auto"):
+            and policy.automatic_tone and policy.automatic_color):
         # Build cues from an SDR-independent reference. Reusing the actual
         # fallback here would violate --sdr-exposure-ev's HDR independence.
         with tempfile.TemporaryDirectory(prefix="hdrimg-histogram-reference-") as temp:
@@ -883,8 +952,10 @@ def _render_pair(
                 preview_scene, reference, work / "reference.rgba16f",
                 auto_exposure=auto_exposure, exposure_ev=exposure_ev,
                 sdr_exposure_ev=0, development_ev=development_ev,
-                highlight_ev=highlight_ev, hdr_strength=hdr_strength, peak_nits=peak_nits,
+                highlight_ev=highlight_ev, shadow_ev=shadow_ev, hdr_strength=hdr_strength, peak_nits=peak_nits,
                 auto_look=auto_look, contrast=contrast, saturation=saturation,
+                edit_exposure_ev=edit_exposure_ev, saturation_scale=saturation_scale,
+                _processing_policy=policy,
                 warm_color_separation=warm_color_separation, style=style,
                 sdr_adaptation_strength=sdr_adaptation_strength,
                 hdr_midtone_gain=hdr_midtone_gain, hdr_shoulder_strength=hdr_shoulder_strength,
@@ -957,9 +1028,11 @@ def _render_pair(
             enabled=(_allow_subject or _allow_histogram) and shared_hdr_chroma,
             reference_options=dict(auto_exposure=auto_exposure, exposure_ev=exposure_ev,
                 sdr_quality=95,
-                development_ev=development_ev, highlight_ev=highlight_ev,
+                development_ev=development_ev, highlight_ev=highlight_ev, shadow_ev=shadow_ev,
                 hdr_strength=hdr_strength, peak_nits=peak_nits, auto_look=auto_look,
                 contrast=contrast, saturation=saturation, warm_color_separation=warm_color_separation,
+                edit_exposure_ev=edit_exposure_ev, saturation_scale=saturation_scale,
+                _processing_policy=policy,
                 style=style, sdr_adaptation_strength=sdr_adaptation_strength,
                 hdr_midtone_gain=hdr_midtone_gain, hdr_shoulder_strength=hdr_shoulder_strength,
                 skin_protection_strength=skin_protection_strength, _skin_context=_skin_context,
@@ -970,19 +1043,24 @@ def _render_pair(
                                      "hdr_quantization": "float16_after_all_adjustments"}
         if _linear_sdr_output is not None:
             tifffile.imwrite(_linear_sdr_output, sdr_pixels, photometric="rgb")
-        quantized = np.empty(sdr_pixels.shape, dtype=np.uint8)
-        for start in range(0, scene_info.height, chunk_rows):
-            quantized[start:start+chunk_rows] = _quantize_sdr(sdr_pixels[start:start+chunk_rows])
-        del sdr_pixels
-        sdr_pixels = quantized
-    Image.fromarray(sdr_pixels, mode="RGB").save(
-        sdr_path,
-        format="JPEG",
-        quality=sdr_quality,
-        subsampling=0,
-        optimize=True,
-        icc_profile=_sdr_icc_bytes(style.sdr_gamut),
-    )
+        if _preview_output is not None:
+            write_rgba16f(_preview_output, sdr_pixels)
+        if not _skip_sdr_jpeg:
+            quantized = np.empty(sdr_pixels.shape, dtype=np.uint8)
+            for start in range(0, scene_info.height, chunk_rows):
+                quantized[start:start+chunk_rows] = _quantize_sdr(sdr_pixels[start:start+chunk_rows])
+            del sdr_pixels
+            sdr_pixels = quantized
+    if _preview_output is not None and not style.clear_float:
+        # Natural's accepted pipeline quantizes before its subject adjustment.
+        # Preserve those exact pre-JPEG code values rather than changing its look.
+        encoded = sdr_pixels.astype(np.float32) / 255
+        write_rgba16f(_preview_output, np.where(encoded <= .04045,
+            encoded / 12.92, ((encoded + .055) / 1.055) ** 2.4))
+    if not _skip_sdr_jpeg:
+        Image.fromarray(sdr_pixels, mode="RGB").save(
+            sdr_path, format="JPEG", quality=sdr_quality, subsampling=0,
+            optimize=True, icc_profile=_sdr_icc_bytes(style.sdr_gamut))
     exposure_dict = {key: float(value) for key, value in asdict(stats).items()}
     if style.algorithm_version >= 2:
         boost = float(np.clip(measured_gain_max * 1.03, 1.0, 64.0))
@@ -1012,7 +1090,7 @@ def write_rgba16f(path: Path, rgb: np.ndarray) -> None:
 from functools import wraps
 
 @wraps(_render_pair)
-def render_pair(*args, **kwargs) -> RenderInfo:
+def render_pair(*args, **kwargs) -> RenderInfo | None:
     style = kwargs.get("style") or DEFAULT_STYLE
     if not style.clear_float:
         return _render_pair(*args, **kwargs)

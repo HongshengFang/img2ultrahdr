@@ -199,6 +199,173 @@ def _publish(staged: dict[str, Path], final: dict[str, Path]) -> None:
             os.replace(staged[key], final[key])
 
 
+@dataclass
+class PreparedRaw:
+    scene: Path
+    scene_decision: Any
+    skin_context: Any
+    raw_development: dict[str, Any]
+
+
+def prepare_raw_scene(source: Path, options: RenderOptions, *, style: StyleSettings,
+                      tools, work: Path, metering_reference: Path | None = None) -> PreparedRaw:
+    """Develop into caller-owned storage, without rendering or encoding."""
+    scene = work / "scene.tif"
+    denoise_strength = options.resolved_raw_denoise_strength()
+    detail_strength = options.resolved_raw_detail_strength()
+    surface_strength = options.resolved_surface_denoise_strength()
+    development_overlay = None
+    white_balance = options.resolved_white_balance()
+    if denoise_strength > 0:
+        development_overlay = work / "phone-denoise.pp3"
+        development_overlay.write_text(phone_denoise_overlay(denoise_strength))
+
+    metering_decision = None
+    metering_preview = None
+    native_wb_bias = 0.0
+    native_wb_record = {"reason": "explicit_white_balance_or_manual_look", "temperature_bias": 0.0}
+    if style.clear_float and options.auto_look and options.contrast is None and options.saturation is None:
+        from .phone_clear import scene_decision, raw_temperature_bias
+        if style.clear_v8:
+            from .phone_clear_v8 import scene_decision
+        import numpy as np
+        def preview_raw(path):
+            values, _ = open_scene(path)
+            scale = min(1., 1024/max(values.shape[:2]))
+            size = (max(1, round(values.shape[1]*scale)), max(1, round(values.shape[0]*scale)))
+            return np.stack([np.asarray(Image.fromarray(values[..., c]).resize(
+                size, Image.Resampling.BOX)) for c in range(3)], axis=-1)
+        if metering_reference is not None and metering_reference.is_file():
+            metering_preview = np.load(metering_reference, allow_pickle=False)
+        else:
+            meter_work = work / "fixed-camera-metering"
+            meter_work.mkdir()
+            meter_scene = meter_work / "scene.tif"
+            develop_raw(source, meter_scene, tools=tools, white_balance="camera",
+                temperature_k=None, tint=1.0, work_dir=meter_work)
+            metering_preview = preview_raw(meter_scene)
+            meter_scene.unlink()
+            if metering_reference is not None:
+                staged_meter = metering_reference.with_suffix('.partial')
+                with staged_meter.open('wb') as stream:
+                    np.save(stream, metering_preview)
+                os.replace(staged_meter, metering_reference)
+        metering_decision = scene_decision(metering_preview,
+            development_ev=RAW_DEVELOPMENT_EV, peak_nits=options.peak_nits)
+    develop_raw(
+        source,
+        scene,
+        tools=tools,
+        white_balance=white_balance,
+        temperature_k=options.temperature_k,
+        tint=options.tint,
+        work_dir=work,
+        profile_overlay=development_overlay,
+    )
+    denoise_decision = None
+    extra_luma = 0.0
+    if denoise_strength > 0:
+        first_scene, _ = open_scene(scene)
+        denoise_decision = phone_denoise_decision(first_scene, development_ev=RAW_DEVELOPMENT_EV)
+        del first_scene
+        extra_luma = denoise_decision["extra_denoise_weight"]
+    if metering_decision is not None and white_balance == "auto":
+        color_decision = metering_decision
+        if style.clear_v8:
+            # Keep the accepted RAW color decision independent of the
+            # new tone-metering experiment; no creative WB change here.
+            from .phone_clear import scene_decision as v7_color_scene_decision
+            color_decision = v7_color_scene_decision(metering_preview,
+                development_ev=RAW_DEVELOPMENT_EV, peak_nits=options.peak_nits)
+        native_wb_bias, native_wb_record = raw_temperature_bias(
+            preview_raw(scene), metering_preview, color_decision)
+    # Measure noise before sharpening. The final development composes the
+    # selected denoise and detail profiles in a single second pass.
+    if extra_luma > 0 or detail_strength > 0 or native_wb_bias > 0:
+        development_overlay = work / "phone-denoise-adaptive.pp3"
+        profile = phone_denoise_overlay(denoise_strength, extra_luma=extra_luma) if denoise_strength > 0 else ""
+        if detail_strength > 0:
+            profile += "\n" + phone_detail_overlay(detail_strength)
+        if profile:
+            development_overlay.write_text(profile)
+        else:
+            development_overlay = None
+        adaptive_work = work / "adaptive-development"
+        adaptive_work.mkdir()
+        scene = work / "scene-adaptive.tif"
+        develop_raw(
+            source, scene, tools=tools, white_balance=white_balance,
+            temperature_k=options.temperature_k, tint=options.tint,
+            work_dir=adaptive_work, profile_overlay=development_overlay,
+            **({"temperature_bias": native_wb_bias} if native_wb_bias else {}),
+        )
+    surface_record = None
+    if surface_strength > 0:
+        surface_scene = work / "scene-surface.tif"
+        surface_record = denoise_blue_surfaces(scene, surface_scene,
+            strength=surface_strength, development_ev=RAW_DEVELOPMENT_EV)
+        if surface_record["applied"]:
+            scene = surface_scene
+    color_record = None
+    if denoise_strength > 0:
+        # Keep matching RAW color before thresholded denoiser chroma boosts.
+        # The reference uses the same geometry, white balance and headroom.
+        reference_work = work / "color-reference-development"
+        reference_work.mkdir()
+        color_reference = work / "scene-color-reference.tif"
+        develop_raw(
+            source, color_reference, tools=tools,
+            white_balance=white_balance,
+            temperature_k=options.temperature_k, tint=options.tint,
+            work_dir=reference_work,
+            **({"temperature_bias": native_wb_bias} if native_wb_bias else {}),
+        )
+        color_scene = work / "scene-color-preserved.tif"
+        color_record = preserve_blue_chroma(scene, color_reference, color_scene,
+            strength=denoise_strength, development_ev=RAW_DEVELOPMENT_EV)
+        if color_record["applied"]:
+            scene = color_scene
+    raw_skin_record = {"applied": False, "reason": "disabled_or_explicit_white_balance"}
+    skin_context = None
+    camera_reference = None
+    raw_skin_strength = options.resolved_raw_skin_strength()
+    if raw_skin_strength > 0:
+        # The main development already uses automatic RAW WB. A matching
+        # camera-WB reference only bounds skin chroma loss before the look.
+        camera_work = work / "camera-white-balance-reference"
+        camera_work.mkdir()
+        camera_reference = work / "scene-camera-reference.tif"
+        develop_raw(source, camera_reference, tools=tools,
+            white_balance="camera", temperature_k=None, tint=1.0,
+            work_dir=camera_work, profile_overlay=development_overlay)
+        guarded_scene = work / "scene-raw-skin.tif"
+        raw_skin_record, skin_context = preserve_raw_skin(
+            scene, camera_reference, guarded_scene, strength=raw_skin_strength,
+            development_ev=RAW_DEVELOPMENT_EV,
+            pale_boundaries=style.pale_boundaries)
+        if raw_skin_record["applied"]:
+            scene = guarded_scene
+    raw_development = {
+        "white_balance": {
+            "requested": options.white_balance or "style-default",
+            "resolved": white_balance,
+            "temperature_k": options.temperature_k if white_balance == "custom" else None,
+            "tint": options.tint,
+            "stage": "raw",
+            "post_illuminant_correction": style.algorithm_version in (4, 5),
+            **({"native_temperature_bias": native_wb_record} if style.clear_float else {}),
+            "skin_guard": raw_skin_record,
+        },
+        "denoise_strength": denoise_strength,
+        "denoise_profile": development_overlay.read_text() if development_overlay else None,
+        "denoise_decision": denoise_decision,
+        "detail_strength": detail_strength,
+        "surface_denoise": surface_record,
+        "color_preservation": color_record,
+    }
+    return PreparedRaw(scene, metering_decision, skin_context, raw_development)
+
+
 def render_raw(source_path: Path, options: RenderOptions, *,
                _style_override: StyleSettings | None = None) -> RenderResult:
     options.validate()
@@ -233,132 +400,12 @@ def render_raw(source_path: Path, options: RenderOptions, *,
         ultrahdr = work / "ultrahdr.jpg"
         manifest = work / "render.json"
 
-        denoise_strength = options.resolved_raw_denoise_strength()
-        detail_strength = options.resolved_raw_detail_strength()
-        surface_strength = options.resolved_surface_denoise_strength()
-        development_overlay = None
+        prepared = prepare_raw_scene(source, options, style=style, tools=tools, work=work)
+        scene = prepared.scene
+        metering_decision = prepared.scene_decision
+        skin_context = prepared.skin_context
         white_balance = options.resolved_white_balance()
-        if denoise_strength > 0:
-            development_overlay = work / "phone-denoise.pp3"
-            development_overlay.write_text(phone_denoise_overlay(denoise_strength))
-
-        metering_decision = None
-        metering_preview = None
-        native_wb_bias = 0.0
-        native_wb_record = {"reason": "explicit_white_balance_or_manual_look", "temperature_bias": 0.0}
-        if style.clear_float and options.auto_look and options.contrast is None and options.saturation is None:
-            from .phone_clear import scene_decision, raw_temperature_bias
-            if style.clear_v8:
-                from .phone_clear_v8 import scene_decision
-            import numpy as np
-            def preview_raw(path):
-                values, _ = open_scene(path)
-                scale = min(1., 1024/max(values.shape[:2]))
-                size = (max(1, round(values.shape[1]*scale)), max(1, round(values.shape[0]*scale)))
-                return np.stack([np.asarray(Image.fromarray(values[..., c]).resize(
-                    size, Image.Resampling.BOX)) for c in range(3)], axis=-1)
-            meter_work = work / "fixed-camera-metering"
-            meter_work.mkdir()
-            meter_scene = meter_work / "scene.tif"
-            develop_raw(source, meter_scene, tools=tools, white_balance="camera",
-                temperature_k=None, tint=1.0, work_dir=meter_work)
-            metering_preview = preview_raw(meter_scene)
-            metering_decision = scene_decision(metering_preview,
-                development_ev=RAW_DEVELOPMENT_EV, peak_nits=options.peak_nits)
-            meter_scene.unlink()
-        develop_raw(
-            source,
-            scene,
-            tools=tools,
-            white_balance=white_balance,
-            temperature_k=options.temperature_k,
-            tint=options.tint,
-            work_dir=work,
-            profile_overlay=development_overlay,
-        )
-        denoise_decision = None
-        extra_luma = 0.0
-        if denoise_strength > 0:
-            first_scene, _ = open_scene(scene)
-            denoise_decision = phone_denoise_decision(first_scene, development_ev=RAW_DEVELOPMENT_EV)
-            del first_scene
-            extra_luma = denoise_decision["extra_denoise_weight"]
-        if metering_decision is not None and white_balance == "auto":
-            color_decision = metering_decision
-            if style.clear_v8:
-                # Keep the accepted RAW color decision independent of the
-                # new tone-metering experiment; no creative WB change here.
-                from .phone_clear import scene_decision as v7_color_scene_decision
-                color_decision = v7_color_scene_decision(metering_preview,
-                    development_ev=RAW_DEVELOPMENT_EV, peak_nits=options.peak_nits)
-            native_wb_bias, native_wb_record = raw_temperature_bias(
-                preview_raw(scene), metering_preview, color_decision)
-        # Measure noise before sharpening. The final development composes the
-        # selected denoise and detail profiles in a single second pass.
-        if extra_luma > 0 or detail_strength > 0 or native_wb_bias > 0:
-            development_overlay = work / "phone-denoise-adaptive.pp3"
-            profile = phone_denoise_overlay(denoise_strength, extra_luma=extra_luma) if denoise_strength > 0 else ""
-            if detail_strength > 0:
-                profile += "\n" + phone_detail_overlay(detail_strength)
-            if profile:
-                development_overlay.write_text(profile)
-            else:
-                development_overlay = None
-            adaptive_work = work / "adaptive-development"
-            adaptive_work.mkdir()
-            scene = work / "scene-adaptive.tif"
-            develop_raw(
-                source, scene, tools=tools, white_balance=white_balance,
-                temperature_k=options.temperature_k, tint=options.tint,
-                work_dir=adaptive_work, profile_overlay=development_overlay,
-                **({"temperature_bias": native_wb_bias} if native_wb_bias else {}),
-            )
-        surface_record = None
-        if surface_strength > 0:
-            surface_scene = work / "scene-surface.tif"
-            surface_record = denoise_blue_surfaces(scene, surface_scene,
-                strength=surface_strength, development_ev=RAW_DEVELOPMENT_EV)
-            if surface_record["applied"]:
-                scene = surface_scene
-        color_record = None
-        if denoise_strength > 0:
-            # Keep matching RAW color before thresholded denoiser chroma boosts.
-            # The reference uses the same geometry, white balance and headroom.
-            reference_work = work / "color-reference-development"
-            reference_work.mkdir()
-            color_reference = work / "scene-color-reference.tif"
-            develop_raw(
-                source, color_reference, tools=tools,
-                white_balance=white_balance,
-                temperature_k=options.temperature_k, tint=options.tint,
-                work_dir=reference_work,
-                **({"temperature_bias": native_wb_bias} if native_wb_bias else {}),
-            )
-            color_scene = work / "scene-color-preserved.tif"
-            color_record = preserve_blue_chroma(scene, color_reference, color_scene,
-                strength=denoise_strength, development_ev=RAW_DEVELOPMENT_EV)
-            if color_record["applied"]:
-                scene = color_scene
-        raw_skin_record = {"applied": False, "reason": "disabled_or_explicit_white_balance"}
-        skin_context = None
-        camera_reference = None
-        raw_skin_strength = options.resolved_raw_skin_strength()
-        if raw_skin_strength > 0:
-            # The main development already uses automatic RAW WB. A matching
-            # camera-WB reference only bounds skin chroma loss before the look.
-            camera_work = work / "camera-white-balance-reference"
-            camera_work.mkdir()
-            camera_reference = work / "scene-camera-reference.tif"
-            develop_raw(source, camera_reference, tools=tools,
-                white_balance="camera", temperature_k=None, tint=1.0,
-                work_dir=camera_work, profile_overlay=development_overlay)
-            guarded_scene = work / "scene-raw-skin.tif"
-            raw_skin_record, skin_context = preserve_raw_skin(
-                scene, camera_reference, guarded_scene, strength=raw_skin_strength,
-                development_ev=RAW_DEVELOPMENT_EV,
-                pale_boundaries=style.pale_boundaries)
-            if raw_skin_record["applied"]:
-                scene = guarded_scene
+        native_wb_record = prepared.raw_development["white_balance"].get("native_temperature_bias")
         render_info = render_pair(
             scene,
             sdr,
@@ -443,24 +490,7 @@ def render_raw(source_path: Path, options: RenderOptions, *,
                 "output": os.fspath(output),
             },
             "render": asdict(render_info),
-            "raw_development": {
-                "white_balance": {
-                    "requested": options.white_balance or "style-default",
-                    "resolved": white_balance,
-                    "temperature_k": options.temperature_k if white_balance == "custom" else None,
-                    "tint": options.tint,
-                    "stage": "raw",
-                    "post_illuminant_correction": style.algorithm_version in (4, 5),
-                    **({"native_temperature_bias": native_wb_record} if style.clear_float else {}),
-                    "skin_guard": raw_skin_record,
-                },
-                "denoise_strength": denoise_strength,
-                "denoise_profile": development_overlay.read_text() if development_overlay else None,
-                "denoise_decision": denoise_decision,
-                "detail_strength": detail_strength,
-                "surface_denoise": surface_record,
-                "color_preservation": color_record,
-            },
+            "raw_development": prepared.raw_development,
             "outputs": {
                 "sdr": {
                     "filename": final["sdr"].name,

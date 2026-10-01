@@ -91,7 +91,7 @@ def exposure_statistics(
 
 
 def apply_exposure_and_highlights(
-    rgb: np.ndarray, *, total_ev: float, highlight_ev: float
+    rgb: np.ndarray, *, total_ev: float, highlight_ev: float, shadow_ev: float = 0.0
 ) -> np.ndarray:
     exposed = np.nan_to_num(
         np.asarray(rgb, dtype=np.float32) * np.float32(2.0**total_ev),
@@ -100,6 +100,10 @@ def apply_exposure_and_highlights(
         neginf=0.0,
     )
     np.maximum(exposed, 0.0, out=exposed)
+    if shadow_ev:
+        y = luminance_rec2020(exposed)
+        weight = np.maximum(1.0 - y / np.float32(0.18), 0.0) ** 2
+        exposed *= np.exp2(np.float32(shadow_ev) * weight)[..., None]
     if highlight_ev == 0.0:
         return exposed
     y = luminance_rec2020(exposed)

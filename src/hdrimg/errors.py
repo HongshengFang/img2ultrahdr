@@ -12,3 +12,7 @@ class InputError(HdrImgError):
 
 class ProcessingError(HdrImgError):
     """An external process or image operation failed."""
+
+
+class DiskSpaceError(ProcessingError):
+    """There is insufficient working space for an expensive image operation."""

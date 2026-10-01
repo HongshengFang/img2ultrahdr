@@ -27,6 +27,11 @@ from .color import DISPLAY_P3_TO_SRGB, DISPLAY_P3_TO_XYZ, SRGB_TO_XYZ, linear_sr
 
 
 def _vision_helper() -> Path | None:
+    bundled = os.environ.get("HDRIMG_VISION_HELPER")
+    if bundled:
+        path = Path(bundled)
+        if path.is_file() and os.access(path, os.X_OK):
+            return path
     if platform.system() != "Darwin":
         return None
     compiler = shutil.which("swiftc")
@@ -150,7 +155,8 @@ def _detect_subject_fields_uncached(
                     tile_path = Path(temp)/f"tile-{index}.jpg"
                     tile.save(tile_path,quality=95,subsampling=0,icc_profile=icc)
                     tile_prefix = Path(temp)/f"tile-{index}"
-                    subprocess.run([str(helper),str(tile_path),str(tile_prefix)],
+                    extra = ['--tile-faces-first'] if os.environ.get('HDRIMG_VISION_FAST_TILES') == '1' else []
+                    subprocess.run([str(helper),str(tile_path),str(tile_prefix),*extra],
                                    check=True,capture_output=True,timeout=60)
                     found = json.loads(tile_prefix.with_suffix(".json").read_text())["faces"]
                     retry_count += 1

@@ -75,29 +75,34 @@ def edge_limited_exposure(y: np.ndarray, requested: np.ndarray, *, slope: float 
     values = np.asarray(requested, np.float32)
     lower, upper = values.copy(), values.copy()
     maximum_change = 0.
-    for iteration in range(512):
-        maximum_change = 0.
-        for axis in (1, 0):
-            g = guide if axis == 1 else guide.T
-            lo = lower if axis == 1 else lower.T
-            hi = upper if axis == 1 else upper.T
-            for start in range(0, len(g), 96):
-                stop = start+96
-                distances = np.empty(g[start:stop].shape, np.float64)
-                distances[:, 0] = 0
-                np.cumsum(slope*np.abs(np.diff(g[start:stop].astype(np.float64), axis=1)),
-                          axis=1, out=distances[:, 1:])
-                a, b = lo[start:stop].astype(np.float64), hi[start:stop].astype(np.float64)
-                new_lo = np.minimum(
-                    distances+np.minimum.accumulate(a-distances, axis=1),
-                    -distances+np.minimum.accumulate((a+distances)[:, ::-1], axis=1)[:, ::-1])
-                new_hi = np.maximum(
-                    -distances+np.maximum.accumulate(b+distances, axis=1),
-                    distances+np.maximum.accumulate((b-distances)[:, ::-1], axis=1)[:, ::-1])
-                maximum_change = max(maximum_change, float(np.max(a-new_lo)), float(np.max(new_hi-b)))
-                lo[start:stop], hi[start:stop] = new_lo, new_hi
-        if maximum_change < 2e-7:
-            break
+    from .accelerator import envelopes
+    accelerated = envelopes(guide, lower, upper, slope)
+    if accelerated is not None:
+        iteration, maximum_change = accelerated
+    else:
+        for iteration in range(512):
+            maximum_change = 0.
+            for axis in (1, 0):
+                g = guide if axis == 1 else guide.T
+                lo = lower if axis == 1 else lower.T
+                hi = upper if axis == 1 else upper.T
+                for start in range(0, len(g), 96):
+                    stop = start+96
+                    distances = np.empty(g[start:stop].shape, np.float64)
+                    distances[:, 0] = 0
+                    np.cumsum(slope*np.abs(np.diff(g[start:stop].astype(np.float64), axis=1)),
+                              axis=1, out=distances[:, 1:])
+                    a, b = lo[start:stop].astype(np.float64), hi[start:stop].astype(np.float64)
+                    new_lo = np.minimum(
+                        distances+np.minimum.accumulate(a-distances, axis=1),
+                        -distances+np.minimum.accumulate((a+distances)[:, ::-1], axis=1)[:, ::-1])
+                    new_hi = np.maximum(
+                        -distances+np.maximum.accumulate(b+distances, axis=1),
+                        distances+np.maximum.accumulate((b-distances)[:, ::-1], axis=1)[:, ::-1])
+                    maximum_change = max(maximum_change, float(np.max(a-new_lo)), float(np.max(new_hi-b)))
+                    lo[start:stop], hi[start:stop] = new_lo, new_hi
+            if maximum_change < 2e-7:
+                break
     result = (lower+upper)*.5
     del lower, upper
     # If a difficult graph has not converged, contract the *whole* residual
