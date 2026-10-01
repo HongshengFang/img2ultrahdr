@@ -1,12 +1,19 @@
 # Img2UltraHDR
 
-**Img2UltraHDR** is a free, open-source image-processing tool that converts camera RAW files and standard images into natural, ready-to-use SDR JPEGs and Ultra HDR JPEGs with gain maps. It automatically analyzes exposure, contrast, saturation, color gamut, and recoverable highlights while preserving full manual control and reproducible rendering records. It currently supports Canon CR2 and Fujifilm RAF files, with plans to expand support to JPEG, PNG, TIFF, HEIF, and other formats.
+**Img2UltraHDR** is a free image-processing project for natural SDR and Ultra HDR JPEGs with gain maps. Its MIT-licensed RAW workflow supports Canon CR2 and Fujifilm RAF on Apple Silicon macOS, with automatic analysis and manual controls. An optional **JPEG HDR research workflow**, tested on Windows with an RTX 3070 Ti, preserves the input JPEG as the SDR base and predicts luminance gain. The IntrinsicHDR adapter and dependency are academic-use-only; see [third-party notices](THIRD_PARTY_NOTICES.md). PNG, TIFF, HEIF, and other input workflows remain planned.
 
 Img2UltraHDR 目前把 Canon CR2 或 Fujifilm RAF 显影为一张独立可用的 SDR JPEG，以及一张包含 HDR gain map 的 Ultra HDR JPEG。SDR 和 HDR 从同一份线性浮点底稿生成，白平衡与主体颜色一致；需要时可单独调整 SDR 亮度，HDR 曲线则利用显示器的额外亮度空间。
 
+另有可选的普通 JPEG → Ultra HDR 研究入口 `img2uhdr jpeg-hdr`：保留原 JPEG 的 SDR 图像数据，使用低分辨率 IntrinsicHDR、可选 SAM2 点/框保护和原图引导的全分辨率 gain map。此路径已在 Windows / RTX 3070 Ti 8GB 上验证，AI 依赖独立安装，遵循 IntrinsicHDR 的学术用途限制。参见 [JPEG HDR 安装、用法与验证](docs/jpeg-hdr.md)。
+
+| 输入路径 | 命令 | 当前验证平台 | 定位 |
+| --- | --- | --- | --- |
+| Canon CR2 / Fujifilm RAF | `img2uhdr render` | Apple Silicon macOS | RAW 显影、SDR/HDR 配对渲染 |
+| sRGB JPEG | `img2uhdr jpeg-hdr` | Windows / NVIDIA CUDA | 原 SDR base 保留、预测亮度增益的研究原型 |
+
 ## 安装
 
-目前支持 Apple Silicon macOS。核心显影、色彩处理和 Ultra HDR 编解码依赖为免费开源软件；默认 `phone-clear` 的可选人像局部调整还会调用 macOS 自带的 Apple Vision 框架。
+以下为 RAW 工作流的 Apple Silicon macOS 安装。核心显影、色彩处理和 Ultra HDR 编解码依赖为免费开源软件；默认 `phone-clear` 的可选人像局部调整还会调用 macOS 自带的 Apple Vision 框架。JPEG 研究入口使用[单独的安装步骤](docs/jpeg-hdr.md)。
 
 ```bash
 brew bundle

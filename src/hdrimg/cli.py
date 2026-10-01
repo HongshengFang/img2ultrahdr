@@ -10,12 +10,13 @@ from .errors import DependencyError, HdrImgError, InputError
 from .inspect import inspect_file, inspection_as_json
 from .pipeline import RenderOptions, render_raw
 from .style import DEFAULT_STYLE_NAME, STYLE_PRESETS
+from .jpeg_hdr.command import add_parser as add_jpeg_parser, run_command as run_jpeg_command
 
 
 def _parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="img2uhdr",
-        description="Develop CR2/RAF files into controlled SDR and Ultra HDR images.",
+        description="Develop RAW files or expand JPEG luminance into Ultra HDR images.",
     )
     parser.add_argument("--version", action="version", version=f"%(prog)s {__version__}")
     commands = parser.add_subparsers(dest="command", required=True)
@@ -109,6 +110,7 @@ def _parser() -> argparse.ArgumentParser:
 
     inspect = commands.add_parser("inspect", help="validate an Ultra HDR image")
     inspect.add_argument("file", type=Path)
+    add_jpeg_parser(commands)
     return parser
 
 
@@ -190,6 +192,8 @@ def _render_command(args: argparse.Namespace) -> int:
 def main(argv: list[str] | None = None) -> int:
     args = _parser().parse_args(argv)
     try:
+        if args.command == "jpeg-hdr":
+            return run_jpeg_command(args)
         if args.command == "doctor":
             ok, checks = run_doctor()
             print(checks_as_json(checks))
