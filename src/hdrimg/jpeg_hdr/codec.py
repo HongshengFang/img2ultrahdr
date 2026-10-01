@@ -8,6 +8,7 @@ from PIL import Image
 
 from .runtime import runtime_dir
 from .metadata import normalize_iso_metadata
+from .xmp import add_google_xmp, inspect_google_xmp
 from ..errors import DependencyError
 
 class Error(C.Structure):
@@ -108,7 +109,8 @@ class Codec:
             self.check(self.lib.uhdr_enc_set_gainmap_image(enc, C.byref(gain), C.byref(meta)))
             self.check(self.lib.uhdr_encode(enc))
             output = self.lib.uhdr_get_encoded_stream(enc).contents
-            return normalize_iso_metadata(C.string_at(output.data, output.size))
+            encoded = normalize_iso_metadata(C.string_at(output.data, output.size))
+            return add_google_xmp(encoded, meta)
         finally:
             self.lib.uhdr_release_encoder(enc)
 
@@ -151,6 +153,7 @@ class Codec:
                           icc_added_to_untagged_srgb=not original_image.info.get('icc_profile') and bool(base_image.info.get('icc_profile')),
                           max_content_boost=list(meta.max_content_boost),
                           hdr_capacity_max=meta.hdr_capacity_max)
+            result.update(inspect_google_xmp(data, meta))
             self.check(self.lib.uhdr_decode(dec))
             raw = self.lib.uhdr_get_decoded_image(dec).contents
             decoded = np.frombuffer(C.string_at(raw.planes[0], raw.stride[0] * raw.h * 8), dtype=np.float16)

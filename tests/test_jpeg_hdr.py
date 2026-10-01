@@ -6,13 +6,13 @@ from pathlib import Path
 
 import numpy as np
 import pytest
-from PIL import Image, ImageCms
+from PIL import Image, ImageCms, MpoImagePlugin
 
 pytest.importorskip('torch')
 pytest.importorskip('cv2')
 from hdrimg.jpeg_hdr import pipeline
 from hdrimg.jpeg_hdr.codec import Codec
-from hdrimg.jpeg_hdr.metadata import normalize_iso_metadata
+from hdrimg.jpeg_hdr.metadata import normalize_iso_metadata, ISO_NAMESPACE
 from hdrimg.errors import DependencyError
 
 
@@ -52,11 +52,15 @@ def test_jpeg_gainmap_roundtrip_preserves_base_and_metadata(codec, sample, max_e
     report = codec.verify(encoded, base, max_ev)
     assert report['jpeg_scan_identical'] and report['sdr_pixels_identical']
     assert report['exif_identical'] and report['icc_identical']
+    assert report['google_ultrahdr_v1_1_xmp'] and report['gcontainer_mpf_agree']
     assert report['hdr_rgb_abs_error_p99'] < .025
     assert report['decoded_gain_ev_max'] == pytest.approx(sample / 255 * max_ev, abs=1e-4)
     # Pillow independently follows the MPF index, including the expanded
     # gain JPEG's declared length. Skia reads this fixed rational-pair layout.
     container = Image.open(io.BytesIO(encoded))
+    # Pillow recognizes the Ultra HDR XMP signature and deliberately returns
+    # an SDR-only JPEG object; explicitly use its MPF reader for this check.
+    container = MpoImagePlugin.MpoImageFile.adopt(container)
     container.seek(1)
     assert container.size == (96, 64)
     assert np.asarray(container.convert('L')).mean() == pytest.approx(sample, abs=1)
@@ -71,6 +75,12 @@ def test_jpeg_gainmap_roundtrip_preserves_base_and_metadata(codec, sample, max_e
         assert values[1][0] / values[1][1] == pytest.approx(max_ev)
         assert values[3][0] / values[3][1] == pytest.approx(max_ev)
     assert normalize_iso_metadata(encoded) == encoded
+    # Hide ISO from the independent reference decoder without shifting any
+    # JPEG offsets. Successful reconstruction must then use Google v1.1 XMP.
+    xmp_only = encoded.replace(ISO_NAMESPACE, b'x' * len(ISO_NAMESPACE))
+    xmp_report = codec.verify(xmp_only, base, max_ev)
+    assert xmp_report['decoded_gain_ev_max'] == pytest.approx(report['decoded_gain_ev_max'])
+    assert xmp_report['hdr_linear_rgb_max'] == pytest.approx(report['hdr_linear_rgb_max'])
     with pytest.raises(ValueError, match='already contains'):
         codec.encode(encoded, gain, max_ev)
 

@@ -73,6 +73,8 @@ AI 输入用标准逆 sRGB 线性化，未运行官方旧 TensorFlow SingleHDR �
 
 libultrahdr 1.5.1 在所有分母相同时会写出使用保留位 `0x08` 的 ISO 元数据布局。它自己的解码器接受该布局，但 Chromium/Skia 的 ISO 21496-1 读取器无法解析，图片会回退为 SDR。封装后将这一旧布局展开成独立的分子/分母对，并同步更新 MPF 增益图长度；原 JPEG 扫描数据和增益图像素保持不变。新版库已使用独立分数，无需改写。整数 `max-ev=1` 已加入回归测试；不能仅凭参考库自身的解码成功判断浏览器兼容性。
 
+输出同时包含 [Google Ultra HDR Image Format v1.1](https://developer.android.com/media/platform/hdr-image-format) 规定的 XMP 数据：主图的 `hdrgm:Version` 与 GContainer `Primary/GainMap` 目录，以及增益图的 log2 增益范围、gamma、两个 offset、HDR capacity 和 `BaseRenditionIsHDR=False`。1.5.1 的默认构建关闭 `UHDR_WRITE_XMP`，所以参考库生成并规范化 ISO 封装后，由 `xmp.py` 按文档和官方 `generateXmpForPrimaryImage/generateXmpForSecondaryImage` 的结构补充 XMP；XMP 已开启的参考库构建直接验证其现有包。MPF 两个图像长度同步更新，GContainer 中的增益图长度必须一致。检查必需字段、数值范围及 XMP 与实际解码参数的一致性。该路径使用 Google 规范的字段，不依赖私有 HDR 参数。
+
 本次适配不是官方论文评测复现：混合精度、全像素尺度拟合、标准 sRGB 线性化、曝光锚定与 gain 后处理均有工程取舍。JPEG 中已经丢失的真实高光细节不能保证恢复。
 
 ## 验证记录（2026-09-30）
@@ -103,3 +105,5 @@ libultrahdr 1.5.1 在所有分母相同时会写出使用保留位 `0x08` 的 IS
 原图、坐标配置和输出仅在本地保留。该记录说明编码和区域增益达到了数值目标；HDR 屏幕上的主观观感仍待用户确认，不能视为已完成视觉验收。
 
 后续浏览器检查定位到 1.5.1 的旧 ISO 元数据布局：Chrome 154 在 HDR 已启用的显示设备上渲染旧文件时，与 SDR 的截图像素完全相同。仅展开元数据并修正 MPF 长度（单通道增加 24 字节）后，Chrome 的原生 `<img>` 渲染出现人物提亮。参考库解码前后的 HDR 数值相同，SDR 压缩扫描和像素一致。检查使用独立 Chrome 窗口及默认浏览器功能；自动化工具默认强制 sRGB 的启动参数被移除，以允许读取真实显示设备能力。截图差异证明浏览器渲染行为改变，不用于测量屏幕实际发光亮度。修复后的针对性测试为 **15 passed**；主观效果仍待用户查看新文件确认。
+
+补齐 Google v1.1 XMP 后，针对性套件仍为 **15 passed**，每个编解码样例同时验证 ISO+XMP 和隐藏 ISO 命名空间后的独立 XMP 解码。人物样图的两条解码路径得到相同参考 HDR 数值；Chrome 154 原生 `<img>` 的两种显示截图也逐像素一致。保留原 SDR 像素、扫描数据、ICC 和 EXIF。字段检查与独立解码属于本项目的验证，不表示 Google 或 ISO 提供了认证。
