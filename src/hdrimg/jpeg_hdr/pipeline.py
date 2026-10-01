@@ -150,4 +150,3 @@ def run(args):
                   verification=verification)
     (diagnostics / 'report.json').write_text(json.dumps(report, indent=2), encoding='utf-8')
     print(json.dumps(report, indent=2), flush=True)
-
