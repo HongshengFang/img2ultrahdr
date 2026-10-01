@@ -7,6 +7,7 @@ import numpy as np
 from PIL import Image
 
 from .runtime import runtime_dir
+from .metadata import normalize_iso_metadata
 from ..errors import DependencyError
 
 class Error(C.Structure):
@@ -107,7 +108,7 @@ class Codec:
             self.check(self.lib.uhdr_enc_set_gainmap_image(enc, C.byref(gain), C.byref(meta)))
             self.check(self.lib.uhdr_encode(enc))
             output = self.lib.uhdr_get_encoded_stream(enc).contents
-            return C.string_at(output.data, output.size)
+            return normalize_iso_metadata(C.string_at(output.data, output.size))
         finally:
             self.lib.uhdr_release_encoder(enc)
 

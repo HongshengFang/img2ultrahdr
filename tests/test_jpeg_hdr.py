@@ -1,5 +1,6 @@
 import io
 import json
+import struct
 from argparse import Namespace
 from pathlib import Path
 
@@ -11,6 +12,7 @@ pytest.importorskip('torch')
 pytest.importorskip('cv2')
 from hdrimg.jpeg_hdr import pipeline
 from hdrimg.jpeg_hdr.codec import Codec
+from hdrimg.jpeg_hdr.metadata import normalize_iso_metadata
 from hdrimg.errors import DependencyError
 
 
@@ -38,21 +40,39 @@ def codec():
 
 
 @pytest.mark.integration
+@pytest.mark.parametrize('max_ev', [1., 2.5])
 @pytest.mark.parametrize('sample', [0, 153, 255])
-def test_jpeg_gainmap_roundtrip_preserves_base_and_metadata(codec, sample):
+def test_jpeg_gainmap_roundtrip_preserves_base_and_metadata(codec, sample, max_ev):
     color = np.zeros((64, 96, 3), np.uint8); color[:] = [180, 140, 100]
     exif = Image.Exif(); exif[274] = 6
     profile = ImageCms.ImageCmsProfile(ImageCms.createProfile('sRGB')).tobytes()
     base = jpeg(Image.fromarray(color), progressive=True, exif=exif, icc_profile=profile)
     gain = jpeg(Image.fromarray(np.full((64, 96), sample, np.uint8)))
-    encoded = codec.encode(base, gain, 2.5)
-    report = codec.verify(encoded, base, 2.5)
+    encoded = codec.encode(base, gain, max_ev)
+    report = codec.verify(encoded, base, max_ev)
     assert report['jpeg_scan_identical'] and report['sdr_pixels_identical']
     assert report['exif_identical'] and report['icc_identical']
     assert report['hdr_rgb_abs_error_p99'] < .025
-    assert report['decoded_gain_ev_max'] == pytest.approx(sample / 255 * 2.5, abs=1e-4)
+    assert report['decoded_gain_ev_max'] == pytest.approx(sample / 255 * max_ev, abs=1e-4)
+    # Pillow independently follows the MPF index, including the expanded
+    # gain JPEG's declared length. Skia reads this fixed rational-pair layout.
+    container = Image.open(io.BytesIO(encoded))
+    container.seek(1)
+    assert container.size == (96, 64)
+    assert np.asarray(container.convert('L')).mean() == pytest.approx(sample, abs=1)
+    iso = next((payload for marker, payload in container.applist
+                if marker == 'APP2' and payload.startswith(b'urn:iso:std:iso:ts:21496:-1\0')), None)
+    if iso is not None:
+        metadata = iso[28:]
+        assert len(metadata) == 61  # version, flags, two headrooms, five channel fields
+        assert metadata[4] & 0x3f == 0  # reserved bits must be zero
+        values = [struct.unpack_from('>II', metadata, i) for i in range(5, 61, 8)]
+        assert all(denominator > 0 for _, denominator in values)
+        assert values[1][0] / values[1][1] == pytest.approx(max_ev)
+        assert values[3][0] / values[3][1] == pytest.approx(max_ev)
+    assert normalize_iso_metadata(encoded) == encoded
     with pytest.raises(ValueError, match='already contains'):
-        codec.encode(encoded, gain, 2.5)
+        codec.encode(encoded, gain, max_ev)
 
 
 @pytest.mark.integration
