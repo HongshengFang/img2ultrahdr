@@ -1,0 +1,5 @@
+{
+  "regions": [
+    {"name": "foreground tree", "points": [[1168, 550]], "labels": [1], "max_ev": 0.25}
+  ]
+}

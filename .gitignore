@@ -27,3 +27,11 @@ jpg_hdr_sample_effect/
 macos/.build/
 macos/.swiftpm/
 *.app/
+
+# Optional JPEG research runtime: models, third-party clones, binaries and env.
+.jpeg-hdr/
+.venv-jpeg/
+*_diagnostics/
+*_ultrahdr.jpg
+*.ckpt
+*.pt
