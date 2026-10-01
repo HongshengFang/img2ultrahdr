@@ -87,3 +87,28 @@ def test_full_jpeg_pipeline_with_controlled_prediction(codec, monkeypatch, tmp_p
     assert gain[80:, 130:].mean() > 1
     with pytest.raises(FileExistsError):
         pipeline.run(args)
+
+
+@pytest.mark.integration
+def test_subject_floor_brightens_midtones_and_protection_wins(codec, monkeypatch, tmp_path):
+    source = tmp_path / 'source.jpg'
+    source.write_bytes(jpeg(Image.fromarray(np.full((64, 96, 3), 180, np.uint8))))
+    monkeypatch.setattr(pipeline, 'predict_hdr', lambda linear, **kwargs: linear.copy())
+    def fake_constraints(image, prompts, *args, return_floor=False):
+        assert return_floor
+        cap = np.full(image.shape[:2], .8, np.float32)
+        cap[:, :32] = .03
+        return cap, np.full(image.shape[:2], .7, np.float32)
+    monkeypatch.setattr(pipeline, 'sam_protect', fake_constraints)
+    protection = tmp_path / 'protect.json'
+    protection.write_text(json.dumps({'regions': [{'points': [[50, 32]], 'min_ev': .7, 'max_ev': .8}]}))
+    args = Namespace(input=source, output=tmp_path / 'adapted.jpg', ai_size=768,
+                     max_ev=1, strength=1, protect=protection, fp32=False, overwrite=False)
+    pipeline.run(args)
+    gain = np.load(tmp_path / 'adapted_diagnostics/gain_ev_full.npy')
+    assert gain[:, :32].max() <= .03
+    assert gain[:, 40:].mean() == pytest.approx(.7, abs=.001)
+    args.strength = 0
+    args.output = tmp_path / 'zero.jpg'
+    pipeline.run(args)
+    assert np.max(np.load(tmp_path / 'zero_diagnostics/gain_ev_full.npy')) == 0

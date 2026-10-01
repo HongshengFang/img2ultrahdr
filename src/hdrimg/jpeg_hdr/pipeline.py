@@ -83,6 +83,7 @@ def run(args):
     gate = gate * gate * (3 - 2 * gate)
     gain *= gate
     cap = np.full((low_h, low_w), args.max_ev, np.float32)
+    floor = np.zeros_like(cap)
     if args.protect:
         spec = json.loads(Path(args.protect).read_text(encoding='utf-8'))
         # Prompt coordinates are ORIGINAL stored pixels, never AI-image pixels.
@@ -91,13 +92,19 @@ def run(args):
             p = dict(p)
             if not 0 <= float(p.get('max_ev', 0.35)) <= args.max_ev:
                 raise ValueError('Protection max_ev must be within [0, max-ev]')
+            if not 0 <= float(p.get('min_ev', 0)) <= float(p.get('max_ev', 0.35)):
+                raise ValueError('Region min_ev must be within [0, region max_ev]')
             if 'points' in p:
                 p['points'] = [[x * low_w / w, y * low_h / h] for x, y in p['points']]
             if 'box' in p:
                 p['box'] = [n * (low_w / w if i % 2 == 0 else low_h / h) for i, n in enumerate(p['box'])]
             prompts.append(p)
         print(f'SAM2 tiny: {len(prompts)} protection region(s)', flush=True)
-        cap = np.minimum(cap, sam_protect(low8, prompts, device, not args.fp32))
+        if any(float(p.get('min_ev', 0)) > 0 for p in prompts):
+            region_cap, floor = sam_protect(low8, prompts, device, not args.fp32, return_floor=True)
+            cap = np.minimum(cap, region_cap)
+        else:
+            cap = np.minimum(cap, sam_protect(low8, prompts, device, not args.fp32))
         gain = np.minimum(gain, cap)
     else:
         print('Protection: luminance shadow/highlight rules; SAM2 regions not supplied', flush=True)
@@ -106,6 +113,11 @@ def run(args):
     high_y = luminance(linear)
     high_guide = np.log1p(high_y * 32) / np.log(33)
     full_gain = fast_guided(low_guide.astype(np.float32), gain.astype(np.float32), high_guide.astype(np.float32))
+    # Explicit subject adaptation is separate from inferred highlight gain.
+    # Use original-image guidance and reduce the floor in dark hair/shadows.
+    full_floor = np.maximum(fast_guided(low_guide.astype(np.float32), floor, high_guide.astype(np.float32)), 0)
+    full_floor *= np.clip(high_y / .08, 0, 1) * args.strength
+    full_gain = np.maximum(full_gain, full_floor)
     # Reapply the cap after filtering, so boundary filtering cannot undo guards.
     full_cap = cv2.resize(cap, (w, h), interpolation=cv2.INTER_NEAREST)
     full_gain = np.minimum(np.clip(full_gain, 0, args.max_ev), full_cap)
@@ -123,6 +135,7 @@ def run(args):
     (diagnostics / 'gainmap.jpg').write_bytes(gain_bytes.getvalue())
     np.save(diagnostics / 'gain_ev_low.npy', gain.astype(np.float32))
     np.save(diagnostics / 'gain_ev_full.npy', full_gain.astype(np.float32))
+    np.save(diagnostics / 'subject_floor_ev_full.npy', full_floor.astype(np.float32))
     Image.fromarray(np.rint(full_gain / args.max_ev * 255).astype(np.uint8)).save(diagnostics / 'gainmap.png')
     Image.fromarray(np.rint(full_cap / args.max_ev * 255).astype(np.uint8)).save(diagnostics / 'protection_cap.png')
     # Preview is a false-color map beside the SDR. It cannot preview actual HDR.

@@ -46,18 +46,18 @@ D:\img2ultrahdr\.venv-jpeg\Scripts\img2uhdr.exe jpeg-hdr photo.jpg --output resu
 
 ## 保护区域
 
-SAM2 提供交互式物体分割，不自动识别“脸/皮肤/天空”。需用点或框说明保护对象。坐标使用原 JPEG 的**存储像素坐标**，没有 EXIF 旋转；`name` 只是人读的标签，不是语义文本提示。
+SAM2 提供交互式物体分割，不自动识别“脸/皮肤/天空”。需用点或框说明保护对象。坐标使用原 JPEG 的**存储像素坐标**，没有 EXIF 旋转；`name` 只是人读的标签，不是语义文本提示。可选 `min_ev` 为指定主体提供名义增益下限：例如白丝袜需要亮起来，而花继续只用很低的 `max_ev`。
 
 ```json
 {
   "regions": [
     {"name": "face", "box": [1200, 600, 1600, 1100], "max_ev": 0.35},
-    {"name": "person", "points": [[1800, 1900]], "labels": [1], "max_ev": 0.5}
+    {"name": "person", "points": [[1800, 1900]], "labels": [1], "min_ev": 0.3, "max_ev": 0.5}
   ]
 }
 ```
 
-框格式为 `[x1,y1,x2,y2]`。点标签 1 表示包含、0 表示排除。选取 SAM2 得分最高的 mask，轻微膨胀后限制增益，并在 guided 放大后重新应用上限。JPEG 量化会产生小误差，保护上限不是编码后的绝对逐像素保证。没有提供 JSON 时仍有暗部/高光亮度门控，但没有 SAM2 对象保护。自动 face parsing 留待后续加入。
+框格式为 `[x1,y1,x2,y2]`。点标签 1 表示包含、0 表示排除。选取 SAM2 得分最高的 mask，轻微膨胀后限制增益，并在 guided 放大后重新应用上限。正向主体增益会填补小孔、羽化边缘，使用原图亮度引导放大，并减弱深暗部的增益；`min_ev` 因边缘羽化和暗部保护而不是严格逐像素下限，且跟随 `--strength`。重叠区域的保护上限优先于正向增益。JPEG 量化会产生小误差，保护上限不是编码后的绝对逐像素保证。没有提供 JSON 时仍有暗部/高光亮度门控，但没有 SAM2 对象保护。自动 face parsing 留待后续加入。
 
 ```powershell
 .\.venv-jpeg\Scripts\img2uhdr.exe jpeg-hdr photo.jpg --output outputs/photo_ultrahdr.jpg --protect regions.json
@@ -91,3 +91,11 @@ AI 输入用标准逆 sRGB 线性化，未运行官方旧 TensorFlow SingleHDR �
 本次上述针对性测试为 **11 passed**。在同一 Windows 环境运行完整非 integration 套件，集成分支为 188 passed / 25 failed / 5 skipped；干净主分支 `88d56f6` 为 184 passed / 相同 25 failed / 5 skipped。失败涉及既有 macOS Display P3 系统配置、POSIX 进程行为及 Windows 文件映射清理，未新增失败。本次未完成原生 macOS RAW/界面的实机回归。
 
 固定来源：IntrinsicHDR `8f21f95c4369b8c7c39c6869dd2c484370744d4d`，SAM2 `2b90b9f5ceec907a1c18123530e92e794ad901a4`，官方 2.1 tiny checkpoint。下载 URL 与实际 SHA256 记录于本地 `downloads-manifest.json`。照片、权重和运行输出不进入仓库。
+
+## 人物与花朵的对照测试
+
+用户提供的 1024×1536 PNG 转为 quality=100、4:4:4 sRGB JPEG 后测试。纯 IntrinsicHDR + 亮度门控没有满足“白丝袜亮起来、花不被推白”的目标：实际解码的丝袜和脸部中位数增益接近 0EV。为此增加显式主体 `min_ev` 控制，与花朵 `max_ev` 保护共同作用，并保留原 SDR base。
+
+一组研究参数为：人物 `min_ev=0.32/max_ev=0.9`、丝袜 `0.7/0.85`、脸部 `0.3/0.4`、花朵 `max_ev=0.03`、整体 `max-ev=1.0`。SAM2 点/框由样图指定，非自动语义识别。实际参考库解码的区域中位数增益：丝袜约 1.60 倍，脸部约 1.25 倍，花朵约 1.01 倍。花朵 mask 内 99% 分位约 0.031EV。主体下限与保护优先级新增测试后，针对性套件为 **12 passed**。
+
+原图、坐标配置和输出仅在本地保留。该记录说明编码和区域增益达到了数值目标；HDR 屏幕上的主观观感仍待用户确认，不能视为已完成视觉验收。

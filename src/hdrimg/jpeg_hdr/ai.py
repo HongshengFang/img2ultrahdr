@@ -115,13 +115,14 @@ def predict_hdr(linear, device='cuda', fp16=True):
         raise RuntimeError('Nonfinite IntrinsicHDR prediction')
     return hdr
 
-def sam_protect(rgb, prompts, device='cuda', fp16=True):
+def sam_protect(rgb, prompts, device='cuda', fp16=True, return_floor=False):
     from sam2.build_sam import build_sam2
     from sam2.sam2_image_predictor import SAM2ImagePredictor
     predictor = SAM2ImagePredictor(build_sam2('configs/sam2.1/sam2.1_hiera_t.yaml',
                                   str(runtime_dir() / 'weights' / 'sam2.1_hiera_tiny.pt'), device=device,
                                   apply_postprocessing=False))
     cap = np.full(rgb.shape[:2], np.inf, np.float32)
+    floor = np.zeros(rgb.shape[:2], np.float32)
     ctx = torch.autocast('cuda', dtype=torch.float16) if fp16 and device == 'cuda' else contextlib.nullcontext()
     with torch.inference_mode(), ctx:
         predictor.set_image(rgb)
@@ -134,9 +135,15 @@ def sam_protect(rgb, prompts, device='cuda', fp16=True):
                 box=np.asarray(prompt['box'], np.float32) if 'box' in prompt else None,
                 multimask_output=True)
             mask = masks[np.argmax(scores)]
+            if float(prompt.get('min_ev', 0)) > 0:
+                # Fill tiny gaps in lace/cloth and feather positive adaptation.
+                positive = cv2.morphologyEx(mask.astype(np.uint8), cv2.MORPH_CLOSE,
+                                           np.ones((3, 3), np.uint8)).astype(np.float32)
+                positive = cv2.GaussianBlur(positive, (0, 0), 1.25)
+                floor = np.maximum(floor, positive * float(prompt['min_ev']))
             # Small dilation prevents edge leakage after upsampling.
             mask = cv2.dilate(mask.astype(np.uint8), np.ones((3, 3), np.uint8)).astype(bool)
             cap[mask] = np.minimum(cap[mask], float(prompt.get('max_ev', 0.35)))
     del predictor
     clear_gpu()
-    return cap
+    return (cap, floor) if return_floor else cap
