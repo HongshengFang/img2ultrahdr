@@ -11,7 +11,7 @@ from .render import open_scene, write_rgba16f
 from .tone import luminance_rec2020
 
 PACKET_VERSION = 1
-GPU_VERSION = 'scene-tone-1'
+GPU_VERSION = 'scene-tone-2'
 
 
 def make_packet(work: Path, target: Path, prepared: dict, recipe, render: dict) -> dict:

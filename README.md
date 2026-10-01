@@ -30,9 +30,9 @@ img2uhdr doctor
 
 ## macOS 应用
 
-现在提供本机原生界面：拖入一张 CR2/RAF，调整曝光、高光、阴影、白平衡、饱和度和 HDR 强度，查看 HDR/SDR，再导出 Ultra HDR JPEG。0.2 加入 Metal 实时预览、松开后精确校正、中英文、三种外观，以及直方图、边界提示和像素读数。默认配方仍为 Clear V8 R5，Natural V8 保持冻结。
+现在提供本机原生界面：拖入一张 CR2/RAF，调整曝光、高光、阴影、白色色阶、黑色色阶、白平衡、饱和度和 HDR 强度，查看 HDR/SDR，再导出 Ultra HDR JPEG。0.2 加入 Metal 实时预览、松开后精确校正、中英文、三种外观，以及直方图、边界提示和像素读数。0.3 精简 Edit 菜单，修复白平衡连续切换的取消错误，复用相同 RAW 显影结果，并增加白色／黑色色阶与单项重置。默认配方仍为 Clear V8 R5，Natural V8 保持冻结。
 
-完成上面的依赖安装后运行 `scripts/build_macos_app.sh`，脚本会安装或更新唯一的 `~/Applications/Img2UltraHDR.app`，然后从 Finder 或 Spotlight 打开。本机版复用项目的 Python 环境和外部工具，首次启动需要允许访问“文稿”目录；移动项目后需重新构建。[使用与开发说明](docs/macos-app.md)、[English guide](docs/macos-app-en.md) 包含恢复编辑、缓存位置和验证方式，[0.2 验收记录](docs/macos-app-v02-validation.md)列出实际结果与限制。应用以 **0.2.0** 作为初始版本，主窗口与设置显示版本和构建号。
+完成上面的依赖安装后运行 `scripts/build_macos_app.sh`，脚本会安装或更新唯一的 `~/Applications/Img2UltraHDR.app`，然后从 Finder 或 Spotlight 打开。本机版复用项目的 Python 环境和外部工具，首次启动需要允许访问“文稿”目录；移动项目后需重新构建。[使用与开发说明](docs/macos-app.md)、[English guide](docs/macos-app-en.md) 包含恢复编辑、缓存位置和验证方式，[0.2 验收记录](docs/macos-app-v02-validation.md)列出实际结果与限制。当前为 **0.3.0**；0.2.0 是初始版本。主窗口与设置显示版本和构建号。
 
 ## 使用
 

@@ -36,6 +36,7 @@ final class AppPreferences: ObservableObject {
                 }
             }
             if let menu=NSApp?.mainMenu { translate(menu) }
+            EditorMenuPolicy.shared.install(); EditorMenuPolicy.shared.apply()
             for window in NSApp?.windows ?? [] where window.title=="Settings" || window.title=="设置" { window.title=self.language=="en" ? "Settings":"设置" }
         }
     }

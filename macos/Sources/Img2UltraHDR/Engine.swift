@@ -11,9 +11,38 @@ struct Recipe: Codable, Equatable {
     var exposure_ev = 0.0
     var highlight_ev = 0.0
     var shadow_ev = 0.0
+    var white_ev = 0.0
+    var black_ev = 0.0
     var saturation = 1.0
     var hdr_strength = 1.0
     var sdr_exposure_ev = 0.0
+    init() {}
+    enum CodingKeys: String, CodingKey {
+        case schema_version, style, white_balance, temperature_k, tint, exposure_ev, highlight_ev, shadow_ev
+        case white_ev, black_ev, saturation, hdr_strength, sdr_exposure_ev
+    }
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        schema_version = try c.decodeIfPresent(Int.self, forKey:.schema_version) ?? 1
+        style = try c.decodeIfPresent(String.self, forKey:.style) ?? "phone-clear"
+        white_balance = try c.decodeIfPresent(String.self, forKey:.white_balance) ?? "auto"
+        temperature_k = try c.decodeIfPresent(Int.self, forKey:.temperature_k) ?? 5600
+        tint = try c.decodeIfPresent(Double.self, forKey:.tint) ?? 0
+        exposure_ev = try c.decodeIfPresent(Double.self, forKey:.exposure_ev) ?? 0
+        highlight_ev = try c.decodeIfPresent(Double.self, forKey:.highlight_ev) ?? 0
+        shadow_ev = try c.decodeIfPresent(Double.self, forKey:.shadow_ev) ?? 0
+        white_ev = try c.decodeIfPresent(Double.self, forKey:.white_ev) ?? 0
+        black_ev = try c.decodeIfPresent(Double.self, forKey:.black_ev) ?? 0
+        saturation = try c.decodeIfPresent(Double.self, forKey:.saturation) ?? 1
+        hdr_strength = try c.decodeIfPresent(Double.self, forKey:.hdr_strength) ?? 1
+        sdr_exposure_ev = try c.decodeIfPresent(Double.self, forKey:.sdr_exposure_ev) ?? 0
+    }
+    var previewKey: String {
+        var value = self
+        if white_balance != "custom" { value.temperature_k = 5600; value.tint = 0 }
+        let encoder = JSONEncoder(); encoder.outputFormatting = [.sortedKeys]
+        return String(data: (try? encoder.encode(value)) ?? Data(), encoding:.utf8) ?? ""
+    }
     var dictionary: [String: Any] { (try? JSONSerialization.jsonObject(with: JSONEncoder().encode(self))) as? [String: Any] ?? [:] }
     static func decode(_ value: Any?) -> Recipe? {
         guard let value, let data = try? JSONSerialization.data(withJSONObject: value) else { return nil }
@@ -24,6 +53,7 @@ struct Recipe: Codable, Equatable {
         value.temperature_k = min(15000, max(2000, value.temperature_k))
         for (key, low, high) in [(\Recipe.exposure_ev, -3.0, 3.0), (\Recipe.highlight_ev, -2, 2),
                                 (\Recipe.shadow_ev, -2, 2), (\Recipe.tint, -100, 100),
+                                (\Recipe.white_ev, -2, 2), (\Recipe.black_ev, -2, 2),
                                 (\Recipe.saturation, 0.8, 1.2), (\Recipe.hdr_strength, 0, 1),
                                 (\Recipe.sdr_exposure_ev, -2, 2)] {
             let number = value[keyPath:key]
@@ -81,16 +111,20 @@ final class EngineBridge {
                     let line = buffer.subdata(in: buffer.startIndex..<range.lowerBound)
                     buffer.removeSubrange(buffer.startIndex...range.lowerBound)
                     if let event = try? JSONSerialization.jsonObject(with: line) as? [String: Any] {
-                        DispatchQueue.main.async { self?.onEvent?(event) }
+                        DispatchQueue.main.async {
+                            guard let self, self.process === p else { return }
+                            self.onEvent?(event)
+                        }
                     }
                 }
             }
         }
     }
     func send(_ value: [String: Any]) {
+        let owner = process
         guard let data = try? JSONSerialization.data(withJSONObject: value) else { return }
         do { try input?.write(contentsOf: data + Data([10])) }
-        catch { DispatchQueue.main.async { self.onExit?() } }
+        catch { DispatchQueue.main.async { if self.process === owner { self.onExit?() } } }
     }
     func close() { send(["command": "close"]); try? input?.close(); input = nil }
     func stopStartup() {
@@ -137,6 +171,8 @@ final class EditorModel: ObservableObject {
     var pending: DispatchWorkItem?
     var committed = Recipe()
     var beforeDrag: Recipe?
+    var cachedPreviews: [String: [String: Any]] = [:]
+    var previewCacheOrder: [String] = []
     var lastCommand = "hello"
     var comparing = false
     var deferredOpen: URL?
@@ -200,7 +236,7 @@ final class EditorModel: ObservableObject {
         return cache.appendingPathComponent("leases/\(ProcessInfo.processInfo.processIdentifier).json")
     }
     func leaseFrames() {
-        let values = [result,previewResult,comparisonResult].compactMap { $0 }
+        let values = [result,previewResult,comparisonResult].compactMap { $0 } + Array(cachedPreviews.values)
         var paths=Set<String>()
         for value in values {
             if let packet=PreviewPacket.decode(value["preview_packet"]) { paths.insert(URL(fileURLWithPath:packet.hdr).deletingLastPathComponent().path) }
@@ -249,7 +285,15 @@ final class EditorModel: ObservableObject {
             if comparing { comparisonResult = value; showInitial = true; comparing = false }
             else {
                 result = value
-                if value["full"] as? Bool != true { previewResult = value }
+                if value["full"] as? Bool != true {
+                    previewResult = value
+                    if let rendered = Recipe.decode(value["recipe"]) {
+                        let key = rendered.previewKey
+                        cachedPreviews[key] = value
+                        previewCacheOrder.removeAll { $0 == key }; previewCacheOrder.append(key)
+                        while previewCacheOrder.count > 8 { cachedPreviews.removeValue(forKey:previewCacheOrder.removeFirst()) }
+                    }
+                }
             }
             leaseFrames()
             if lastCommand == "full_render" { nativeSize = true; viewReset += 1 }
@@ -276,7 +320,7 @@ final class EditorModel: ObservableObject {
         case "error":
             busy = false; exporting = false; comparing = false
             errorDetail = event["message"] as? String
-            let errors=["missing_dependency":"图像工具缺失或检查失败，请参照使用说明修复。","disk_full":"磁盘空间不足，请释放空间后重试。","permission_denied":"没有读写权限，请检查文件和保存位置。","invalid_input":"原片或参数无效，请检查原片或重新打开。"]
+            let errors=["missing_dependency":"图像工具缺失或检查失败，请参照使用说明修复。","disk_full":"磁盘空间不足，请释放空间后重试。","permission_denied":"没有读写权限，请检查文件和保存位置。","invalid_input":"原片或参数无效，请检查原片或重新打开。","cancel_failed":"旧任务暂未结束，后台仍在运行。请稍后点击重试。"]
             error = errors[event["error_code"] as? String ?? ""] ?? "处理失败，请查看详情或重试。"; status = "处理未完成"
         default: break
         }
@@ -299,6 +343,7 @@ final class EditorModel: ObservableObject {
         committed = recipe
         undoStack = []; redoStack = []; result = nil; previewResult = nil; comparisonResult = nil; showInitial = false; nativeSize = false
         readouts.photoEpoch+=1
+        cachedPreviews.removeAll(); previewCacheOrder.removeAll()
         readouts.pixel=nil;readouts.bins=[UInt32](repeating:0,count:1024);readouts.failure=nil
         readouts.frameID="";readouts.histogramFrameID="";readouts.kind="preview";readouts.state="等待精确结果";leaseFrames()
         // Omit recipe so an existing saved edit is restored by source fingerprint.
@@ -334,13 +379,34 @@ final class EditorModel: ObservableObject {
         pending = action; DispatchQueue.main.asyncAfter(deadline: .now()+0.25, execute: action)
     }
     func sliderChanged() { interactiveChanged();if beforeDrag == nil { scheduleEdit() } }
+    func reusePreview() {
+        guard let value = cachedPreviews[recipe.previewKey], let packet = PreviewPacket.decode(value["preview_packet"]),
+              [packet.scene, packet.sdr, packet.hdr].allSatisfy({ FileManager.default.fileExists(atPath:$0) }) else { return }
+        result = value; previewResult = value; leaseFrames()
+    }
+    func scheduleWhiteBalance() {
+        guard ready, !exporting else { return }
+        interactiveChanged(); reusePreview(); status = "正在准备白平衡…"
+        pending?.cancel()
+        let action = DispatchWorkItem { [weak self] in
+            guard let self else { return }
+            if self.recipe != self.committed { self.commit() }
+            else if self.resultPacket?.anchor_recipe.previewKey != self.recipe.previewKey { self.request("preview") }
+            else { self.status = "精确预览" }
+        }
+        pending = action; DispatchQueue.main.asyncAfter(deadline:.now()+0.25, execute:action)
+    }
+    func resetAdjustment(_ key: WritableKeyPath<Recipe,Double>) {
+        guard ready, !exporting else { return }
+        recipe[keyPath:key] = Recipe()[keyPath:key]; commit()
+    }
     func commit(before: Recipe? = nil) {
         pending?.cancel()
         recipe = recipe.normalized(fallback: committed)
         guard source != nil, ready, !exporting, recipe != committed else { return }
         undoStack.append(before ?? committed); if undoStack.count > 100 { undoStack.removeFirst() }
         redoStack = []; committed = recipe; showInitial = false; nativeSize = false; comparisonResult = nil
-        persist(); leaseFrames(); request("preview")
+        reusePreview(); persist(); leaseFrames(); request("preview")
     }
     func undo() {
         guard let previous = undoStack.popLast() else { return }
@@ -421,6 +487,7 @@ final class EditorModel: ObservableObject {
         let report: [String:Any] = ["event":event,"ready":ready,"busy":busy,"status":status,
             "display_status":displayStatus,"source":source?.path ?? "","recipe":recipe.dictionary,
             "error":error ?? "","steps":smokeEvents,"complete":smokeStep==7,
+            "edit_menu":NSApp?.mainMenu?.items.first(where:{["Edit","编辑"].contains($0.title)})?.submenu?.items.filter({!$0.isSeparatorItem}).map({$0.title}) ?? [],
             "result":result ?? [:]]
         if let data=try? JSONSerialization.data(withJSONObject:report,options:[.prettyPrinted,.sortedKeys]) {
             try? data.write(to:root.appendingPathComponent("state.json"),options:.atomic)

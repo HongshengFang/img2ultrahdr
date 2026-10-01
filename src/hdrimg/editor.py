@@ -49,6 +49,8 @@ class EditRecipe:
     exposure_ev: float = 0.0
     highlight_ev: float = 0.0
     shadow_ev: float = 0.0
+    white_ev: float = 0.0
+    black_ev: float = 0.0
     saturation: float = 1.0
     hdr_strength: float = 1.0
     sdr_exposure_ev: float = 0.0
@@ -71,6 +73,7 @@ class EditRecipe:
             raise InputError('Invalid white balance mode')
         for name, low, high in [('temperature_k', 2000, 15000), ('tint', -100, 100),
             ('exposure_ev', -3, 3), ('highlight_ev', -2, 2), ('shadow_ev', -2, 2),
+            ('white_ev', -2, 2), ('black_ev', -2, 2),
             ('saturation', .8, 1.2), ('hdr_strength', 0, 1), ('sdr_exposure_ev', -2, 2)]:
             number = getattr(self, name)
             if isinstance(number, bool) or not isinstance(number, (float, int)) or not math.isfinite(number) or not low <= number <= high:
@@ -156,9 +159,9 @@ class EditorStore:
     def __init__(self, cache: Path | None = None, support: Path | None = None, progress: Callable | None = None):
         self.cache = (cache or Path.home() / 'Library/Caches/Img2UltraHDR').expanduser().resolve()
         self.support = (support or Path.home() / 'Library/Application Support/Img2UltraHDR').expanduser().resolve()
-        for directory in (self.cache, self.support, self.cache / 'scenes', self.cache / 'renders', self.cache / 'metering', self.cache / 'derived'):
+        for directory in (self.cache, self.support, self.cache / 'scenes', self.cache / 'renders', self.cache / 'metering', self.cache / 'derived', self.cache / 'developments'):
             directory.mkdir(parents=True, exist_ok=True)
-        for family, prefix in [('scenes', '.prepare-'), ('renders', '.render-')]:
+        for family, prefix in [('scenes', '.prepare-'), ('renders', '.render-'), ('developments', '.develop-')]:
             for path in (self.cache / family).glob(prefix + '*'):
                 try:
                     pid = int(path.name[len(prefix):].split('-', 1)[0])
@@ -210,7 +213,7 @@ class EditorStore:
                 except (OSError, ValueError, KeyError):
                     continue
         entries = []
-        for family in ('scenes', 'renders', 'metering', 'derived'):
+        for family in ('scenes', 'renders', 'metering', 'derived', 'developments'):
             for path in (self.cache / family).iterdir():
                 if path.resolve() in protected or path.name.startswith('.'):
                     continue
@@ -225,6 +228,32 @@ class EditorStore:
             else:
                 path.unlink()
             total -= size
+
+    def develop_cached(self, identity: dict, source: Path, destination: Path, **options):
+        from .raw import develop_raw
+        profile = options.get('profile_overlay')
+        parameters = {k: options[k] for k in ('white_balance', 'temperature_k', 'tint')}
+        parameters['temperature_bias'] = options.get('temperature_bias', 0.0)
+        parameters['profile_overlay'] = profile.read_text() if profile is not None else None
+        key = digest({'source': identity['sha256'], 'engine': self.engine, 'parameters': parameters})
+        target = self.cache / 'developments' / key
+        retained = target / 'scene.tif'
+        if (target / 'complete.json').is_file() and retained.is_file():
+            os.link(retained, destination)
+            os.utime(target, None)
+            self.progress('正在复用白平衡显影缓存')
+            return
+        develop_raw(source, destination, **options)
+        check_source(identity)
+        # Hard links keep all consumers immutable without a second full TIFF
+        # copy. Cancellation can only leave a hidden, incomplete cache entry.
+        with tempfile.TemporaryDirectory(prefix=f'.develop-{os.getpid()}-', dir=self.cache / 'developments') as temp:
+            work = Path(temp)
+            os.link(destination, work / 'scene.tif')
+            atomic_json(work / 'complete.json', {'key': key, 'parameters': parameters})
+            if target.exists():
+                shutil.rmtree(target)
+            work.rename(target)
 
     def prepare(self, source: dict, recipe: EditRecipe) -> dict:
         recipe.validate()
@@ -248,7 +277,8 @@ class EditorStore:
             options = recipe.raw_options(work)
             meter = self.cache / 'metering' / (digest([source['sha256'], self.engine]) + '.npy')
             prepared = prepare_raw_scene(Path(source['path']), options, style=STYLE_PRESETS[recipe.style],
-                tools=tools, work=work, metering_reference=meter)
+                tools=tools, work=work, metering_reference=meter,
+                raw_developer=lambda *a, **kw: self.develop_cached(source, *a, **kw))
             scene, info = open_scene(prepared.scene)
             if not info.has_icc_profile:
                 raise ProcessingError('RAW scene is missing its linear ICC profile')
@@ -296,12 +326,27 @@ class EditorStore:
 
     def render(self, source: dict, recipe: EditRecipe, *, full: bool = False, strip_metadata: bool = False, remember: bool = True, floating_preview: bool = False) -> dict:
         floating_preview = floating_preview and not full
+        recipe.validate()
+        check_source(source)
+        # A retained preview remains usable even if its large prepared RAW
+        # scene was evicted. Consult the immutable render before redevelopment.
+        scene_key = digest({'source': source['sha256'], 'engine': self.engine,
+                            'development': recipe.development_key()})
+        fast_key = digest({'scene': scene_key, 'recipe': asdict(recipe), 'full': full,
+                           'strip_metadata': strip_metadata if full else True,
+                           **({'preview_format': 1, 'gpu_version': 'scene-tone-2'} if floating_preview else {})})
+        fast_target = self.cache / 'renders' / fast_key
+        if (fast_target / 'complete.json').is_file():
+            if remember:
+                self.remember(source, recipe)
+            os.utime(fast_target, None)
+            return {**json.loads((fast_target / 'complete.json').read_text()), 'source': source, 'cache_hit': True}
         prepared = self.prepare(source, recipe)
         if remember:
             self.remember(source, recipe)
         key = digest({'scene': prepared['key'], 'recipe': asdict(recipe), 'full': full,
                       'strip_metadata': strip_metadata if full else True,
-                      **({'preview_format': 1, 'gpu_version': 'scene-tone-1'} if floating_preview else {})})
+                      **({'preview_format': 1, 'gpu_version': 'scene-tone-2'} if floating_preview else {})})
         target = self.cache / 'renders' / key
         complete = target / 'complete.json'
         if complete.is_file():
@@ -348,6 +393,7 @@ class EditorStore:
                     work / 'sdr.jpg', work / 'hdr.rgba16f', auto_exposure=True, exposure_ev=None,
                     development_ev=RAW_DEVELOPMENT_EV, highlight_ev=recipe.highlight_ev,
                     shadow_ev=recipe.shadow_ev, edit_exposure_ev=recipe.exposure_ev,
+                    white_ev=recipe.white_ev, black_ev=recipe.black_ev,
                     saturation_scale=recipe.saturation, hdr_strength=recipe.hdr_strength,
                     sdr_exposure_ev=recipe.sdr_exposure_ev, peak_nits=1000,
                     style=STYLE_PRESETS[recipe.style], _analysis=prepared['analysis'], _skin_context=context,

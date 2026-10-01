@@ -345,9 +345,105 @@ def test_zombie_only_process_group_cleanup_is_benign_but_live_refusal_is_not(mon
     import signal
     def denied(*args):raise PermissionError('group has no signalable process')
     monkeypatch.setattr(os,'killpg',denied)
-    monkeypatch.setattr(subprocess,'check_output',lambda *a,**kw:'123 Z\n124 S\n')
+    monkeypatch.setattr(subprocess,'check_output',lambda *a,**kw:f'101 123 {os.getuid()} Z\n102 124 {os.getuid()} S\n')
+    monkeypatch.setattr(os,'kill',denied)
+    monkeypatch.setattr(os,'getpgid',lambda pid:124)
     signal_task_group(123,signal.SIGKILL)
     with pytest.raises(PermissionError):signal_task_group(124,signal.SIGKILL)
+
+
+def test_group_signal_refusal_falls_back_only_to_its_live_owned_members(monkeypatch):
+    from hdrimg.worker import signal_task_group
+    import signal
+    calls=[]
+    def denied(*args):raise PermissionError('Darwin group teardown')
+    monkeypatch.setattr(os,'killpg',denied)
+    monkeypatch.setattr(subprocess,'check_output',lambda *a,**kw:f'101 90 {os.getuid()} Z\n102 90 {os.getuid()} S\n103 91 {os.getuid()} S\n')
+    monkeypatch.setattr(os,'kill',lambda pid,sig:calls.append((pid,sig)))
+    monkeypatch.setattr(os,'getpgid',lambda pid:90)
+    signal_task_group(90,signal.SIGKILL)
+    assert calls==[(102,signal.SIGKILL)]
+
+
+def test_cached_render_does_not_redevelop_an_evicted_raw_scene(tmp_path,monkeypatch):
+    monkeypatch.setenv('HDRIMG_ENGINE_ID','test-engine')
+    store=EditorStore(cache=tmp_path/'cache',support=tmp_path/'support')
+    original=tmp_path/'file.CR2';original.write_bytes(b'original')
+    identity,recipe,_=store.restore(original)
+    scene_key=digest({'source':identity['sha256'],'engine':store.engine,'development':recipe.development_key()})
+    render_key=digest({'scene':scene_key,'recipe':asdict(recipe),'full':False,'strip_metadata':True,'preview_format':1,'gpu_version':'scene-tone-2'})
+    atomic_json(store.cache/'renders'/render_key/'complete.json',{'key':render_key,'recipe':asdict(recipe)})
+    monkeypatch.setattr(store,'prepare',lambda *a,**kw:pytest.fail('A retained render must be checked before RAW preparation'))
+    assert store.render(identity,recipe,floating_preview=True)['cache_hit']
+
+
+@pytest.mark.parametrize('control',['white_ev','black_ev'])
+def test_endpoint_controls_are_monotone_finite_chroma_preserving_and_zero_identical(control):
+    y=np.r_[0,np.geomspace(1e-7,100,50000)].astype(np.float32)
+    rgb=np.repeat(y[:,None,None],3,axis=2)
+    base=apply_exposure_and_highlights(rgb,total_ev=0,highlight_ev=0)
+    np.testing.assert_array_equal(base,apply_exposure_and_highlights(rgb,total_ev=0,highlight_ev=0,**{control:0}))
+    for value in [-2,-1,.5,1,2]:
+        result=apply_exposure_and_highlights(rgb,total_ev=0,highlight_ev=0,**{control:value})
+        assert np.isfinite(result).all() and not result[0].any()
+        assert np.diff(result[:,0,0]).min()>=0
+    if control=='black_ev':
+        np.testing.assert_array_equal(result[y>=.045],rgb[y>=.045])
+    colored=np.array([[[.01,.03,.09],[1,2,4]]],np.float32)
+    result=apply_exposure_and_highlights(colored,total_ev=0,highlight_ev=0,**{control:2})
+    ratios=result/colored
+    np.testing.assert_allclose(ratios,np.broadcast_to(ratios[...,:1],ratios.shape),rtol=1e-6)
+
+
+def test_old_recipes_default_new_endpoint_controls_to_zero():
+    recipe=EditRecipe.from_dict({'exposure_ev':.5,'shadow_ev':.2})
+    assert recipe.white_ev==recipe.black_ev==0
+    assert replace(recipe,white_ev=1,black_ev=-1).development_key()==recipe.development_key()
+    for bad in [{'white_ev':3},{'black_ev':float('nan')}]:
+        with pytest.raises(InputError):EditRecipe.from_dict(bad)
+
+
+def test_development_cache_reuses_identical_settings_not_wb_or_changed_profiles(tmp_path,monkeypatch):
+    from hdrimg import raw
+    monkeypatch.setenv('HDRIMG_ENGINE_ID','test-engine')
+    store=EditorStore(cache=tmp_path/'cache',support=tmp_path/'support')
+    original=tmp_path/'file.CR2';original.write_bytes(b'original')
+    identity,_,_=store.restore(original)
+    calls=[]
+    def develop(source,destination,**kw):
+        calls.append(kw['white_balance']);destination.write_bytes(b'float TIFF '+str(kw).encode())
+    monkeypatch.setattr(raw,'develop_raw',develop)
+    opts=dict(tools=None,white_balance='camera',temperature_k=None,tint=1,work_dir=tmp_path)
+    store.develop_cached(identity,original,tmp_path/'a.tif',**opts)
+    store.develop_cached(identity,original,tmp_path/'b.tif',**{**opts,'work_dir':tmp_path/'other'})
+    assert len(calls)==1 and (tmp_path/'a.tif').read_bytes()==(tmp_path/'b.tif').read_bytes()
+    store.develop_cached(identity,original,tmp_path/'c.tif',**{**opts,'white_balance':'auto'})
+    profile=tmp_path/'noise.pp3';profile.write_text('denoise 1')
+    store.develop_cached(identity,original,tmp_path/'d.tif',**opts,profile_overlay=profile)
+    profile.write_text('denoise 2')
+    store.develop_cached(identity,original,tmp_path/'e.tif',**opts,profile_overlay=profile)
+    assert len(calls)==4
+
+
+def test_controller_contains_a_cancellation_error_and_accepts_the_next_request(monkeypatch):
+    import asyncio
+    from hdrimg.worker import Controller
+    class Reader:
+        def __init__(self,**kw):self.lines=iter([b'{"command":"cancel","id":"first"}\n',b'{"command":"cancel","id":"second"}\n',b'{"command":"close"}\n'])
+        async def readline(self):return next(self.lines,b'')
+    class Transport:
+        async def connect_read_pipe(self,*a):pass
+    events=[];attempts=[]
+    async def stop(self):
+        attempts.append(True)
+        if len(attempts)==1:raise PermissionError('transient task teardown')
+    monkeypatch.setattr(asyncio,'StreamReader',Reader)
+    monkeypatch.setattr(asyncio,'get_running_loop',lambda:Transport())
+    monkeypatch.setattr(Controller,'stop',stop)
+    monkeypatch.setattr('hdrimg.worker.emit',events.append)
+    asyncio.run(Controller().run())
+    assert events[0]['id']=='first' and events[0]['error_code']=='cancel_failed'
+    assert events[1]['id']=='second' and events[1]['event']=='cancelled'
 
 
 def test_explicit_policy_controls_protection_independently_of_parameter_source(tmp_path):

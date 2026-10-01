@@ -113,13 +113,15 @@ def _tone_mapping_parameters(
     max_preview_edge: int = 2048,
     scene_decision: PhoneSceneDecision | None = None,
     shadow_ev: float = 0.0,
+    white_ev: float = 0.0,
+    black_ev: float = 0.0,
 ) -> dict[str, float]:
     height, width = scene.shape[:2]
     step = max(1, int(np.ceil(max(height, width) / max_preview_edge)))
     preview = apply_exposure_and_highlights(
         scene[::step, ::step, :3],
         total_ev=stats.scene_adjustment_ev,
-        highlight_ev=highlight_ev, shadow_ev=shadow_ev,
+        highlight_ev=highlight_ev, shadow_ev=shadow_ev, white_ev=white_ev, black_ev=black_ev,
     )
     y = luminance_rec2020(preview)
     y = y[np.isfinite(y) & (y >= 0.0)]
@@ -345,6 +347,8 @@ def _render_pair(
     _float_work: Path | None = None,
     edit_exposure_ev: float = 0.0,
     shadow_ev: float = 0.0,
+    white_ev: float = 0.0,
+    black_ev: float = 0.0,
     saturation_scale: float = 1.0,
     _analysis: dict | None = None,
     _processing_policy: RenderPolicy | None = None,
@@ -422,7 +426,7 @@ def _render_pair(
     tone_mapping = _tone_mapping_parameters(
         analysis_scene,
         stats,
-        highlight_ev=highlight_ev, shadow_ev=shadow_ev,
+        highlight_ev=highlight_ev, shadow_ev=shadow_ev, white_ev=white_ev, black_ev=black_ev,
         peak_nits=peak_nits,
         contrast=look.contrast,
         style=style,
@@ -531,7 +535,7 @@ def _render_pair(
         preview = apply_exposure_and_highlights(
             scene[::step, ::step],
             total_ev=stats.scene_adjustment_ev,
-            highlight_ev=highlight_ev, shadow_ev=shadow_ev,
+            highlight_ev=highlight_ev, shadow_ev=shadow_ev, white_ev=white_ev, black_ev=black_ev,
         )
         preview = apply_scene_contrast(
             preview,
@@ -566,7 +570,7 @@ def _render_pair(
             correct_phone_shadow_red(scene[start:stop], offset=shadow_red_offset,
                                      development_ev=stats.development_ev),
             total_ev=stats.scene_adjustment_ev,
-            highlight_ev=highlight_ev, shadow_ev=shadow_ev,
+            highlight_ev=highlight_ev, shadow_ev=shadow_ev, white_ev=white_ev, black_ev=black_ev,
         )
         shared = apply_scene_contrast(
             shared,
@@ -888,7 +892,7 @@ def _render_pair(
                 preview_scene, reference, work / "reference.rgba16f",
                 auto_exposure=auto_exposure, exposure_ev=exposure_ev,
                 sdr_exposure_ev=0, development_ev=development_ev,
-                highlight_ev=highlight_ev, shadow_ev=shadow_ev, hdr_strength=hdr_strength, peak_nits=peak_nits,
+                highlight_ev=highlight_ev, shadow_ev=shadow_ev, white_ev=white_ev, black_ev=black_ev, hdr_strength=hdr_strength, peak_nits=peak_nits,
                 auto_look=auto_look, contrast=contrast, saturation=saturation,
                 edit_exposure_ev=edit_exposure_ev, saturation_scale=saturation_scale,
                 _processing_policy=policy,
@@ -952,7 +956,7 @@ def _render_pair(
                 preview_scene, reference, work / "reference.rgba16f",
                 auto_exposure=auto_exposure, exposure_ev=exposure_ev,
                 sdr_exposure_ev=0, development_ev=development_ev,
-                highlight_ev=highlight_ev, shadow_ev=shadow_ev, hdr_strength=hdr_strength, peak_nits=peak_nits,
+                highlight_ev=highlight_ev, shadow_ev=shadow_ev, white_ev=white_ev, black_ev=black_ev, hdr_strength=hdr_strength, peak_nits=peak_nits,
                 auto_look=auto_look, contrast=contrast, saturation=saturation,
                 edit_exposure_ev=edit_exposure_ev, saturation_scale=saturation_scale,
                 _processing_policy=policy,
@@ -1028,7 +1032,7 @@ def _render_pair(
             enabled=(_allow_subject or _allow_histogram) and shared_hdr_chroma,
             reference_options=dict(auto_exposure=auto_exposure, exposure_ev=exposure_ev,
                 sdr_quality=95,
-                development_ev=development_ev, highlight_ev=highlight_ev, shadow_ev=shadow_ev,
+                development_ev=development_ev, highlight_ev=highlight_ev, shadow_ev=shadow_ev, white_ev=white_ev, black_ev=black_ev,
                 hdr_strength=hdr_strength, peak_nits=peak_nits, auto_look=auto_look,
                 contrast=contrast, saturation=saturation, warm_color_separation=warm_color_separation,
                 edit_exposure_ev=edit_exposure_ev, saturation_scale=saturation_scale,
