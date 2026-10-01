@@ -58,6 +58,8 @@ struct PreferencesView:View {
     @ObservedObject var preferences=AppPreferences.shared
     var body:some View {
         Form {
+            Text("Img2UltraHDR").font(.headline)
+            Text(AppVersion.details).font(.caption).foregroundStyle(.secondary).textSelection(.enabled)
             Picker(L("语言"),selection:$preferences.language) { Text("中文").tag("zh-Hans");Text("English").tag("en") }
             Picker(L("外观"),selection:$preferences.appearance) { Text(L("跟随系统")).tag("system");Text(L("浅色")).tag("light");Text(L("深色")).tag("dark") }
             Text(L("语言和外观设置立即生效，不会改变照片。")).font(.caption).foregroundStyle(.secondary)

@@ -126,3 +126,6 @@
 "磁盘空间不足，请释放空间后重试。" = "Not enough disk space. Free some space and try again.";
 "没有读写权限，请检查文件和保存位置。" = "Access denied. Check the original and the save location.";
 "原片或参数无效，请检查原片或重新打开。" = "Invalid original or settings. Check the RAW file or open it again.";
+"版本" = "Version";
+"构建" = "Build";
+"开发版本" = "Development build";

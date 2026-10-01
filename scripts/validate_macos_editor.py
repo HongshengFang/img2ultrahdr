@@ -78,9 +78,12 @@ def raw_suite(args):
 
 if __name__=='__main__':
     parser=argparse.ArgumentParser();parser.add_argument('mode',choices=['equivalence','raw-suite']);parser.add_argument('output',type=Path)
-    parser.add_argument('--baseline',type=Path,default=Path('outputs/app-validation/baseline/hdrimg'));parser.add_argument('--limit',type=int)
+    parser.add_argument('--baseline',type=Path,help='Explicit frozen hdrimg source directory for equivalence mode');parser.add_argument('--limit',type=int)
     parser.add_argument('--floating-preview',action='store_true')
     parser.add_argument('--cache-gib',type=float)
     parser.add_argument('--resume',action='store_true')
-    args=parser.parse_args();args.output=args.output.resolve();args.output.mkdir(parents=True,exist_ok=args.resume)
+    args=parser.parse_args()
+    if args.mode=='equivalence' and (args.baseline is None or not (args.baseline/'__init__.py').is_file()):
+        parser.error('equivalence requires --baseline pointing to an existing frozen hdrimg source directory')
+    args.output=args.output.resolve();args.output.mkdir(parents=True,exist_ok=args.resume)
     equivalence(args) if args.mode=='equivalence' else raw_suite(args)

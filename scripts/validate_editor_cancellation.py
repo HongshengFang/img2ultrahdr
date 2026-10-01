@@ -3,11 +3,13 @@ import argparse,json,os,selectors,subprocess,sys,tempfile,time
 from pathlib import Path
 from hdrimg.editor import atomic_json
 p=argparse.ArgumentParser();p.add_argument('output',type=Path)
-p.add_argument('--cache',type=Path,default=Path('outputs/app-validation/benchmark-isolated/cache'))
+p.add_argument('--cache',type=Path,required=True,help='Existing preparation cache containing the requested source')
 p.add_argument('--source',type=Path,default=Path('pics/DSCF8111.RAF'))
-args=p.parse_args();args.output.mkdir(parents=True,exist_ok=False)
-prepared=next(json.loads(path.read_text()) for path in (args.cache/'scenes').glob('*/complete.json')
-    if Path(json.loads(path.read_text())['source']['path']).resolve()==args.source.resolve())
+args=p.parse_args()
+prepared=next((json.loads(path.read_text()) for path in (args.cache/'scenes').glob('*/complete.json')
+    if Path(json.loads(path.read_text())['source']['path']).resolve()==args.source.resolve()),None)
+if prepared is None:p.error('The requested RAW is not prepared in --cache; prepare it before running cancellation checks')
+args.output.mkdir(parents=True,exist_ok=False)
 rows=[]
 unique_ev=.347+(time.time()%997)*1e-7
 for stage,command,cache,recipe,floating in [

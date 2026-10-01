@@ -21,7 +21,7 @@ struct Img2UltraHDRApp: App {
     private var model:EditorModel { session.model }
     @ObservedObject private var preferences = AppPreferences.shared
     var body: some Scene {
-        Window("Img2UltraHDR", id: "editor") {
+        Window(AppVersion.windowTitle, id: "editor") {
             EditorView(model: model)
                 .onAppear { delegate.editor = model; if !delegate.pendingURLs.isEmpty { model.drop(delegate.pendingURLs); delegate.pendingURLs = [] } }
                 .frame(minWidth:900, minHeight:620)
@@ -130,6 +130,8 @@ struct EditorView: View {
                     Text(L(model.status)).lineLimit(2)
                     Spacer()
                     Text(L(model.displayStatus)).foregroundStyle(.secondary)
+                    Text(AppVersion.badge).foregroundStyle(.secondary).help(AppVersion.details)
+                        .accessibilityLabel(AppVersion.details)
                     if model.busy { Button(L("取消"),action:model.cancel) }
                     else if (model.status.contains("取消") || !model.ready) && model.error == nil { Button(L("重试"),action:model.retry) }
                 }

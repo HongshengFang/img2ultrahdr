@@ -28,7 +28,7 @@ extension EditorModel {
         try? FileManager.default.createDirectory(at:output,withIntermediateDirectories:true)
         DispatchQueue.main.asyncAfter(deadline:.now()+1) {
             if let screen=NSScreen.screens.first(where:{$0.maximumPotentialExtendedDynamicRangeColorComponentValue>1}),
-               let window=NSApp.windows.first(where:{$0.title=="Img2UltraHDR"}) {
+               let window=NSApp.windows.first(where:{$0.title==AppVersion.windowTitle}) {
                 let area=screen.visibleFrame
                 window.level = .floating
                 window.setFrameOrigin(NSPoint(x:area.midX-window.frame.width/2,y:area.midY-window.frame.height/2))
@@ -50,7 +50,7 @@ extension EditorModel {
                             let latency=frames.map{($0.1-$0.0)*1000}.sorted()
                             let gaps=zip(frames.dropFirst(),frames).map{($0.0.1-$0.1.1)*1000}.filter{$0>0}.sorted()
                             func percentile(_ a:[Double])->Double { a.isEmpty ? -1:a[min(a.count-1,Int(Double(a.count-1)*0.95))] }
-                            let window=NSApp.windows.first(where:{$0.contentView != nil && $0.title=="Img2UltraHDR"})
+                            let window=NSApp.windows.first(where:{$0.contentView != nil && $0.title==AppVersion.windowTitle})
                             let report:[String:Any]=["frames":frames.count,"duration":duration,"retained_sample_window_seconds":(frames.last?.1 ?? 0)-(frames.first?.1 ?? 0),"presentation_buffer_limit":10000,"latency_p95_ms":percentile(latency),"frame_interval_p95_ms":percentile(gaps),"latencies_ms":latency,"frame_intervals_ms":gaps,"window_occluded":!(window?.occlusionState.contains(.visible) ?? false),"screen":window?.screen?.localizedName ?? "unknown","headroom":self.readouts.headroom,"supports_hdr":self.readouts.displaySupportsHDR,"rendered_frames":self.readouts.renderedFrames,"gpu_failure":self.readouts.failure ?? "","histogram_count":self.readouts.bins[768..<1024].reduce(UInt32(0),+),"pixel_count":(frame["width"] as? Int ?? 0)*(frame["height"] as? Int ?? 0),"method":"30 Hz native parameter updates with histogram and pixel probe; MTLDrawable.presentedTime; no hardware mouse timing"]
                             try? JSONSerialization.data(withJSONObject:report,options:.prettyPrinted).write(to:output.appendingPathComponent("presentation.json"))
                             self.source=nil // Diagnostic fixtures never become the user's last photo.

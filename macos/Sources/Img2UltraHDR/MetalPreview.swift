@@ -6,6 +6,10 @@ import QuartzCore
 
 enum AppResources {
     static let bundle: Bundle = {
+        // SwiftPM's generated accessor can fall back to an absolute build
+        // directory. Installed apps must use their own packaged resources.
+        if let url = Bundle.main.resourceURL?.appendingPathComponent("Img2UltraHDR_Img2UltraHDR.bundle"),
+           let installed = Bundle(url: url) { return installed }
         #if SWIFT_PACKAGE
         return Bundle.module
         #else

@@ -3,9 +3,12 @@ from dataclasses import replace
 import argparse,json,os,time
 from pathlib import Path
 from hdrimg.editor import EditRecipe,EditorStore,atomic_json
-p=argparse.ArgumentParser();p.add_argument('output',type=Path);a=p.parse_args();a.output.mkdir(parents=True,exist_ok=True)
-root=Path.cwd();os.environ['HDRIMG_ACCELERATOR']=str(root/'dist/Img2UltraHDR.app/Contents/Resources/libhdreditor.dylib')
-os.environ['HDRIMG_VISION_HELPER']=str(root/'dist/Img2UltraHDR.app/Contents/Resources/phone-subject')
+p=argparse.ArgumentParser();p.add_argument('output',type=Path)
+p.add_argument('--app',type=Path,default=Path.home()/'Applications/Img2UltraHDR.app')
+a=p.parse_args();a.output.mkdir(parents=True,exist_ok=True)
+resources=a.app.expanduser().resolve()/'Contents/Resources'
+os.environ['HDRIMG_ACCELERATOR']=str(resources/'libhdreditor.dylib')
+os.environ['HDRIMG_VISION_HELPER']=str(resources/'phone-subject')
 store=EditorStore(cache=a.output/'cache',support=a.output/'support',progress=lambda p:print(p,flush=True))
 rows=[]
 for sourcepath in [Path('pics/0N6A9406.CR2'),Path('pics/DSCF8111.RAF')]:

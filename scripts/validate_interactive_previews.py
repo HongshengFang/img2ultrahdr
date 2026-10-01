@@ -1,4 +1,4 @@
-"""Create precise targets from immutable v0.1 RAW preparations for GPU comparison.
+"""Create precise targets from explicitly supplied RAW preparations for GPU comparison.
 
 The current renderer is always used. Reusing the retained float input isolates
 interactive math from external RAW auto-WB nondeterminism. Both styles here use
@@ -13,14 +13,18 @@ import time
 from hdrimg.editor import EditRecipe, EditorStore, atomic_json
 
 p=argparse.ArgumentParser();p.add_argument('output',type=Path);p.add_argument('--limit',type=int,default=6)
+p.add_argument('--prepared-cache',type=Path,required=True)
+p.add_argument('--app',type=Path,default=Path.home()/'Applications/Img2UltraHDR.app')
 a=p.parse_args();a.output.mkdir(parents=True,exist_ok=True)
-os.environ['HDRIMG_ACCELERATOR']=str(Path('dist/Img2UltraHDR.app/Contents/Resources/libhdreditor.dylib').resolve())
-os.environ['HDRIMG_VISION_HELPER']=str(Path('dist/Img2UltraHDR.app/Contents/Resources/phone-subject').resolve())
+resources=a.app.expanduser().resolve()/'Contents/Resources'
+os.environ['HDRIMG_ACCELERATOR']=str(resources/'libhdreditor.dylib')
+os.environ['HDRIMG_VISION_HELPER']=str(resources/'phone-subject')
 store=EditorStore(cache=a.output/'cache',support=a.output/'support')
 # These validation artifacts must survive until the pixel comparison finishes.
 store.prune=lambda *args,**kwargs:None
 rows=[]
-files=sorted(Path('outputs/app-validation/benchmark-isolated/cache/scenes').glob('*/complete.json'))[:a.limit]
+files=sorted((a.prepared_cache/'scenes').glob('*/complete.json'))[:a.limit]
+if not files:p.error('--prepared-cache contains no prepared RAW scenes')
 variants=[('base',{}),('exposure+',{'exposure_ev':.5}),('exposure-',{'exposure_ev':-.5}),
     ('highlights',{'highlight_ev':-.5}),('shadows',{'shadow_ev':.5}),
     ('saturation',{'saturation':1.1}),('hdr',{'hdr_strength':.8}),('sdr',{'sdr_exposure_ev':.5}),

@@ -4,6 +4,7 @@ import argparse
 import sys
 from pathlib import Path
 
+from . import __version__
 from .doctor import checks_as_json, run_doctor
 from .errors import DependencyError, HdrImgError, InputError
 from .inspect import inspect_file, inspection_as_json
@@ -16,7 +17,7 @@ def _parser() -> argparse.ArgumentParser:
         prog="img2uhdr",
         description="Develop CR2/RAF files into controlled SDR and Ultra HDR images.",
     )
-    parser.add_argument("--version", action="version", version="%(prog)s 0.1.0")
+    parser.add_argument("--version", action="version", version=f"%(prog)s {__version__}")
     commands = parser.add_subparsers(dest="command", required=True)
 
     commands.add_parser("doctor", help="check dependencies and an Ultra HDR round trip")

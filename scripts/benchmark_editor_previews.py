@@ -10,11 +10,11 @@ import numpy as np
 from hdrimg.editor import EditorStore,EditRecipe,atomic_json
 p=argparse.ArgumentParser();p.add_argument('output',type=Path);p.add_argument('--pause-pid',type=int,action='append',default=[]);p.add_argument('--repeats',type=int,default=3)
 p.add_argument('--floating-preview',action='store_true')
+p.add_argument('--prepared-cache',type=Path,action='append',default=[],help='Optional existing preparation cache; otherwise prepare the six RAW inputs again')
 a=p.parse_args();a.output.mkdir(parents=True,exist_ok=False)
 names=['0N6A9034.CR2','0N6A9169.CR2','0N6A9406.CR2','0N6A9416.CR2','0N6A9453.CR2','DSCF8111.RAF']
 cases={}
-for folder in ['benchmark-isolated/cache','raw37/cache','white-balance/cache']:
- cache=Path('outputs/app-validation')/folder
+for cache in a.prepared_cache:
  for path in (cache/'scenes').glob('*/complete.json'):
   d=json.loads(path.read_text());name=Path(d['source']['path']).name;wb=d['raw_development']['white_balance']
   if name in names and wb['resolved']=='auto' and 'native_temperature_bias' in wb and name not in cases:cases[name]=(cache,d)

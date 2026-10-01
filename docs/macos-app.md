@@ -4,7 +4,7 @@
 
 ## 打开与使用
 
-本次交付安装在 `~/Applications/Img2UltraHDR.app`，另有 `dist/Img2UltraHDR 0.2.app` 副本，可以从 Finder 双击。构建脚本的标准产物仍为 `dist/Img2UltraHDR.app`。**项目和 `.venv` 仍需要保留在构建时的位置**。第一次启动请允许系统访问“文稿”文件夹；本项目的引擎和示例 RAW 位于该目录。拒绝后可在系统设置的“隐私与安全性 → 文件与文件夹”中修改。应用的“帮助 → Img2UltraHDR 使用说明”提供同样说明。
+应用以 **0.2.0** 作为初始版本，统一安装在 `~/Applications/Img2UltraHDR.app`，从 Finder 或 Spotlight 打开。主窗口标题、底部状态栏及设置显示版本号；设置和“关于”同时显示构建号。构建脚本直接更新这个安装位置，不再在 `dist/` 中保留应用副本。**项目和 `.venv` 仍需要保留在构建时的位置**。第一次启动请允许系统访问“文稿”文件夹；本项目的引擎和示例 RAW 位于该目录。拒绝后可在系统设置的“隐私与安全性 → 文件与文件夹”中修改。应用的“帮助 → Img2UltraHDR 使用说明”提供同样说明。
 
 1. 拖入一张 Canon CR2 或 Fujifilm RAF，也可点“打开”。首次显影需要等待；一次拖入多张会明确提示。
 2. 默认使用冻结的 Phone Clear V8 R5，可切换 Phone Natural V8。切换保留相对调整量。
@@ -39,10 +39,10 @@ HDR 的实际亮感由屏幕、系统亮度和显示余量决定。应用显示�
 ```bash
 # 按项目 README 安装依赖并建立 .venv 后：
 scripts/build_macos_app.sh
-open dist/Img2UltraHDR.app
+open ~/Applications/Img2UltraHDR.app
 ```
 
-脚本构建 Swift 可执行文件、Vision 辅助程序、数值加速库，复制 Metal 与双语资源，写入绝对依赖位置、Info.plist 和本地签名，并验证签名。不需要完整 Xcode；本机 Command Line Tools 的默认 SwiftPM 构建后端不能解析配置，因此脚本显式选择仍可用的 `--build-system native`。该选项在当前 Swift 版本提示弃用，未来工具链可能需要调整。Release 构建禁用不参与运行的调试符号生成，以避免本机 dsymutil 的目录扫描停滞。
+构建前请先退出应用。脚本构建 Swift 可执行文件、Vision 辅助程序、数值加速库，复制 Metal 与双语资源，写入绝对依赖位置、Info.plist 和本地签名，并验证签名。临时应用在隐藏的构建目录中生成，验证后替换唯一安装位置，失败时保留原应用。需要自定义位置时可传入一个 `.app` 路径参数。应用版本及构建号统一维护在 `macos/Sources/Img2UltraHDR/Resources/AppVersion.json`，Info.plist 和界面读取同一份信息。不需要完整 Xcode；本机 Command Line Tools 的默认 SwiftPM 构建后端不能解析配置，因此脚本显式选择仍可用的 `--build-system native`。该选项在当前 Swift 版本提示弃用，未来工具链可能需要调整。Release 构建禁用不参与运行的调试符号生成，以避免本机 dsymutil 的目录扫描停滞。
 
 编译后的 Vision helper 随应用提供，CLI 保留原来的动态编译回退。C 加速库只由应用环境启用；CLI 默认保留 NumPy 路径。矩阵舍入、色域压缩和图像边缘约束的加速均有与参考实现逐像素一致的测试。没有改变冻结配方。
 
@@ -108,10 +108,10 @@ HDRIMG_RESOURCES="$PWD/macos/Sources/Img2UltraHDR/Resources" \
   /tmp/check-editor /tmp/img2uhdr-native-checks
 ```
 
-`scripts/validate_macos_editor.py` 支持冻结版本对照和 37 RAW 全尺寸回归；后者依赖本机未入库的 `pics/`。`compare_editor_previews.py` 比较解码后的 HDR 预览/成片；`validate_editor_cancellation.py` 在三个真实处理阶段取消任务；`monitor_editor_memory.py` 记录指定验证进程树的 RSS。验证输出写入新的目录，不覆盖历史证据。测试结果和未通过/待人工项目见 [0.2 验收记录](macos-app-v02-validation.md)。[0.1 历史验收记录](macos-app-validation.md) 保留不覆盖。
+`scripts/validate_macos_editor.py` 支持冻结版本对照和 37 RAW 全尺寸回归；后者依赖本机未入库的 `pics/`。`compare_editor_previews.py` 比较解码后的 HDR 预览/成片；`validate_editor_cancellation.py` 在三个真实处理阶段取消任务；`monitor_editor_memory.py` 记录指定验证进程树的 RSS。验证输出写入新的目录，不覆盖历史证据。测试结果和未通过/待人工项目见 [0.2 验收记录](macos-app-v02-validation.md)。冻结对照需要显式传入 `--baseline`；准备缓存通过相关脚本的 `--prepared-cache` 或 `--cache` 参数指定，不依赖旧版本目录。
 
 0.2 增加 `check_interactive_preview.swift` 与 `compare_interactive_previews.py` 的同输入 GPU / 精确像素对照，`check_preview_tools.swift` 的合成图统计、坐标及边界检查，以及 `check_preview_window.swift` 的真实 drawable 呈现时间与 GPU 内存记录。窗口不可见时呈现时间为零，不能算作延迟通过。所有脚本只对本次独立输出目录写入；不要让性能基准与其他重处理并发。应用的 `--diagnostics` 流程使用独立缓存和编辑记录，避免修改日常编辑状态。
 
 `benchmark_editor_worker.py` 测量实际 JSONL 请求至结果就绪，包括原片指纹、子进程启动及精确渲染；它使用已准备的六场景浮点输入，不重新显影。输入底稿的原引擎版本和测试所用版本均写入报告。实际应用的 `--preview-benchmark <cases.json> --diagnostics <新目录> --benchmark-seconds 35` 计量模型参数变化至 drawable 呈现；不将提交 GPU 的时间或不可见窗口算作显示性能。
 
-0.1 的应用和工作区快照保存在 `outputs/app-v02-validation/baseline/`。`dist/Img2UltraHDR 0.1 Recovery.app` 是额外制作并签名的恢复副本，已将引擎路径改到该冻结快照，可以直接使用旧引擎；共享的本机 Python 和外部工具仍需保留。原始快照里的 `.app` 保持原样，其配置仍指向当前项目，不应把单独运行原始壳程序误认为完整回退。
+按用户要求，旧版应用、恢复副本、0.1 本机验证输出与工作区备份已清理。0.2 的验收报告和成片、原始 RAW、已保存的照片调整继续保留。可再生的运行缓存也已清理，首次重开照片需要重新准备底稿。源码历史由 Git 保存。
