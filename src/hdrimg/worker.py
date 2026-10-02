@@ -15,11 +15,12 @@ PROTOCOL = 2
 
 
 def error_code(error):
-    from .errors import DependencyError, DiskSpaceError, InputError
+    from .errors import DependencyError, DiskSpaceError, InputError, LocalSelectionError
     if isinstance(error, DependencyError): return 'missing_dependency'
     if isinstance(error, DiskSpaceError) or isinstance(error, OSError) and error.errno == 28: return 'disk_full'
     if isinstance(error, PermissionError): return 'permission_denied'
-    if isinstance(error, InputError): return 'invalid_input'
+    if isinstance(error, (InputError, json.JSONDecodeError)): return 'invalid_input'
+    if isinstance(error, LocalSelectionError): return 'local_asset_missing'
     return 'processing_failed'
 
 
@@ -78,8 +79,9 @@ def watch_controller():
 
 def job(request):
     watch_controller()
+    from dataclasses import asdict
     from . import tools
-    from .editor import EditorStore, EditRecipe, atomic_json
+    from .editor import EditorStore, EditRecipe, atomic_json, json_record
     envelope = {k: request.get(k) for k in ('id', 'session_id', 'revision')}
     def progress(phase):
         emit({**envelope, 'event': 'progress', 'phase': phase, 'phase_code': phase_code(phase)})
@@ -92,12 +94,15 @@ def job(request):
         if command == 'hello':
             from .doctor import run_doctor
             stamp = store.support / 'doctor.json'
-            previous = json.loads(stamp.read_text()) if stamp.exists() else {}
-            if previous.get('engine') == store.engine and previous.get('ok'):
+            previous = json_record(stamp) or {}
+            checks = previous.get('checks')
+            if (previous.get('engine') == store.engine and previous.get('ok') is True and
+                    isinstance(checks, list) and checks and all(isinstance(c, dict) and
+                    c.get('ok') is True and isinstance(c.get('name'), str) and
+                    isinstance(c.get('detail'), str) for c in checks)):
                 checks = previous['checks']; ok = True
             else:
                 progress('正在检查本机图像工具')
-                from dataclasses import asdict
                 ok, values = run_doctor()
                 checks = [asdict(value) for value in values]
                 atomic_json(stamp, {'engine': store.engine, 'checks': checks, 'ok': ok})
@@ -105,13 +110,17 @@ def job(request):
                 from .errors import DependencyError
                 raise DependencyError('\n'.join(c['name'] + ': ' + c['detail'] for c in checks if not c['ok']))
             emit({**envelope, 'event': 'result', 'protocol': PROTOCOL, 'engine': store.engine,
-                  'checks': checks, 'capabilities': ['float_preview_v1', 'structured_progress']})
+                  'checks': checks, 'capabilities': ['float_preview_v1', 'float_preview_v2', 'local_adjustments_v1', 'structured_progress']})
             return
         source, saved_recipe, changed = store.restore(Path(request['source']), request.get('expected_sha'))
         recipe = EditRecipe.from_dict(request['recipe']) if request.get('recipe') else saved_recipe
+        if command == 'select_region':
+            result = store.select_region(source, recipe, request.get('point'))
+            emit({**envelope, 'event': 'result', 'result': result})
+            return
         if not request.get('comparison'):
             store.remember(source, recipe)
-        emit({**envelope, 'event': 'opened', 'source': source, 'recipe': recipe.__dict__,
+        emit({**envelope, 'event': 'opened', 'source': source, 'recipe': asdict(recipe),
               'engine_changed': changed})
         if command == 'export':
             result = store.export(source, recipe, Path(request['destination']),
@@ -120,13 +129,17 @@ def job(request):
         elif command in ('prepare', 'preview', 'full_render'):
             result = store.render(source, recipe, full=command == 'full_render',
                                   remember=not request.get('comparison'),
-                                  floating_preview=request.get('preview_format') == 'float_v1')
+                                  floating_preview=request.get('preview_format') in ('float_v1', 'float_v2'),
+                                  preview_version=2 if request.get('preview_format') == 'float_v2' else 1)
         else:
             raise ValueError('Unknown command: ' + command)
+        if store.restore_warning:
+            result['warning'] = store.restore_warning
         emit({**envelope, 'event': 'result', 'result': result})
     except Exception as exc:
         traceback.print_exc(file=sys.stderr)
-        emit({**envelope, 'event': 'error', 'message': str(exc), 'type': type(exc).__name__, 'error_code': error_code(exc)})
+        emit({**envelope, 'event': 'error', 'message': str(exc), 'type': type(exc).__name__, 'error_code': error_code(exc),
+              **({'region_id': exc.region_id} if hasattr(exc, 'region_id') else {})})
         sys.exit(1)
 
 
@@ -248,17 +261,23 @@ class Controller:
         await asyncio.get_running_loop().connect_read_pipe(lambda: asyncio.StreamReaderProtocol(reader), sys.stdin)
         try:
             while line := await reader.readline():
+                request = None
+                stopping = False
                 try:
                     request = json.loads(line)
+                    if not isinstance(request, dict):
+                        from .errors import InputError
+                        raise InputError('Worker request must be an object')
                     command = request.get('command')
-                    if command == 'cancel':
+                    if command in ('cancel', 'close', 'hello', 'prepare', 'preview', 'full_render', 'export', 'select_region'):
+                        stopping = True
                         await self.stop()
+                        stopping = False
+                    if command == 'cancel':
                         emit({**{k: request.get(k) for k in ('id', 'session_id', 'revision')}, 'event': 'cancelled'})
                     elif command == 'close':
-                        await self.stop()
                         break
-                    elif command in ('hello', 'prepare', 'preview', 'full_render', 'export'):
-                        await self.stop()
+                    elif command in ('hello', 'prepare', 'preview', 'full_render', 'export', 'select_region'):
                         self.request = request
                         self.started.clear()
                         self.task = asyncio.create_task(self.run_job(request))
@@ -270,7 +289,7 @@ class Controller:
                     traceback.print_exc(file=sys.stderr)
                     identity = {k: request.get(k) for k in ('id', 'session_id', 'revision')} if isinstance(request, dict) else {}
                     emit({**identity, 'event': 'error', 'message': str(exc),
-                          'error_code': 'cancel_failed' if isinstance(exc, (OSError, RuntimeError, asyncio.TimeoutError)) else error_code(exc)})
+                          'error_code': 'cancel_failed' if stopping else error_code(exc)})
         finally:
             try:
                 await self.stop()

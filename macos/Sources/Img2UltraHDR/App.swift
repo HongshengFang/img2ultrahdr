@@ -5,13 +5,38 @@ import UniformTypeIdentifiers
 final class AppDelegate: NSObject, NSApplicationDelegate {
     var editor: EditorModel?
     var pendingURLs: [URL] = []
+    var openEditor:(()->Void)?
+    func applicationDidFinishLaunching(_ notification:Notification) {
+        DispatchQueue.main.asyncAfter(deadline:.now()+0.5) {
+            if !NSApp.windows.contains(where:{$0.title==AppVersion.windowTitle}) { self.openEditor?() }
+            if let window=NSApp.windows.first(where:{$0.title==AppVersion.windowTitle}) {
+                window.makeKeyAndOrderFront(nil);NSApp.activate()
+            }
+            let args=ProcessInfo.processInfo.arguments
+            if let i=args.firstIndex(of:"--diagnostics"),args.count>i+1 {
+                let root=URL(fileURLWithPath:args[i+1])
+                try? FileManager.default.createDirectory(at:root,withIntermediateDirectories:true)
+                let windows=NSApp.windows.map { ["title":$0.title,"visible":$0.isVisible,"frame":NSStringFromRect($0.frame)] as [String:Any] }
+                let state:[String:Any]=["windows":windows,"active":NSApp.isActive,"editor_attached":self.editor != nil,"opener_registered":self.openEditor != nil]
+                try? JSONSerialization.data(withJSONObject:state,options:.prettyPrinted).write(to:root.appendingPathComponent("launch.json"))
+            }
+        }
+    }
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { true }
     func applicationWillTerminate(_ notification: Notification) { MainActor.assumeIsolated { editor?.close() } }
     func application(_ application: NSApplication, open urls: [URL]) { MainActor.assumeIsolated { if let editor { editor.drop(urls) } else { pendingURLs = urls } } }
 }
 
 #if !EDITOR_MODEL_CHECK
-@MainActor final class EditorSession:ObservableObject { let model=EditorModel() }
+@MainActor final class EditorSession:ObservableObject {
+    let model=EditorModel(launchImmediately:false)
+    private var started=false
+    func launch() {
+        guard !started else { return };started=true
+        // Present the window before macOS may wait for Documents permission.
+        DispatchQueue.main.asyncAfter(deadline:.now()+0.1) { self.model.launch() }
+    }
+}
 @main
 struct Img2UltraHDRApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) var delegate
@@ -27,10 +52,11 @@ struct Img2UltraHDRApp: App {
                 .frame(minWidth:900, minHeight:620)
                 .preferredColorScheme(preferences.scheme)
                 .environment(\.locale,preferences.locale)
-                .onAppear { preferences.applyAppearance();preferences.applyMenus();model.startPreviewBenchmark() }
+                .onAppear { preferences.applyAppearance();preferences.applyMenus();session.launch() }
         }
         .defaultSize(width:1200,height:800)
-        .commands { EditorCommands(model:model) }
+        .defaultLaunchBehavior(.presented)
+        .commands { EditorCommands(model:model,delegate:delegate) }
         Settings { PreferencesView() }
     }
 }
@@ -38,7 +64,10 @@ struct Img2UltraHDRApp: App {
 struct EditorCommands:Commands {
     @ObservedObject var model:EditorModel
     @ObservedObject var preferences=AppPreferences.shared
+    let delegate:AppDelegate
+    @Environment(\.openWindow) private var openWindow
     var body:some Commands {
+            let _=registerWindowOpener()
             CommandGroup(replacing:.textEditing) {}
             CommandGroup(replacing:.textFormatting) {}
             CommandGroup(replacing:.appSettings) { SettingsLink { Text(L("设置")+"…") }.keyboardShortcut(",") }
@@ -49,6 +78,9 @@ struct EditorCommands:Commands {
                 Button(L("撤销"), action:model.undo).keyboardShortcut("z").disabled(model.undoStack.isEmpty || model.exporting)
                 Button(L("重做"), action:model.redo).keyboardShortcut("z",modifiers:[.command,.shift]).disabled(model.redoStack.isEmpty || model.exporting)
             }
+    }
+    private func registerWindowOpener() {
+        if delegate.openEditor==nil { delegate.openEditor={ openWindow(id:"editor") } }
     }
 }
 
@@ -71,7 +103,7 @@ struct EditorView: View {
                 Button(L("适应窗口"),action:model.fit)
                 Button(L("100% 检查"),action:model.fullSize).disabled(model.source == nil || model.busy)
                 Button { model.exportSheet = true } label: { Label(L("导出"),systemImage:"square.and.arrow.up") }
-                    .buttonStyle(.borderedProminent).disabled(model.source == nil || model.exporting || !model.ready)
+                    .buttonStyle(.borderedProminent).disabled(model.source == nil || model.exporting || !model.ready || model.hasInvalidActiveLocal || model.pendingLocal != nil)
             }.padding(14)
             Divider()
             HStack(spacing:0) {
@@ -80,13 +112,13 @@ struct EditorView: View {
                     if let value = model.displayedResult {
                         if model.accelerationFailed {
                             if let packet=PreviewPacket.decode(value["preview_packet"]) {
-                                PhotoView(path:model.hdr ? packet.hdr:packet.sdr,packet:packet,hdr:model.hdr,nativeSize:model.nativeSize,viewReset:model.viewReset,status:$model.displayStatus,failure:$model.error)
+                                PhotoView(path:model.hdr ? packet.hdr:packet.sdr,packet:packet,hdr:model.hdr,nativeSize:model.nativeSize,viewReset:model.viewReset,status:$model.displayStatus,failure:$model.error,local:model.localInteraction)
                             } else if let path=model.imagePath {
-                                PhotoView(path:path,hdr:model.hdr,nativeSize:model.nativeSize,viewReset:model.viewReset,status:$model.displayStatus,failure:$model.error)
+                                PhotoView(path:path,hdr:model.hdr,nativeSize:model.nativeSize,viewReset:model.viewReset,status:$model.displayStatus,failure:$model.error,local:model.localInteraction)
                             }
                         } else {
-                            InteractivePhotoView(result:value, recipe:model.showInitial ? (Recipe.decode(value["recipe"]) ?? model.recipe) : model.recipe,
-                                hdr:model.hdr,nativeSize:model.nativeSize,viewReset:model.viewReset,clipping:preferences.clipping,readouts:model.readouts,inputTime:model.visualInputTime)
+                            InteractivePhotoView(result:value, recipe:model.showInitial ? (Recipe.decode(value["recipe"]) ?? model.recipe) : model.displayRecipe,
+                                hdr:model.hdr,nativeSize:model.nativeSize,viewReset:model.viewReset,clipping:preferences.clipping,readouts:model.readouts,inputTime:model.visualInputTime,local:model.localInteraction)
                         }
                     } else {
                         VStack(spacing:16) {
@@ -160,29 +192,11 @@ struct EditorView: View {
         ScrollView {
             VStack(alignment:.leading,spacing:18) {
                 Text(L("调整")).font(.headline)
-                Picker(L("风格"),selection:$model.recipe.style) { Text(L("Clear")).tag("phone-clear"); Text(L("Natural")).tag("phone-natural") }
-                    .pickerStyle(.segmented).onChange(of:model.recipe.style) { _,_ in model.commit() }
-                Text(L(model.recipe.style == "phone-clear" ? "Clear V8 R5 · 明快 HDR" : "Natural V8 · 自然人像")).font(.caption).foregroundStyle(.secondary)
+                GlobalControls(model:model,recipe:model.recipe.withoutLocal,tone:true,customReady:model.customPreviewReady,language:preferences.language).equatable()
                 Divider()
-                adjustment("曝光",key:\.exposure_ev,range:-3...3,unit:" EV")
-                adjustment("高光",key:\.highlight_ev,range:-2...2,unit:" EV")
-                adjustment("阴影",key:\.shadow_ev,range:-2...2,unit:" EV")
-                adjustment("白色色阶",key:\.white_ev,range:-2...2,multiplier:50)
-                adjustment("黑色色阶",key:\.black_ev,range:-2...2,multiplier:50)
+                LocalControls(model:model)
                 Divider()
-                Picker(L("白平衡"),selection:$model.recipe.white_balance) { Text(L("自动")).tag("auto");Text(L("相机")).tag("camera");Text(L("自定义")).tag("custom") }
-                    .onChange(of:model.recipe.white_balance) { _,_ in model.scheduleWhiteBalance() }
-                if model.recipe.white_balance == "custom" {
-                    VStack(alignment:.leading,spacing:5) {
-                        HStack { Text(L("色温")).onTapGesture(count:2) { model.recipe.temperature_k=5600;model.commit() }.help(L("双击名称重置此项"));Spacer();TextField("K",value:Binding(get:{model.recipe.temperature_k},set:{model.recipe.temperature_k=$0;model.scheduleEdit()}),format:.number.grouping(.never)).frame(width:70).multilineTextAlignment(.trailing);Text(L("K")) }
-                        Slider(value:Binding(get:{Double(model.recipe.temperature_k)},set:{model.recipe.temperature_k=Int($0);model.sliderChanged()}),in:2000...15000,step:50,onEditingChanged:{ $0 ? model.beginDrag() : model.endDrag() }).accessibilityLabel(L("色温"))
-                    }.disabled(!model.customPreviewReady)
-                    adjustment("色调 · 绿 ↔ 洋红",key:\.tint,range:-100...100,multiplier:-1,flipSlider:true).disabled(!model.customPreviewReady)
-                } else { Text(L(model.recipe.white_balance == "auto" ? "由 RAW 引擎自动判断光源" : "使用相机记录的白平衡")).font(.caption).foregroundStyle(.secondary) }
-                Divider()
-                adjustment("饱和度",key:\.saturation,range:0.8...1.2,multiplier:100,unit:"%")
-                adjustment("HDR 强度",key:\.hdr_strength,range:0...1,multiplier:100,unit:"%")
-                DisclosureGroup(L("更多")) { adjustment("SDR 亮度",key:\.sdr_exposure_ev,range:-2...2,unit:" EV").padding(.top,12) }
+                GlobalControls(model:model,recipe:model.recipe.withoutLocal,tone:false,customReady:model.customPreviewReady,language:preferences.language).equatable()
                 Divider()
                 HStack {
                     Button(action:model.undo) { Image(systemName:"arrow.uturn.backward") }.disabled(model.undoStack.isEmpty).help(L("撤销")).accessibilityLabel(L("撤销"))
@@ -193,17 +207,7 @@ struct EditorView: View {
             }.padding(18)
         }
     }
-    func adjustment(_ title:String,key:WritableKeyPath<Recipe,Double>,range:ClosedRange<Double>,multiplier:Double=1,unit:String="",flipSlider:Bool=false) -> some View {
-        VStack(alignment:.leading,spacing:5) {
-            HStack {
-                Text(L(title)).onTapGesture(count:2) { model.resetAdjustment(key) }.help(L("双击名称重置此项"));Spacer()
-                TextField(L(title),value:Binding(get:{model.recipe[keyPath:key]*multiplier},set:{model.recipe[keyPath:key]=$0/multiplier;model.scheduleEdit()}),format:.number.precision(.fractionLength(abs(multiplier) >= 50 ? 0 : 2)))
-                    .textFieldStyle(.plain).multilineTextAlignment(.trailing).frame(width:58)
-                Text(unit).foregroundStyle(.secondary)
-            }.font(.callout)
-            Slider(value:Binding(get:{model.recipe[keyPath:key]*(flipSlider ? -1:1)},set:{model.recipe[keyPath:key]=$0*(flipSlider ? -1:1);model.sliderChanged()}),in:range,onEditingChanged:{ $0 ? model.beginDrag() : model.endDrag() }).accessibilityLabel(L(title))
-        }
-    }
+
 }
 
 struct PhotoView: NSViewRepresentable {
@@ -214,6 +218,7 @@ struct PhotoView: NSViewRepresentable {
     let viewReset:Int
     @Binding var status:String
     @Binding var failure:String?
+    var local=LocalInteraction()
     class Coordinator {
         var key = ""
         var canvas = HDRCanvas(frame:.zero)
@@ -232,6 +237,10 @@ struct PhotoView: NSViewRepresentable {
             let size = native ? NSSize(width:max(bounds.width,CGFloat(image.pixels.width)/scale),height:max(bounds.height,CGFloat(image.pixels.height)/scale)) : scroll.contentView.frame.size
             if canvas.frame.size != size { canvas.frame.size = size }
             if native { canvas.layer?.contentsGravity = .center } else { canvas.layer?.contentsGravity = .resizeAspect }
+            let iw=CGFloat(image.pixels.width),ih=CGFloat(image.pixels.height)
+            let fit=native ? 1/scale:min(size.width/iw,size.height/ih)
+            canvas.localOverlay.frame=canvas.bounds;canvas.localOverlay.photoSize=NSSize(width:iw,height:ih)
+            canvas.localOverlay.photoRect=NSRect(x:(size.width-iw*fit)/2,y:(size.height-ih*fit)/2,width:iw*fit,height:ih*fit)
         }
         func center(_ scroll:NSScrollView) {
             guard centerOnLoad else { return }
@@ -257,6 +266,7 @@ struct PhotoView: NSViewRepresentable {
         let c=context.coordinator
         if c.native != nativeSize || c.viewReset != viewReset { scroll.magnification=1;c.viewReset=viewReset;c.centerOnLoad=true }
         c.native=nativeSize;c.canvas.nativeSize=nativeSize;c.layout(scroll)
+        c.canvas.localOverlay.interaction=local
         let key=HDRImageLoader.cacheKey(path:path,hdr:hdr)
         guard c.key != key else { c.center(scroll);updateStatus(scroll,c.image);return }
         c.key=key;c.generation+=1;let generation=c.generation

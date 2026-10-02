@@ -8,6 +8,16 @@ from hdrimg.phone_skin import refine_phone_skin_color
 from hdrimg.pipeline import RenderOptions
 
 
+@pytest.mark.parametrize('shape', [(1, 32), (32, 1)])
+def test_scene_metering_accepts_single_row_or_column_without_nan(shape):
+    from hdrimg.phone_tone import phone_scene_decision
+    scene = np.full((*shape, 3), .18, np.float32)
+    with np.errstate(all='raise'):
+        result = phone_scene_decision(scene, development_ev=0, peak_nits=1000)
+    assert all(np.isfinite(value) for value in result.as_record().values())
+    assert result.center_ratio == pytest.approx(1)
+
+
 @pytest.mark.parametrize("target", ["srgb", "display-p3", "rec2020"])
 def test_pale_skin_retains_chroma_without_changing_luminance_or_background(target):
     # Identical pale warm colors, including a protected subject and an

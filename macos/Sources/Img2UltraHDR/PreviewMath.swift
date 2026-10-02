@@ -20,10 +20,13 @@ struct PreviewPacket: Decodable {
     let tone: [String: AnyNumber]
     let exposure: [String: Double]
     let luminance_quantiles: [Double]
+    let base_sdr: String?
+    let base_hdr: String?
+    let local_masks: [String:LocalMaskPacket]?
     var key: String { hdr }
     static func decode(_ value: Any?) -> PreviewPacket? {
         guard let value, let data = try? JSONSerialization.data(withJSONObject:value),
-              let packet = try? JSONDecoder().decode(Self.self,from:data), packet.version == 1,
+              let packet = try? JSONDecoder().decode(Self.self,from:data), [1,2].contains(packet.version),
               packet.width > 0, packet.height > 0, max(packet.width,packet.height) <= 1536,
               ["scene-tone-1", "scene-tone-2"].contains(packet.gpu_version),packet.pixel_format == "rgba16FloatLE",
               packet.row_bytes == packet.width*8,packet.scene_color_space == "linear-rec2020",
@@ -31,9 +34,19 @@ struct PreviewPacket: Decodable {
               packet.reference_white_nits == 203,packet.peak_nits == 1000,
               packet.luminance_quantiles.count == 1025,
               packet.luminance_quantiles.allSatisfy({ $0.isFinite && $0>=0 }) else { return nil }
+        if packet.version==2 {
+            guard packet.base_sdr != nil,packet.base_hdr != nil,(packet.local_masks?.count ?? 0)<=8,
+                  (packet.local_masks ?? [:]).values.allSatisfy({$0.width>0 && $0.height>0 && max($0.width,$0.height)<=1536}) else { return nil }
+        }
         return packet
     }
     func number(_ key: String, _ fallback: Double = 0) -> Double { tone[key]?.value ?? fallback }
+}
+
+struct LocalMaskPacket:Decodable {
+    let path:String
+    let width:Int
+    let height:Int
 }
 
 // Tone records also contain nested diagnostic dictionaries. Consume just their
@@ -48,7 +61,11 @@ enum PreviewMath {
     static func adjusted(_ y: Double, _ ev: Double, _ shadow: Double, _ highlight: Double, _ white: Double = 0, _ black: Double = 0) -> Double {
         var v = max(0,y*exp2(ev))
         v *= exp2(shadow*pow(max(1-v/0.18,0),2))
-        v *= exp2(highlight*smooth((v-0.18)/0.82))
+        v *= exp2(max(highlight,-1)*smooth((v-0.18)/0.82))
+        if highlight < -1 {
+            let above=max(v-0.18,0)
+            v = v-above+above*exp2((highlight+1)*above/(v+0.18))
+        }
         v *= exp2(black*pow(max(1-v/0.045,0),2))
         return v*exp2(white*pow(v/(v+0.9),2))
     }
@@ -88,8 +105,8 @@ enum PreviewMath {
         return (compressed*(1-keep)+y*keep,before)
     }
     // Recompute percentile-dependent global tone from a sorted full-photo sample.
-    // Sort the small transformed sample: strong negative highlights can fold
-    // part of the luminance curve. No whole-photo sorting or Python is needed.
+    // Keep the transformed percentile sample sorted despite floating-point
+    // rounding. No whole-photo sorting or Python is needed.
     static func parameters(_ packet: PreviewPacket, _ recipe: Recipe) -> [Float] {
         func n(_ key: String, _ fallback: Double = 0) -> Double { packet.number(key,fallback) }
         var p = [Float](repeating:0,count:40)

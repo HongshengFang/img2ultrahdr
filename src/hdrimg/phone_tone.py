@@ -55,7 +55,8 @@ def phone_scene_decision(
         y = np.nan_to_num(y, nan=0.0, posinf=0.0, neginf=0.0)
     p10, p50, p90, p99 = (float(v) for v in np.percentile(y, [10, 50, 90, 99]))
     height, width = y.shape
-    center = float(np.median(y[height // 4 : 3 * height // 4, width // 4 : 3 * width // 4]))
+    center = float(np.median(y[height // 4 : max(height // 4 + 1, 3 * height // 4),
+                              width // 4 : max(width // 4 + 1, 3 * width // 4)]))
     center_ratio = center / max(p50, 0.01)
     spread = np.max(raw, axis=-1) - np.min(raw, axis=-1)
     neutral_fraction = float(np.mean((y > 0.5) & (spread < 0.20)))

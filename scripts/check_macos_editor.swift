@@ -2,6 +2,13 @@
 import AppKit
 import SwiftUI
 
+final class OverlayPanProbe:NSView {
+    var downs=0,drags=0,ups=0
+    override func mouseDown(with event:NSEvent) { downs+=1 }
+    override func mouseDragged(with event:NSEvent) { drags+=1 }
+    override func mouseUp(with event:NSEvent) { ups+=1 }
+}
+
 @main struct EditorChecks {
     @MainActor static func main() throws {
         let root=FileManager.default.temporaryDirectory.appendingPathComponent("editor-check-"+UUID().uuidString)
@@ -22,6 +29,51 @@ import SwiftUI
             let model=EditorModel(launchImmediately:false,stateURL:root.appendingPathComponent(UUID().uuidString+"/window.json"))
             model.ready=true;model.busy=false;model.source=root.appendingPathComponent("中文 photo.CR2")
             return model
+        }
+        do {
+            let resources=URL(fileURLWithPath:"/Applications/Example.app/Contents/Resources")
+            precondition(EngineBridge.enginePath("runtime",resources:resources).path==resources.appendingPathComponent("runtime").path)
+            precondition(EngineBridge.enginePath("runtime/.venv/bin/python",resources:resources).path==resources.appendingPathComponent("runtime/.venv/bin/python").path)
+            precondition(EngineBridge.enginePath("/opt/local/python",resources:resources).path=="/opt/local/python")
+            checks.append("Packaged engine paths follow the app's Resources location while absolute legacy paths remain supported")
+        }
+        do {
+            let m=model();m.source=nil;m.request("hello");let expired=m.activeID
+            m.startupExpired(expired)
+            precondition(!m.busy && !m.ready && m.error != nil && m.status=="图像后台启动超时")
+            precondition(m.startupTimeout==nil && m.startupNotice==nil)
+            m.receive(["id":expired,"event":"result","protocol":2,"capabilities":[]])
+            precondition(!m.ready)
+            m.request("hello");let retry=m.activeID
+            precondition(m.busy && m.error==nil && m.status=="正在启动本机图像后台…" && m.startupTimeout != nil)
+            m.startupExpired(expired);precondition(m.busy && m.activeID==retry)
+            m.receive(["id":retry,"event":"result","protocol":2,"capabilities":[]])
+            precondition(m.ready && !m.busy && m.startupTimeout==nil)
+            m.startupExpired(retry);precondition(m.ready && m.error==nil)
+            checks.append("Startup timeout releases the spinner, ignores late results and cannot expire a newer retry or a completed startup")
+        }
+        do {
+            let m=model();m.request("hello");let identity=m.activeID
+            m.notice="pending access reminder"
+            m.receive(["id":identity,"event":"progress","phase_code":"dependencies"])
+            precondition(m.startupProgressReceived && m.notice==nil && m.status=="正在检查本机图像工具…")
+            m.startupExpired(identity)
+            precondition(m.status=="工具检查超时" && m.error?.contains("60") == true)
+            m.request("hello");let cancelled=m.activeID;m.cancel()
+            precondition(!m.busy && m.startupTimeout==nil && m.startupNotice==nil)
+            m.startupExpired(cancelled);precondition(m.error==nil)
+            checks.append("Backend startup and running tool checks have distinct timeout messages; cancellation removes startup timers")
+        }
+        do {
+            let bridge=EngineBridge(),process=Process()
+            process.executableURL=URL(fileURLWithPath:"/bin/sh")
+            process.arguments=["-c","trap '' TERM; exec /bin/sleep 10"]
+            try process.run();bridge.process=process
+            RunLoop.main.run(until:Date().addingTimeInterval(0.1))
+            bridge.stopStartup()
+            RunLoop.main.run(until:Date().addingTimeInterval(1.3))
+            precondition(bridge.process==nil && !process.isRunning)
+            checks.append("Stopping a backend that ignores SIGTERM escalates to SIGKILL for the original owned process")
         }
         do {
             let m=model()
@@ -57,6 +109,48 @@ import SwiftUI
             m.receive(["id":latest,"event":"result","result":["key":"new"]])
             precondition(m.result?["key"] as? String == "new" && !m.busy)
             checks.append("Stale results cannot replace the current image")
+        }
+        do {
+            let m=model();m.compare();let obsolete=m.activeID
+            precondition(m.comparing)
+            m.beginDrag();m.recipe.exposure_ev=0.5;m.endDrag()
+            precondition(!m.comparing)
+            m.receive(["id":obsolete,"event":"result","result":["key":"initial"]])
+            m.receive(["id":m.activeID,"event":"result","result":["key":"adjusted"]])
+            precondition(m.result?["key"] as? String=="adjusted" && !m.showInitial)
+            m.compare();m.open(root.appendingPathComponent("different.RAF"))
+            precondition(!m.comparing)
+            m.receive(["id":m.activeID,"event":"result","result":["key":"new-photo"]])
+            precondition(m.result?["key"] as? String=="new-photo" && !m.showInitial)
+            checks.append("Editing or switching photos during Initial look cannot misroute the next result into comparison")
+        }
+        do {
+            let m=model();m.localEditing=true
+            m.addLocal(at:NSPoint(x:0.5,y:0.5));precondition(m.selectionTimeout != nil)
+            m.open(root.appendingPathComponent("different.RAF"))
+            precondition(m.selectionTimeout==nil && m.pendingLocal==nil)
+            checks.append("Opening another photo cancels the previous local selection timeout")
+        }
+        do {
+            let m=model();m.localEditing=true
+            m.addLocal(at:NSPoint(x:0.5,y:0.5));let old=m.activeID
+            m.reset()
+            precondition(m.pendingLocal==nil && m.selectionTimeout==nil)
+            m.receive(["id":old,"event":"result","result":["mode":"soft"]])
+            precondition(m.recipe.local_adjustments.isEmpty)
+            m.addLocal(at:NSPoint(x:0.5,y:0.5));m.beginDrag()
+            precondition(m.pendingLocal==nil && m.selectionTimeout==nil)
+            checks.append("Resetting or editing during selection cannot later reinsert the cancelled region")
+        }
+        do {
+            var previous=0.0
+            for i in 0...20000 {
+                let y=Double(i)/10000
+                let current=PreviewMath.adjusted(y,0,0,-2)
+                precondition(current.isFinite && current>=previous && current<=y+1e-12)
+                previous=current
+            }
+            checks.append("Native strong highlight reduction preserves brightness order")
         }
         do {
             let m=model();let before=m.recipe;m.beginDrag()
@@ -169,6 +263,103 @@ import SwiftUI
             precondition(restored.recipe.temperature_k==2000 && restored.recipe.exposure_ev==0)
             checks.append("Closing during a pending numeric edit cannot persist an invalid recipe")
         }
+        do {
+            let m=model();m.result=["width":1200,"height":800];m.localEditing=true
+            var r=LocalAdjustment.make(point:NSPoint(x:0.2,y:0.7),size:m.localImageSize)
+            precondition(abs(r.radius_x*1200-r.radius_y*800)<1e-9)
+            m.finishLocalSelection(r);precondition(m.recipe.local_adjustments.count==1 && m.undoStack.count==1)
+            m.localDirection("brighten");precondition(m.recipe.local_adjustments[0].amount==0.5)
+            let history=m.undoStack.count;m.localDirection("brighten");precondition(m.undoStack.count==history)
+            m.localDirection("darken");precondition(m.recipe.local_adjustments[0].ev == -0.25)
+            m.updateLocal { $0.amount=0 };m.localDirection("brighten")
+            precondition(m.recipe.local_adjustments[0].amount==0)
+            m.updateLocal { $0.amount=0.5 }
+            m.beginDrag();m.updateLocal({$0.center_x=0.3},commitNow:false);m.updateLocal({$0.center_x=0.4},commitNow:false);m.endDrag()
+            let after=m.recipe;m.undo();precondition(m.recipe.local_adjustments[0].center_x==0.2);m.redo();precondition(m.recipe==after)
+            m.localBypass=true;precondition(m.displayRecipe.local_adjustments.isEmpty && m.recipe==after);m.localBypass=false
+            m.setLocalShape("ellipse");precondition(abs(m.localAspect(m.selectedLocal!)-1.5)<1e-9)
+            m.deleteLocal(r.id);m.undo();precondition(m.recipe.local_adjustments.count==1)
+            r.mode="smart";r.mask_ref=String(repeating:"a",count:64)
+            let original=m.recipe.local_adjustments[0];m.addLocal(at:NSPoint(x:0.6,y:0.4),replacing:original)
+            let obsolete=m.activeID;m.useSoftSelection()
+            m.receive(["id":obsolete,"event":"result","result":["mode":"smart","mask_ref":String(repeating:"b",count:64)]])
+            precondition(m.recipe.local_adjustments.count==1 && m.recipe.local_adjustments[0].mode=="soft")
+            checks.append("Local regions preserve circular geometry, signed strength, one-step drag undo, bypass and stale-selection isolation")
+        }
+        do {
+            let overlay=LocalOverlay(frame:NSRect(x:0,y:0,width:800,height:600))
+            overlay.photoRect=NSRect(x:100,y:50,width:600,height:400)
+            precondition(overlay.imagePoint(NSPoint(x:400,y:250))==NSPoint(x:0.5,y:0.5))
+            precondition(overlay.imagePoint(NSPoint(x:0,y:0))==nil)
+            let r=LocalAdjustment.make(point:NSPoint(x:0.1,y:0.9),size:NSSize(width:1200,height:800))
+            precondition(overlay.screenPoint(r)==NSPoint(x:160,y:410))
+            var bad=Recipe().dictionary;bad["local_adjustments"]=[["id":"one","radius_x":0]]
+            precondition(Recipe.decode(bad)==nil)
+            checks.append("Local hit testing uses the image rectangle and top-left normalized coordinates; invalid saved geometry is rejected")
+        }
+        do {
+            let state=root.appendingPathComponent("eight-regions/window.json")
+            let m=EditorModel(launchImmediately:false,stateURL:state)
+            m.ready=true;m.source=root.appendingPathComponent("eight.CR2");m.localEditing=true;m.result=["width":800,"height":1200]
+            for i in 0..<8 {
+                var r=LocalAdjustment.make(point:NSPoint(x:0.1+Double(i)*0.1,y:0.6),size:m.localImageSize)
+                r.id="region-\(i)";m.finishLocalSelection(r)
+            }
+            m.addLocal(at:NSPoint(x:0.5,y:0.5));precondition(m.pendingLocal==nil && m.recipe.local_adjustments.count==8)
+            m.addLocal(at:NSPoint(x:0.4,y:0.4),replacing:m.recipe.local_adjustments[0])
+            precondition(m.localInteraction.regions.count==8 && m.pendingLocal != nil)
+            m.cancelLocalSelection()
+            m.recipe.local_adjustments[0].mode="smart";m.recipe.local_adjustments[0].mask_ref=String(repeating:"a",count:64)
+            m.recipe.style="phone-natural";m.recipe.white_balance="camera";m.commit()
+            precondition(m.recipe.local_adjustments[0].mask_ref==String(repeating:"a",count:64))
+            m.persist()
+            let restored=EditorModel(launchImmediately:false,stateURL:state);restored.restoreWindow()
+            precondition(restored.recipe.local_adjustments==m.recipe.local_adjustments)
+            m.open(root.appendingPathComponent("next.RAF"));precondition(m.pendingLocal==nil && !m.localEditing && m.recipe.local_adjustments.isEmpty)
+            checks.append("Eight local regions restore after restart, survive style/WB changes, reject a ninth region and stay isolated between photos")
+        }
+        do {
+            _ = NSApplication.shared
+            let overlay=LocalOverlay(frame:NSRect(x:0,y:0,width:800,height:600))
+            let window=NSWindow(contentRect:overlay.frame,styleMask:[],backing:.buffered,defer:false);window.contentView=overlay
+            overlay.photoRect=NSRect(x:100,y:50,width:600,height:400);overlay.photoSize=NSSize(width:1200,height:800)
+            let probe=OverlayPanProbe();overlay.panOwner=probe
+            var r=LocalAdjustment.make(point:NSPoint(x:0.5,y:0.5),size:overlay.photoSize)
+            var begins=0,ends=0,created:NSPoint?
+            overlay.interaction=LocalInteraction(enabled:true,adding:true,regions:[r],selected:r.id,add:{created=$0},begin:{begins+=1},change:{r=$0;overlay.interaction.regions=[r]},end:{ends+=1})
+            func mouse(_ type:NSEvent.EventType,_ point:NSPoint)->NSEvent {
+                NSEvent.mouseEvent(with:type,location:overlay.convert(point,to:nil),modifierFlags:[],timestamp:0,windowNumber:window.windowNumber,context:nil,eventNumber:0,clickCount:1,pressure:1)!
+            }
+            overlay.mouseDown(with:mouse(.leftMouseDown,NSPoint(x:220,y:130)))
+            precondition(created==NSPoint(x:0.2,y:0.2))
+            let center=overlay.screenPoint(r)
+            overlay.mouseDown(with:mouse(.leftMouseDown,center));overlay.mouseDragged(with:mouse(.leftMouseDragged,NSPoint(x:center.x+60,y:center.y+40)));overlay.mouseUp(with:mouse(.leftMouseUp,center))
+            precondition(abs(r.center_x-0.6)<1e-9 && abs(r.center_y-0.6)<1e-9 && begins==1 && ends==1)
+            let handle=overlay.handlePoints(r)[0]
+            overlay.mouseDown(with:mouse(.leftMouseDown,handle));overlay.mouseDragged(with:mouse(.leftMouseDragged,NSPoint(x:handle.x+1000,y:handle.y)));overlay.mouseUp(with:mouse(.leftMouseUp,handle))
+            precondition(abs(r.radius_x*1200-r.radius_y*800)<1e-9 && r.radius_y<=1 && begins==2 && ends==2)
+            r=LocalAdjustment.make(point:NSPoint(x:0.5,y:0.5),size:overlay.photoSize);r.shape="ellipse"
+            overlay.interaction.regions=[r];overlay.interaction.selected=r.id
+            let rotate=overlay.handlePoints(r)[4],mid=overlay.screenPoint(r)
+            overlay.mouseDown(with:mouse(.leftMouseDown,rotate));overlay.mouseDragged(with:mouse(.leftMouseDragged,NSPoint(x:mid.x-80,y:mid.y)));overlay.mouseUp(with:mouse(.leftMouseUp,rotate))
+            precondition(abs(r.rotation+90)<1e-9 && begins==3 && ends==3)
+            let key=NSEvent.keyEvent(with:.keyDown,location:.zero,modifierFlags:[],timestamp:0,windowNumber:window.windowNumber,context:nil,characters:" ",charactersIgnoringModifiers:" ",isARepeat:false,keyCode:49)!
+            overlay.keyDown(with:key);overlay.mouseDown(with:mouse(.leftMouseDown,center));overlay.mouseDragged(with:mouse(.leftMouseDragged,center));overlay.mouseUp(with:mouse(.leftMouseUp,center))
+            precondition(probe.downs==1 && probe.drags==1 && probe.ups==1)
+            overlay.interaction.enabled=false;precondition(overlay.hitTest(center)==nil)
+            window.orderOut(nil)
+            checks.append("Canvas mouse events create and move regions, resize a physical circle, commit each drag once and route space-drag to panning")
+        }
+        do {
+            let m=model();var r=LocalAdjustment();r.mode="smart";r.amount=0.5;r.mask_ref=String(repeating:"c",count:64)
+            m.recipe.local_adjustments=[r];m.committed=m.recipe;m.request("prepare")
+            m.receive(["id":m.activeID,"event":"error","error_code":"local_asset_missing","region_id":r.id,"message":"missing"])
+            precondition(m.localEditing && m.invalidLocalIDs.contains(r.id) && m.hasInvalidActiveLocal && m.recipe.local_adjustments[0].enabled && !m.comparing)
+            m.receive(["id":m.activeID,"event":"result","result":["key":"recoverable-canvas"]])
+            precondition(m.result?["key"] as? String=="recoverable-canvas" && !m.showInitial)
+            m.updateLocal { $0.mode="soft" };precondition(!m.hasInvalidActiveLocal)
+            checks.append("Missing saved selections mark the affected region, recover an editable canvas and block export without rewriting the recipe")
+        }
         let report:[String:Any]=["passed":checks.count,"checks":checks,"no_raw_or_python_launched":true]
         try JSONSerialization.data(withJSONObject:report,options:.prettyPrinted).write(to:output.appendingPathComponent("checks.json"))
         _ = NSApplication.shared;NSApp.setActivationPolicy(.accessory)
@@ -194,6 +385,28 @@ import SwiftUI
             try bitmap.representation(using:.png,properties:[:])?.write(to:output.appendingPathComponent("layout.png"))
         }
         window.orderOut(nil)
+        let prefs=AppPreferences.shared,previousLanguage=prefs.language
+        let local=model();local.result=["width":1200,"height":800];local.localEditing=true
+        local.recipe.local_adjustments=(0..<8).map { i in
+            var r=LocalAdjustment.make(point:NSPoint(x:0.1+Double(i)*0.1,y:0.5),size:local.localImageSize)
+            r.id="layout-\(i)";r.shape="ellipse";r.amount=0.5;r.direction_chosen=true;return r
+        }
+        local.selectedLocalID=local.recipe.local_adjustments[0].id
+        for language in ["zh-Hans","en"] {
+            prefs.language=language
+            let panel=NSHostingView(rootView:LocalControls(model:local).padding(18).background(Color(nsColor:.windowBackgroundColor)).preferredColorScheme(.light).environment(\.locale,prefs.locale))
+            panel.frame=NSRect(x:0,y:0,width:320,height:780)
+            let localWindow=NSWindow(contentRect:panel.frame,styleMask:[.titled],backing:.buffered,defer:false)
+            localWindow.appearance=NSAppearance(named:.aqua);panel.appearance=NSAppearance(named:.aqua)
+            localWindow.contentView=panel;localWindow.makeKeyAndOrderFront(nil)
+            RunLoop.main.run(until:Date().addingTimeInterval(0.5));panel.layoutSubtreeIfNeeded();panel.displayIfNeeded()
+            if let bitmap=panel.bitmapImageRepForCachingDisplay(in:panel.bounds) {
+                panel.cacheDisplay(in:panel.bounds,to:bitmap)
+                try bitmap.representation(using:.png,properties:[:])?.write(to:output.appendingPathComponent("local-\(language).png"))
+            }
+            localWindow.orderOut(nil)
+        }
+        prefs.language=previousLanguage
         print("Passed \(checks.count) native editor checks")
     }
 }

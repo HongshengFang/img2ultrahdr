@@ -16,21 +16,33 @@ extension EditorModel {
                   let recipe=Recipe.decode(frame["recipe"]) else { throw NSError(domain:"PreviewCheck",code:1) }
             self.recipe=recipe;committed=recipe;result=frame;previewResult=frame
             source=URL(fileURLWithPath:(frame["source"] as? [String:Any])?["path"] as? String ?? "Preview.CR2")
-            ready=true;busy=false;status="精确预览"
-        } catch { self.error=error.localizedDescription;busy=false }
+            if ProcessInfo.processInfo.arguments.contains("--benchmark-local") {
+                let size=NSSize(width:frame["width"] as? Int ?? 1536,height:frame["height"] as? Int ?? 1024)
+                self.recipe.local_adjustments=(0..<8).map { i in
+                    var r=LocalAdjustment.make(point:NSPoint(x:0.18+Double(i)*0.08,y:0.35+Double(i)*0.04),size:size)
+                    r.id="benchmark-\(i)";r.amount=0.5;r.direction_chosen=true;r.shape="ellipse";r.rotation=Double(i)*12
+                    if i<2,let ref=frame["benchmark_mask_ref"] as? String { r.mode="smart";r.mask_ref=ref }
+                    r.direction=i%2==0 ? "brighten":"darken";return r
+                }
+                committed=self.recipe;localEditing=true;selectedLocalID=self.recipe.local_adjustments[0].id
+            }
+            ready=true;busy=false;status="精确预览";diagnostic(event:"benchmark-fixture-ready")
+        } catch { self.error=error.localizedDescription;busy=false;diagnostic(event:"benchmark-fixture-error") }
         return true
     }
     func startPreviewBenchmark() {
         guard previewBenchmarkPath != nil,!benchmarkStarted,let output=diagnosticRoot,let frame=result else { return }
         benchmarkStarted=true
         let anchor=recipe,args=ProcessInfo.processInfo.arguments
+        let localMode=args.contains("--benchmark-local")
         let duration=args.firstIndex(of:"--benchmark-seconds").flatMap { args.count>$0+1 ? Double(args[$0+1]):nil } ?? 35
         try? FileManager.default.createDirectory(at:output,withIntermediateDirectories:true)
         DispatchQueue.main.asyncAfter(deadline:.now()+1) {
-            if let screen=NSScreen.screens.first(where:{$0.maximumPotentialExtendedDynamicRangeColorComponentValue>1}),
-               let window=NSApp.windows.first(where:{$0.title==AppVersion.windowTitle}) {
+            if let window=NSApp.windows.first(where:{$0.title==AppVersion.windowTitle}),
+               let screen=NSScreen.screens.first(where:{$0.maximumPotentialExtendedDynamicRangeColorComponentValue>1}) ?? window.screen ?? NSScreen.main {
                 let area=screen.visibleFrame
                 window.level = .floating
+                window.collectionBehavior = [.canJoinAllSpaces,.fullScreenAuxiliary]
                 window.setFrameOrigin(NSPoint(x:area.midX-window.frame.width/2,y:area.midY-window.frame.height/2))
                 window.makeKeyAndOrderFront(nil);window.orderFrontRegardless();NSApp.activate()
             }
@@ -39,6 +51,12 @@ extension EditorModel {
             let started=CACurrentMediaTime();self.readouts.presented=[]
             var timer:Timer?
             var memory:[[String:Any]]=[]
+            var visibility:[[String:Any]]=[]
+            let window=NSApp.windows.first(where:{$0.title==AppVersion.windowTitle})
+            func recordVisibility() { visibility.append(["seconds":CACurrentMediaTime()-started,"visible":window?.occlusionState.contains(.visible) ?? false]) }
+            recordVisibility()
+            let observer=NotificationCenter.default.addObserver(forName:NSWindow.didChangeOcclusionStateNotification,object:window,queue:.main) { _ in recordVisibility() }
+            self.beginDrag()
             var lastMemoryTime = -30.0
             timer=Timer.scheduledTimer(withTimeInterval:1.0/30,repeats:true) { _ in
                 MainActor.assumeIsolated {
@@ -51,7 +69,8 @@ extension EditorModel {
                             let gaps=zip(frames.dropFirst(),frames).map{($0.0.1-$0.1.1)*1000}.filter{$0>0}.sorted()
                             func percentile(_ a:[Double])->Double { a.isEmpty ? -1:a[min(a.count-1,Int(Double(a.count-1)*0.95))] }
                             let window=NSApp.windows.first(where:{$0.contentView != nil && $0.title==AppVersion.windowTitle})
-                            let report:[String:Any]=["frames":frames.count,"duration":duration,"retained_sample_window_seconds":(frames.last?.1 ?? 0)-(frames.first?.1 ?? 0),"presentation_buffer_limit":10000,"latency_p95_ms":percentile(latency),"frame_interval_p95_ms":percentile(gaps),"latencies_ms":latency,"frame_intervals_ms":gaps,"window_occluded":!(window?.occlusionState.contains(.visible) ?? false),"screen":window?.screen?.localizedName ?? "unknown","headroom":self.readouts.headroom,"supports_hdr":self.readouts.displaySupportsHDR,"rendered_frames":self.readouts.renderedFrames,"gpu_failure":self.readouts.failure ?? "","histogram_count":self.readouts.bins[768..<1024].reduce(UInt32(0),+),"pixel_count":(frame["width"] as? Int ?? 0)*(frame["height"] as? Int ?? 0),"method":"30 Hz native parameter updates with histogram and pixel probe; MTLDrawable.presentedTime; no hardware mouse timing"]
+                            NotificationCenter.default.removeObserver(observer)
+                            let report:[String:Any]=["frames":frames.count,"duration":duration,"fps":Double(frames.count)/duration,"local_regions":localMode ? 8:anchor.local_adjustments.count,"retained_sample_window_seconds":(frames.last?.1 ?? 0)-(frames.first?.1 ?? 0),"presentation_buffer_limit":10000,"latency_p95_ms":percentile(latency),"frame_interval_p95_ms":percentile(gaps),"latencies_ms":latency,"frame_intervals_ms":gaps,"raw_presentations":self.readouts.presented.map { [$0.0,$0.1] },"window_occluded":!(window?.occlusionState.contains(.visible) ?? false),"visibility_history":visibility,"screen":window?.screen?.localizedName ?? "unknown","headroom":self.readouts.headroom,"supports_hdr":self.readouts.displaySupportsHDR,"rendered_frames":self.readouts.renderedFrames,"gpu_failure":self.readouts.failure ?? "","histogram_count":self.readouts.bins[768..<1024].reduce(UInt32(0),+),"pixel_count":(frame["width"] as? Int ?? 0)*(frame["height"] as? Int ?? 0),"method":"30 Hz native parameter updates with histogram and pixel probe; MTLDrawable.presentedTime; no hardware mouse timing"]
                             try? JSONSerialization.data(withJSONObject:report,options:.prettyPrinted).write(to:output.appendingPathComponent("presentation.json"))
                             self.diagnostic(event:"preview-benchmark-complete"); self.captureWindow()
                             self.source=nil // Diagnostic fixtures never become the user's last photo.
@@ -75,6 +94,14 @@ extension EditorModel {
                     case 10:current.white_ev=wave*0.5
                     default:current.black_ev=wave*0.5
                     }
+                    if localMode {
+                        current=anchor
+                        let i=group%8
+                        current.local_adjustments[i].amount=0.5+wave*0.3
+                        if group>=5 && current.local_adjustments[i].mode=="soft" { current.local_adjustments[i].rotation += wave*20;current.local_adjustments[i].center_x += wave*0.04 }
+                        let selected=current.local_adjustments[i].id
+                        if self.selectedLocalID != selected { self.selectedLocalID=selected }
+                    }
                     self.recipe=current;self.status="实时预览"
                     func canvas(_ view:NSView)->PreviewMetalView? {
                         if let canvas=view as? PreviewMetalView { return canvas }
@@ -85,8 +112,9 @@ extension EditorModel {
                         renderer.pointer=SIMD2(Int(size.width*(0.5+wave*0.25)),Int(size.height*0.5));renderer.samplePointer()
                         if elapsed-lastMemoryTime>=30 {
                             lastMemoryTime=elapsed
+                            var usage=rusage();getrusage(RUSAGE_SELF,&usage)
                             memory.append(["seconds":elapsed,"allocated_mib":Double(renderer.device.currentAllocatedSize)/1048576,
-                                           "rendered_frames":self.readouts.renderedFrames])
+                                           "process_peak_mib":Double(usage.ru_maxrss)/1048576,"rendered_frames":self.readouts.renderedFrames])
                             try? JSONSerialization.data(withJSONObject:memory,options:.prettyPrinted).write(to:output.appendingPathComponent("gpu-memory-progress.json"),options:.atomic)
                         }
                     }

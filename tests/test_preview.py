@@ -9,6 +9,22 @@ from hdrimg.style import STYLE_PRESETS
 from hdrimg.editor import EditorStore, atomic_json
 
 
+@pytest.mark.parametrize('value', [-1., float('nan'), float('inf')])
+def test_packet_with_no_valid_luminance_still_has_finite_quantiles(tmp_path, value):
+    from hdrimg.editor import EditRecipe
+    from hdrimg.preview import make_packet
+    scene = np.full((4, 4, 3), value, np.float32)
+    source = tmp_path / 'scene.tif'
+    tifffile.imwrite(source, scene, photometric='rgb')
+    sample = tmp_path / 'sample.npy'
+    np.save(sample, scene)
+    packet = make_packet(tmp_path, tmp_path,
+                         {'preview': str(source), 'analysis': {'sample': str(sample)}},
+                         EditRecipe(), {'tone_mapping': {}, 'exposure': {}, 'look': {}})
+    assert packet['luminance_quantiles'] == [0.] * 1025
+    json.dumps(packet, allow_nan=False)
+
+
 def test_analysis_reference_skips_only_its_unused_hdr_twin(tmp_path):
     scene = np.geomspace(.00001, 4, 96*64*3).reshape(64,96,3).astype('float32')
     tifffile.imwrite(tmp_path/'scene.tif', scene, photometric='rgb')

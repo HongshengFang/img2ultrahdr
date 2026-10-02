@@ -109,7 +109,15 @@ def apply_exposure_and_highlights(
         y = luminance_rec2020(exposed)
         t = np.clip((y - 0.18) / (1.0 - 0.18), 0.0, 1.0)
         weight = t * t * (3.0 - 2.0 * t)
-        exposed *= np.exp2(np.float32(highlight_ev) * weight)[..., None]
+        exposed *= np.exp2(np.float32(max(highlight_ev, -1.0)) * weight)[..., None]
+        if highlight_ev < -1.0:
+            # The old weighted gain folds above roughly -1 EV. Compose a
+            # monotone shoulder for the remaining reduction, anchored at gray.
+            y = luminance_rec2020(exposed)
+            above = np.maximum(y - np.float32(0.18), 0.0)
+            extra = np.exp2(np.float32(highlight_ev + 1.0) * above / (y + np.float32(0.18)))
+            mapped = y - above + above * extra
+            exposed *= np.divide(mapped, y, out=np.ones_like(y), where=y > 0)[..., None]
     # Endpoint controls act on scene-linear luminance, without clipping HDR at
     # SDR white. Their curves are monotone throughout the supported ±2 EV.
     if black_ev:

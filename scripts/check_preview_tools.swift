@@ -39,7 +39,7 @@ import simd
         precondition(PreviewMetalView.samplePosition(NSPoint(x:450,y:0),bounds:bounds,scale:scale,image:size)==SIMD2(512,0))
         checks.append("Portrait letterboxing, physical 100% at 2x Retina, top origin and outside-image sampling")
         let colors:[SIMD3<Float>]=[.zero,SIMD3(repeating:1),SIMD3(repeating:2),SIMD3(repeating:1000/203),SIMD3(1,0,0),SIMD3(0,1,0),SIMD3(0,0,1),SIMD3(repeating:0.18)]
-        var raw=colors.flatMap { [Float16($0.x).bitPattern,Float16($0.y).bitPattern,Float16($0.z).bitPattern,Float16(1).bitPattern] }
+        let raw=colors.flatMap { [Float16($0.x).bitPattern,Float16($0.y).bitPattern,Float16($0.z).bitPattern,Float16(1).bitPattern] }
         let input=try renderer.texture(width:8,height:1,data:raw.withUnsafeBytes { Data($0) })
         let bins=renderer.device.makeBuffer(length:4096,options:.storageModeShared)!
         for hdr in [false,true] {

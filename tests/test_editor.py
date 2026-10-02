@@ -32,7 +32,7 @@ def test_shadow_curve_preserves_blacks_highlights_chroma_and_monotonicity():
 
 
 @pytest.mark.parametrize('extra', [{'exposure_ev':4},{'shadow_ev':float('nan')},{'saturation':.5},
-                                  {'temperature_k':5600.5},{'style':'natural'},{'schema_version':2}])
+                                  {'temperature_k':5600.5},{'style':'natural'},{'schema_version':3}])
 def test_edit_recipe_rejects_invalid_values(extra):
     with pytest.raises(InputError):
         EditRecipe.from_dict(extra)
@@ -243,8 +243,21 @@ def test_relocated_raw_reuses_cache_but_reports_current_source(tmp_path, monkeyp
                         'development': recipe.development_key()})
     render_key = digest({'scene': scene_key, 'recipe': asdict(recipe), 'full': False,
                          'strip_metadata': True})
-    atomic_json(store.cache/'scenes'/scene_key/'complete.json', {'key': scene_key, 'source': source})
-    atomic_json(store.cache/'renders'/render_key/'complete.json', {'key': render_key, 'source': source})
+    scene_target=store.cache/'scenes'/scene_key;scene_target.mkdir()
+    pixels=np.full((2,3,3),.1,np.float32)
+    for name in ['scene.tif','preview.tif']:
+        tifffile.imwrite(scene_target/name,pixels,photometric='rgb')
+    np.save(scene_target/'analysis.npy',pixels)
+    atomic_json(scene_target/'complete.json', {'key':scene_key,'source':source,
+        'scene':str(scene_target/'scene.tif'),'preview':str(scene_target/'preview.tif'),
+        'scene_info':{'width':3,'height':2},'analysis':{'sample':str(scene_target/'analysis.npy'),'base_stats':{},'look':{}},
+        'person':None,'metadata':{},'skin_record':{},'raw_development':{},'scene_decision':None})
+    target = store.cache/'renders'/render_key
+    target.mkdir()
+    for name in ['sdr.jpg', 'ultrahdr.jpg']:
+        (target/name).write_bytes(b'jpeg fixture')
+    atomic_json(target/'complete.json', {'key':render_key,'source':source,'width':1,'height':1,
+        'sdr':str(target/'sdr.jpg'),'ultrahdr':str(target/'ultrahdr.jpg')})
     relocated = tmp_path/'重新定位 photo.CR2'; original.rename(relocated)
     current, _, _ = store.restore(relocated, source['sha256'])
     assert store.prepare(current, recipe)['source'] == current
@@ -372,9 +385,41 @@ def test_cached_render_does_not_redevelop_an_evicted_raw_scene(tmp_path,monkeypa
     identity,recipe,_=store.restore(original)
     scene_key=digest({'source':identity['sha256'],'engine':store.engine,'development':recipe.development_key()})
     render_key=digest({'scene':scene_key,'recipe':asdict(recipe),'full':False,'strip_metadata':True,'preview_format':1,'gpu_version':'scene-tone-2'})
-    atomic_json(store.cache/'renders'/render_key/'complete.json',{'key':render_key,'recipe':asdict(recipe)})
+    target = store.cache/'renders'/render_key
+    target.mkdir()
+    for name in ['scene', 'sdr', 'hdr']:
+        (target / name).write_bytes(b'\0' * 8)
+    packet = {'width': 1, 'height': 1, **{name: str(target / name) for name in ['scene', 'sdr', 'hdr']}}
+    atomic_json(target/'complete.json',{'key':render_key,'recipe':asdict(recipe),
+                                      'width':1,'height':1,'preview_packet':packet})
     monkeypatch.setattr(store,'prepare',lambda *a,**kw:pytest.fail('A retained render must be checked before RAW preparation'))
     assert store.render(identity,recipe,floating_preview=True)['cache_hit']
+
+
+@pytest.mark.parametrize('damage', ['json', 'missing', 'truncated'])
+def test_damaged_display_cache_is_rebuilt_instead_of_returned(tmp_path, monkeypatch, damage):
+    from hdrimg.editor import cached_render
+    monkeypatch.setenv('HDRIMG_ENGINE_ID', 'test-engine')
+    store = EditorStore(cache=tmp_path/'cache', support=tmp_path/'support')
+    original = tmp_path/'file.CR2';original.write_bytes(b'original')
+    source, recipe, _ = store.restore(original)
+    scene_key = digest({'source':source['sha256'],'engine':store.engine,'development':recipe.development_key()})
+    key = digest({'scene':scene_key,'recipe':asdict(recipe),'full':False,'strip_metadata':True,
+                  'preview_format':1,'gpu_version':'scene-tone-2'})
+    target = store.cache/'renders'/key;target.mkdir()
+    for name in ['scene','sdr','hdr']:
+        (target/name).write_bytes(b'\0'*8)
+    atomic_json(target/'complete.json', {'key':key,'width':1,'height':1,
+        'preview_packet':{'width':1,'height':1,**{name:str(target/name) for name in ['scene','sdr','hdr']}}})
+    assert cached_render(target) is not None
+    if damage == 'json': (target/'complete.json').write_text('{broken')
+    elif damage == 'missing': (target/'hdr').unlink()
+    else: (target/'hdr').write_bytes(b'\0')
+    assert cached_render(target) is None
+    class RebuildStarted(Exception): pass
+    def prepare(*args, **kwargs): raise RebuildStarted
+    monkeypatch.setattr(store, 'prepare', prepare)
+    with pytest.raises(RebuildStarted): store.render(source, recipe, floating_preview=True)
 
 
 @pytest.mark.parametrize('control',['white_ev','black_ev'])
@@ -411,7 +456,8 @@ def test_development_cache_reuses_identical_settings_not_wb_or_changed_profiles(
     identity,_,_=store.restore(original)
     calls=[]
     def develop(source,destination,**kw):
-        calls.append(kw['white_balance']);destination.write_bytes(b'float TIFF '+str(kw).encode())
+        calls.append(kw['white_balance'])
+        tifffile.imwrite(destination,np.full((4,6,3),.1,np.float32),photometric='rgb')
     monkeypatch.setattr(raw,'develop_raw',develop)
     opts=dict(tools=None,white_balance='camera',temperature_k=None,tint=1,work_dir=tmp_path)
     store.develop_cached(identity,original,tmp_path/'a.tif',**opts)

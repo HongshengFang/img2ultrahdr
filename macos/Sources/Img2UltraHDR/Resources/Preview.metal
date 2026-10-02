@@ -20,7 +20,8 @@ float3 unlab(float3 c) {
 float oetf(float x) { return x<=.0031308 ? max(x,0.f)*12.92 : 1.055*pow(x,1.f/2.4)-.055; }
 float adjusted(float y, constant float *p) {
     y=max(y*exp2(p[0]),0.f); y*=exp2(p[1]*pow(max(1-y/.18,0.f),2.f));
-    y*=exp2(p[2]*ss((y-.18)/.82));
+    y*=exp2(max(p[2],-1.f)*ss((y-.18)/.82));
+    if(p[2]<-1) { float above=max(y-.18f,0.f);y=y-above+above*exp2((p[2]+1)*above/(y+.18f)); }
     y*=exp2(p[35]*pow(max(1-y/.045,0.f),2.f));
     return y*exp2(p[34]*pow(y/(y+.9),2.f));
 }
@@ -111,6 +112,39 @@ kernel void editPreview(texture2d<half,access::read> scene [[texture(0)]], textu
     if(abs(saturation-1)>1e-6) { float3 c=lab(color);c.yz*=saturation;color=unlab(c);color*=newY/max(dot(color,luma2020),1e-8f); }
     if(!hdr) color=r2020top3(color);
     output.write(half4(half3(bounded(color,hdr)),1),pos);
+}
+
+kernel void localLighting(texture2d<half,access::read> input [[texture(0)]],
+    texture2d_array<float,access::sample> masks [[texture(1)]],texture2d<half,access::write> output [[texture(2)]],
+    constant float4 *regions [[buffer(0)]],constant float4 &info [[buffer(1)]],constant uint2 *maskSizes [[buffer(2)]],uint2 pos [[thread_position_in_grid]]) {
+    if(pos.x>=output.get_width()||pos.y>=output.get_height()) return;
+    float2 size=float2(output.get_width(),output.get_height()),uv=(float2(pos)+.5f)/size;
+    constexpr sampler bilinear(coord::normalized,address::clamp_to_edge,filter::linear);
+    float field=0;
+    for(uint i=0;i<uint(info.x);i++) {
+        float4 geometry=regions[2*i],parameters=regions[2*i+1];
+        if(parameters.y==0) continue;
+        float mask;
+        if(parameters.w>0) {
+            uint slot=uint(parameters.z);float2 dimensions=float2(maskSizes[slot]);
+            float2 extent=float2(masks.get_width(),masks.get_height()),coordinate=uv;
+            if(any(dimensions!=extent)) coordinate=(clamp(uv*dimensions-.5f,float2(0),dimensions-1)+.5f)/extent;
+            mask=masks.sample(bilinear,coordinate,slot).r;
+        }
+        else {
+            float2 d=(uv-geometry.xy)*size,axes=geometry.zw*size;
+            float c=cos(parameters.x),s=sin(parameters.x);
+            float radius=length(float2(c*d.x+s*d.y,-s*d.x+c*d.y)/axes);
+            mask=1-ss((radius-.35f)/.65f);
+        }
+        field+=mask*parameters.y;
+    }
+    field=clamp(field,-.5f,.5f);
+    half4 original=input.read(pos);
+    if(field==0) { output.write(original,pos);return; }
+    float3 rgb=float3(original.rgb);float gain=exp2(field);
+    if(field>0) gain/=1+clamp(max(max(rgb.r,rgb.g),rgb.b)/info.y,0.f,1.f)*(gain-1);
+    output.write(half4(half3(rgb*gain),original.a),pos);
 }
 
 uint binFor(float v,bool hdr) {

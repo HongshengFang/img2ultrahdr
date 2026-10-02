@@ -12,7 +12,6 @@ import math
 import os
 from pathlib import Path
 import shutil
-import sys
 import tempfile
 import time
 from typing import Callable
@@ -23,6 +22,7 @@ from PIL import Image
 
 from .errors import InputError, ProcessingError
 from .look import resolve_look
+from .local_adjustments import LocalAdjustment, MAX_REGIONS, resolve_masks
 from .metadata import copy_metadata, read_output_metadata, read_source_metadata
 from .phone_skin import build_skin_context
 from .phone_tone import PhoneSceneDecision
@@ -36,7 +36,7 @@ from .ultrahdr import encode_ultrahdr, validate_ultrahdr
 
 PREVIEW_EDGE = 1536
 CACHE_LIMIT = 10 * 1024**3
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
 
 
 @dataclass(frozen=True)
@@ -54,12 +54,23 @@ class EditRecipe:
     saturation: float = 1.0
     hdr_strength: float = 1.0
     sdr_exposure_ev: float = 0.0
+    local_adjustments: tuple[LocalAdjustment, ...] = ()
 
     @classmethod
     def from_dict(cls, data: dict) -> 'EditRecipe':
+        if not isinstance(data, dict):
+            raise InputError('Editing settings must be an object')
         unknown = set(data) - {f.name for f in fields(cls)}
         if unknown:
             raise InputError('Unknown editing settings: ' + ', '.join(sorted(unknown)))
+        data = dict(data)
+        if type(data.get('schema_version', 1)) is not int or data.get('schema_version', 1) not in (1, 2):
+            raise InputError('Unsupported editing record version')
+        if not isinstance(data.get('local_adjustments', []), (tuple, list)):
+            raise InputError('Local adjustments must be a list')
+        if data.get('schema_version', 1) == 1:
+            data['schema_version'] = SCHEMA_VERSION
+        data['local_adjustments'] = tuple(LocalAdjustment.from_dict(r) for r in data.get('local_adjustments', []))
         value = cls(**data)
         value.validate()
         return value
@@ -71,6 +82,12 @@ class EditRecipe:
             raise InputError('Choose Clear or Natural')
         if self.white_balance not in ('auto', 'camera', 'custom'):
             raise InputError('Invalid white balance mode')
+        if not isinstance(self.local_adjustments, (tuple, list)) or any(not isinstance(r, LocalAdjustment) for r in self.local_adjustments):
+            raise InputError('Invalid local adjustment record')
+        if len(self.local_adjustments) > MAX_REGIONS or len({r.id for r in self.local_adjustments}) != len(self.local_adjustments):
+            raise InputError('Use up to eight distinct local regions')
+        for region in self.local_adjustments:
+            region.validate()
         for name, low, high in [('temperature_k', 2000, 15000), ('tint', -100, 100),
             ('exposure_ev', -3, 3), ('highlight_ev', -2, 2), ('shadow_ev', -2, 2),
             ('white_ev', -2, 2), ('black_ev', -2, 2),
@@ -106,9 +123,102 @@ def file_digest(path: Path) -> str:
 
 def atomic_json(path: Path, data):
     path.parent.mkdir(parents=True, exist_ok=True)
-    temporary = path.with_name(path.name + '.partial')
-    temporary.write_text(json.dumps(data, ensure_ascii=False, indent=2, allow_nan=False) + '\n')
-    os.replace(temporary, path)
+    payload = json.dumps(data, ensure_ascii=False, indent=2, allow_nan=False) + '\n'
+    # Independent controllers must not replace or truncate one another's
+    # scratch record when saving the same photo at the same time.
+    with tempfile.NamedTemporaryFile(mode='w', encoding='utf-8', dir=path.parent,
+                                     prefix=path.name+'.', suffix='.partial', delete=False) as stream:
+        temporary = Path(stream.name)
+        try:
+            stream.write(payload)
+            stream.close()
+            os.replace(temporary, path)
+        finally:
+            temporary.unlink(missing_ok=True)
+
+
+def json_record(path: Path) -> dict | None:
+    """Disposable records are hints; malformed files must never block recovery."""
+    try:
+        value = json.loads(path.read_text())
+        return value if isinstance(value, dict) else None
+    except (OSError, ValueError):
+        return None
+
+
+def valid_scene_file(path: Path, shape=None) -> bool:
+    try:
+        with tifffile.TiffFile(path) as image:
+            page = image.pages[0]
+            return (len(image.pages) == 1 and page.dtype == np.float32 and
+                    len(page.shape) == 3 and page.shape[2] == 3 and
+                    (shape is None or page.shape == shape) and
+                    all(offset+count <= path.stat().st_size
+                        for offset, count in zip(page.dataoffsets, page.databytecounts)))
+    except (OSError, ValueError, IndexError):
+        return False
+
+
+def cached_preparation(target: Path) -> dict | None:
+    record = json_record(target/'complete.json')
+    try:
+        if record is None or record['key'] != target.name:
+            return None
+        width, height = record['scene_info']['width'], record['scene_info']['height']
+        if type(width) is not int or type(height) is not int or min(width, height) < 1:
+            return None
+        scale = min(1., PREVIEW_EDGE/max(width, height))
+        preview_shape = (max(1, round(height*scale)), max(1, round(width*scale)), 3)
+        if not valid_scene_file(Path(record['scene']), (height, width, 3)) or not valid_scene_file(Path(record['preview']), preview_shape):
+            return None
+        sample = np.load(record['analysis']['sample'], mmap_mode='r', allow_pickle=False)
+        if sample.ndim != 3 or sample.shape[2] != 3 or min(sample.shape) < 1 or not np.isfinite(sample).all():
+            return None
+        if record['person']:
+            mask = np.load(record['person'], mmap_mode='r', allow_pickle=False)
+            if mask.ndim != 2 or min(mask.shape) < 1 or not np.isfinite(mask).all() or mask.min() < 0 or mask.max() > 1:
+                return None
+        for name in ('base_stats', 'look'):
+            if not isinstance(record['analysis'][name], dict):
+                return None
+        for name in ('metadata', 'skin_record', 'raw_development'):
+            if not isinstance(record[name], dict):
+                return None
+        if record['scene_decision'] is not None:
+            PhoneSceneDecision(**record['scene_decision'])
+        return record
+    except (OSError, ValueError, KeyError, TypeError, AttributeError, EOFError):
+        return None
+
+
+def cached_render(target: Path) -> dict | None:
+    """A completion record is usable only while its display files are intact."""
+    try:
+        record = json.loads((target / 'complete.json').read_text())
+        if not isinstance(record, dict) or record.get('key') != target.name:
+            return None
+        width, height = record['width'], record['height']
+        if type(width) is not int or type(height) is not int or min(width, height) <= 0:
+            return None
+        packet = record.get('preview_packet')
+        if packet is not None:
+            if packet['width'] != width or packet['height'] != height:
+                return None
+            paths = [packet[name] for name in ('scene', 'sdr', 'hdr')]
+            paths.extend(packet[name] for name in ('base_sdr', 'base_hdr') if packet.get(name))
+            if any(Path(path).stat().st_size != width * height * 8 for path in paths):
+                return None
+            for mask in packet.get('local_masks', {}).values():
+                if Path(mask['path']).stat().st_size != mask['width'] * mask['height'] * 4:
+                    return None
+        else:
+            if any(Path(record[name]).stat().st_size == 0 for name in ('sdr', 'ultrahdr')):
+                return None
+            if record.get('full') and (target / 'hdr.rgba16f').stat().st_size != width * height * 8:
+                return None
+        return record
+    except (OSError, ValueError, KeyError, TypeError, AttributeError):
+        return None
 
 
 def engine_identity() -> str:
@@ -118,7 +228,7 @@ def engine_identity() -> str:
     tools = resolve_tools()
     binaries = [(str(p), p.stat().st_size, p.stat().st_mtime_ns) for p in vars(tools).values()]
     from .pipeline import _runtime_versions
-    helpers = {key: file_digest(Path(value)) for key in ('HDRIMG_ACCELERATOR', 'HDRIMG_VISION_HELPER')
+    helpers = {key: file_digest(Path(value)) for key in ('HDRIMG_ACCELERATOR', 'HDRIMG_VISION_HELPER', 'HDRIMG_LOCAL_SELECTION_HELPER')
                if (value := os.environ.get(key)) and Path(value).is_file()}
     return digest({'source': source, 'tools': binaries, 'runtime': _runtime_versions(), 'helpers': helpers})
 
@@ -171,6 +281,7 @@ class EditorStore:
                 except (ValueError, PermissionError):
                     pass
         self.progress = progress or (lambda phase: None)
+        self.restore_warning = None
         self.engine = os.environ.get('HDRIMG_ENGINE_ID') or engine_identity()
         # Derived masks must expire with the algorithm as well as their pixels.
         derived = self.cache / 'derived' / self.engine
@@ -187,14 +298,27 @@ class EditorStore:
         source = source_identity(path)
         if expected_sha and source['sha256'] != expected_sha:
             raise InputError('Selected RAW does not match the saved original')
-        record_path = self.support / 'edits' / (source['sha256'] + '.json')
-        record = json.loads(record_path.read_text()) if record_path.is_file() else None
-        recipe = EditRecipe.from_dict(record['recipe']) if record else EditRecipe()
-        draft_path = self.support / 'drafts' / (source['sha256'] + '.json')
-        if draft_path.is_file():
-            draft = json.loads(draft_path.read_text())
-            if draft.get('updated', 0) > (record or {}).get('updated', 0):
-                recipe = EditRecipe.from_dict(draft['recipe'])
+        self.restore_warning = None
+        def editing_record(record_path):
+            if not record_path.is_file():
+                return None
+            try:
+                value = json.loads(record_path.read_text())
+                updated = value['updated']
+                if isinstance(updated, bool) or not isinstance(updated, (int, float)) or not math.isfinite(updated) or updated < 0:
+                    raise ValueError('Invalid editing timestamp')
+                EditRecipe.from_dict(value['recipe'])
+                return value
+            except (ValueError, TypeError, KeyError, InputError):
+                # Keep the damaged edit before remembering a recovered preview.
+                backup = record_path.with_name(record_path.name+f'.corrupt-{time.time_ns()}')
+                record_path.rename(backup)
+                self.restore_warning = '部分保存的调整无法读取，已保留备份并恢复可用调整。'
+                return None
+        record = editing_record(self.support / 'edits' / (source['sha256'] + '.json'))
+        draft = editing_record(self.support / 'drafts' / (source['sha256'] + '.json'))
+        selected = draft if draft and draft['updated'] > (record or {}).get('updated', -1) else record
+        recipe = EditRecipe.from_dict(selected['recipe']) if selected else EditRecipe()
         return source, recipe, bool(record and record.get('engine') != self.engine)
 
     def prune(self, protected: set[Path] | None = None):
@@ -210,7 +334,7 @@ class EditorStore:
                     protected.update(Path(p).resolve() for p in record['paths'])
                 except ProcessLookupError:
                     lease.unlink(missing_ok=True)
-                except (OSError, ValueError, KeyError):
+                except (OSError, ValueError, KeyError, TypeError):
                     continue
         entries = []
         for family in ('scenes', 'renders', 'metering', 'derived', 'developments'):
@@ -238,7 +362,7 @@ class EditorStore:
         key = digest({'source': identity['sha256'], 'engine': self.engine, 'parameters': parameters})
         target = self.cache / 'developments' / key
         retained = target / 'scene.tif'
-        if (target / 'complete.json').is_file() and retained.is_file():
+        if (target / 'complete.json').is_file() and valid_scene_file(retained):
             os.link(retained, destination)
             os.utime(target, None)
             self.progress('正在复用白平衡显影缓存')
@@ -261,10 +385,10 @@ class EditorStore:
         key = digest({'source': source['sha256'], 'engine': self.engine,
                       'development': recipe.development_key()})
         target = self.cache / 'scenes' / key
-        complete = target / 'complete.json'
-        if complete.is_file():
+        cached = cached_preparation(target)
+        if cached is not None:
             os.utime(target, None)
-            return {**json.loads(complete.read_text()), 'source': source}
+            return {**cached, 'source': source}
         self.prune()
         if shutil.disk_usage(self.cache).free < 4 * 1024**3:
             from .errors import DiskSpaceError
@@ -324,41 +448,42 @@ class EditorStore:
             work.rename(target)
         return result
 
-    def render(self, source: dict, recipe: EditRecipe, *, full: bool = False, strip_metadata: bool = False, remember: bool = True, floating_preview: bool = False) -> dict:
+    def render(self, source: dict, recipe: EditRecipe, *, full: bool = False, strip_metadata: bool = False, remember: bool = True, floating_preview: bool = False, preview_version: int = 1) -> dict:
         floating_preview = floating_preview and not full
         recipe.validate()
         check_source(source)
+        masks = resolve_masks(recipe.local_adjustments, self.support, source['sha256'])
         # A retained preview remains usable even if its large prepared RAW
         # scene was evicted. Consult the immutable render before redevelopment.
         scene_key = digest({'source': source['sha256'], 'engine': self.engine,
                             'development': recipe.development_key()})
         fast_key = digest({'scene': scene_key, 'recipe': asdict(recipe), 'full': full,
                            'strip_metadata': strip_metadata if full else True,
-                           **({'preview_format': 1, 'gpu_version': 'scene-tone-2'} if floating_preview else {})})
+                           **({'preview_format': preview_version, 'gpu_version': 'scene-tone-2'} if floating_preview else {})})
         fast_target = self.cache / 'renders' / fast_key
-        if (fast_target / 'complete.json').is_file():
+        cached = cached_render(fast_target)
+        if cached is not None:
             if remember:
                 self.remember(source, recipe)
             os.utime(fast_target, None)
-            return {**json.loads((fast_target / 'complete.json').read_text()), 'source': source, 'cache_hit': True}
+            return {**cached, 'source': source, 'cache_hit': True}
         prepared = self.prepare(source, recipe)
         if remember:
             self.remember(source, recipe)
         key = digest({'scene': prepared['key'], 'recipe': asdict(recipe), 'full': full,
                       'strip_metadata': strip_metadata if full else True,
-                      **({'preview_format': 1, 'gpu_version': 'scene-tone-2'} if floating_preview else {})})
+                      **({'preview_format': preview_version, 'gpu_version': 'scene-tone-2'} if floating_preview else {})})
         target = self.cache / 'renders' / key
-        complete = target / 'complete.json'
-        if complete.is_file():
+        cached = cached_render(target)
+        if cached is not None:
             os.utime(target, None)
-            return {**json.loads(complete.read_text()), 'source': source, 'cache_hit': True}
+            return {**cached, 'source': source, 'cache_hit': True}
         alternate = None
         if full:
             alternate_key = digest({'scene': prepared['key'], 'recipe': asdict(recipe), 'full': True,
                                     'strip_metadata': not strip_metadata})
             alternate_path = self.cache / 'renders' / alternate_key
-            if (alternate_path / 'complete.json').is_file() and (alternate_path / 'hdr.rgba16f').is_file():
-                alternate = json.loads((alternate_path / 'complete.json').read_text())
+            alternate = cached_render(alternate_path)
         protected = {Path(prepared['scene']).parent}
         if alternate:
             protected.add(Path(alternate['sdr']).parent)
@@ -403,6 +528,8 @@ class EditorStore:
                     chunk_rows=256 if not full and recipe.style == 'phone-clear' else 512,
                     _preview_output=work / 'sdr.rgba16f' if floating_preview else None,
                     _skip_sdr_jpeg=floating_preview,
+                    _local_adjustments=recipe.local_adjustments, _local_masks=masks,
+                    _local_base_output=work if floating_preview and preview_version == 2 else None,
                     _scene_decision=PhoneSceneDecision(**prepared['scene_decision']) if prepared['scene_decision'] else None)
                 render_record = asdict(info)
             render_width, render_height = render_record['scene']['width'], render_record['scene']['height']
@@ -412,7 +539,7 @@ class EditorStore:
             packet = None
             if floating_preview:
                 from .preview import make_packet
-                packet = make_packet(work, target, prepared, recipe, render_record)
+                packet = make_packet(work, target, prepared, recipe, render_record, version=preview_version, masks=masks)
             else:
                 self.progress('正在编码 Ultra HDR')
                 encode_ultrahdr(work / 'sdr.jpg', work / 'hdr.rgba16f', work / 'ultrahdr.jpg',
@@ -440,7 +567,9 @@ class EditorStore:
                 result['preview_packet'] = packet
                 result.pop('sdr'); result.pop('ultrahdr')
             for path in work.iterdir():
-                keep = ('scene.rgba16f', 'sdr.rgba16f', 'hdr.rgba16f') if floating_preview else (('sdr.jpg', 'ultrahdr.jpg', 'hdr.rgba16f') if full else ('sdr.jpg', 'ultrahdr.jpg'))
+                keep = ('scene.rgba16f', 'sdr.rgba16f', 'hdr.rgba16f', 'base-sdr.rgba16f', 'base-hdr.rgba16f') if floating_preview else (('sdr.jpg', 'ultrahdr.jpg', 'hdr.rgba16f') if full else ('sdr.jpg', 'ultrahdr.jpg'))
+                if floating_preview and path.name.startswith('mask-') and path.suffix == '.r32f':
+                    continue
                 if path.name not in keep:
                     path.unlink()
             atomic_json(work / 'complete.json', result)
@@ -449,6 +578,10 @@ class EditorStore:
             work.rename(target)
         self.prune(protected | {target})
         return result
+
+    def select_region(self, source: dict, recipe: EditRecipe, point) -> dict:
+        from .local_selection import select_region
+        return select_region(self, source, replace(recipe, local_adjustments=()), point)
 
     def export(self, source: dict, recipe: EditRecipe, destination: Path, *, include_sdr=False,
                strip_metadata=False, overwrite=False) -> dict:

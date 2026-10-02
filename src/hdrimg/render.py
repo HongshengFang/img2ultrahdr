@@ -352,6 +352,9 @@ def _render_pair(
     saturation_scale: float = 1.0,
     _analysis: dict | None = None,
     _processing_policy: RenderPolicy | None = None,
+    _local_adjustments: tuple = (),
+    _local_masks: dict | None = None,
+    _local_base_output: Path | None = None,
 ) -> RenderInfo | None:
     if _reference_sdr_only and (_allow_subject or _allow_histogram or _linear_sdr_output is None):
         raise ValueError('SDR-only rendering is restricted to independent analysis references')
@@ -1045,6 +1048,15 @@ def _render_pair(
         tone_mapping["phone_clear_local"] = local_record
         tone_mapping["precision"] = {"main_processing": "float32", "sdr_quantization": "after_all_adjustments",
                                      "hdr_quantization": "float16_after_all_adjustments"}
+    if any(r.ev for r in _local_adjustments):
+        from .local_adjustments import apply_manual_pair, LOCAL_VERSION
+        measured_gain_max, sdr_pixels = apply_manual_pair(sdr_pixels, final_hdr_path,
+            regions=_local_adjustments, masks=_local_masks or {},
+            width=scene_info.width, height=scene_info.height, hdr_strength=hdr_strength,
+            gamut=style.sdr_gamut, chunk_rows=chunk_rows, base_output=_local_base_output)
+        tone_mapping['manual_local'] = {'version': LOCAL_VERSION,
+            'active_regions': sum(bool(r.ev) for r in _local_adjustments), 'requested_ev_limit': .5}
+    if style.clear_float:
         if _linear_sdr_output is not None:
             tifffile.imwrite(_linear_sdr_output, sdr_pixels, photometric="rgb")
         if _preview_output is not None:
@@ -1058,10 +1070,18 @@ def _render_pair(
     if _preview_output is not None and not style.clear_float:
         # Natural's accepted pipeline quantizes before its subject adjustment.
         # Preserve those exact pre-JPEG code values rather than changing its look.
-        encoded = sdr_pixels.astype(np.float32) / 255
-        write_rgba16f(_preview_output, np.where(encoded <= .04045,
-            encoded / 12.92, ((encoded + .055) / 1.055) ** 2.4))
+        if sdr_pixels.dtype != np.uint8:
+            write_rgba16f(_preview_output, sdr_pixels)
+        else:
+            encoded = sdr_pixels.astype(np.float32) / 255
+            write_rgba16f(_preview_output, np.where(encoded <= .04045,
+                encoded / 12.92, ((encoded + .055) / 1.055) ** 2.4))
     if not _skip_sdr_jpeg:
+        if sdr_pixels.dtype != np.uint8:
+            quantized = np.empty(sdr_pixels.shape, dtype=np.uint8)
+            for start in range(0, scene_info.height, chunk_rows):
+                quantized[start:start+chunk_rows] = _quantize_sdr(sdr_pixels[start:start+chunk_rows])
+            sdr_pixels = quantized
         Image.fromarray(sdr_pixels, mode="RGB").save(
             sdr_path, format="JPEG", quality=sdr_quality, subsampling=0,
             optimize=True, icc_profile=_sdr_icc_bytes(style.sdr_gamut))

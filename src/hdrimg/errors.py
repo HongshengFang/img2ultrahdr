@@ -16,3 +16,10 @@ class ProcessingError(HdrImgError):
 
 class DiskSpaceError(ProcessingError):
     """There is insufficient working space for an expensive image operation."""
+
+
+class LocalSelectionError(ProcessingError):
+    """A persisted, active selection cannot be used safely."""
+    def __init__(self, region_id, detail):
+        self.region_id = region_id
+        super().__init__(f'Local region {region_id} needs a new selection: {detail}')

@@ -65,6 +65,7 @@ final class HDRImageLoader: @unchecked Sendable {
 // the tested system. Host the explicitly decoded/tagged CGImage in a native
 // EDR layer instead, so no SDR bitmap backing store clips the HDR rendition.
 final class HDRCanvas: NSView {
+    let localOverlay=LocalOverlay()
     private var dragOrigin: NSPoint?
     private var scrollOrigin: NSPoint?
     var nativeSize = false { didSet { needsDisplay = true } }
@@ -75,6 +76,7 @@ final class HDRCanvas: NSView {
         wantsLayer = true
         layer?.contentsGravity = .resizeAspect
         layer?.backgroundColor = NSColor(calibratedWhite:0.09, alpha:1).cgColor
+        localOverlay.panOwner=self;addSubview(localOverlay)
     }
     required init?(coder: NSCoder) { fatalError("init(coder:) is unsupported") }
     override func updateLayer() {

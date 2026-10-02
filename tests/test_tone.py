@@ -1,4 +1,5 @@
 import numpy as np
+import pytest
 
 from hdrimg.tone import (
     SDR_WHITE_NITS,
@@ -65,6 +66,21 @@ def test_highlight_adjustment_does_not_change_black_or_middle_gray():
     assert np.allclose(adjusted[0, 0], 0)
     assert np.allclose(adjusted[0, 1], image[0, 1], atol=1e-6)
     assert np.allclose(adjusted[0, 2], 0.5, atol=1e-6)
+
+
+@pytest.mark.parametrize('ev', [-2, -1.75, -1.25, -1, 0, 1, 2])
+def test_highlight_range_preserves_brightness_order_and_gray(ev):
+    ramp = np.unique(np.r_[0, .18, np.linspace(.001, 2, 20000), np.geomspace(2, 100, 1000)]).astype(np.float32)
+    rgb = np.repeat(ramp[:, None], 3, axis=1)
+    result = apply_exposure_and_highlights(rgb, total_ev=0, highlight_ev=ev)
+    assert np.isfinite(result).all()
+    assert np.all(np.diff(result[:, 0]) >= -1e-7)
+    np.testing.assert_array_equal(result[ramp <= .18], rgb[ramp <= .18])
+    if ev < 0:
+        assert np.all(result <= rgb + 1e-6)
+    if ev < -1:
+        previous = apply_exposure_and_highlights(rgb, total_ev=0, highlight_ev=-1)
+        assert np.all(result <= previous + 1e-6)
 
 
 def test_contrast_curve_preserves_middle_gray_and_adds_a_toe():

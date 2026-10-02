@@ -39,12 +39,17 @@ struct TextureFrame {
     let texture: MTLTexture
     let scene: MTLTexture
     let packet: PreviewPacket?
+    var maskArray:MTLTexture? = nil
+    var maskSlots:[String:Int] = [:]
+    var maskSizes:[String:SIMD2<UInt32>] = [:]
 }
 
 final class MetalPreviewRenderer: NSObject, MTKViewDelegate {
     let device: MTLDevice
     let queue: MTLCommandQueue
     let edit: MTLComputePipelineState
+    let localEdit: MTLComputePipelineState
+    let emptyMasks:MTLTexture
     let histogramPipeline: MTLComputePipelineState
     let display: MTLRenderPipelineState
     weak var view: PreviewMetalView?
@@ -62,6 +67,7 @@ final class MetalPreviewRenderer: NSObject, MTKViewDelegate {
     }
     private var frame: TextureFrame?
     private var output: MTLTexture?
+    private var globalOutput:MTLTexture?
     private var histogramBuffer: MTLBuffer
     private var loadingKey = ""
     private var generation = 0
@@ -93,6 +99,12 @@ final class MetalPreviewRenderer: NSObject, MTKViewDelegate {
 
     init(device: MTLDevice) throws {
         self.device=device
+        let emptyDescriptor=MTLTextureDescriptor.texture2DDescriptor(pixelFormat:.r32Float,width:1,height:1,mipmapped:false)
+        emptyDescriptor.textureType = .type2DArray;emptyDescriptor.arrayLength=8;emptyDescriptor.storageMode = .shared
+        guard let empty=device.makeTexture(descriptor:emptyDescriptor) else { throw NSError(domain:"Preview",code:8) }
+        emptyMasks=empty
+        var zero:Float=0
+        for slot in 0..<8 { empty.replace(region:MTLRegionMake2D(0,0,1,1),mipmapLevel:0,slice:slot,withBytes:&zero,bytesPerRow:4,bytesPerImage:4) }
         if ProcessInfo.processInfo.environment["HDRIMG_DISABLE_GPU"] == "1" { throw NSError(domain:"Preview",code:0,userInfo:[NSLocalizedDescriptionKey:"实时加速不可用"]) }
         guard let q=device.makeCommandQueue(),let hist=device.makeBuffer(length:4096,options:.storageModeShared),
               let source=AppResources.bundle.url(forResource:"Preview",withExtension:"metal") else { throw NSError(domain:"Preview",code:1,userInfo:[NSLocalizedDescriptionKey:"实时加速不可用"] ) }
@@ -100,6 +112,7 @@ final class MetalPreviewRenderer: NSObject, MTKViewDelegate {
         let options=MTLCompileOptions();options.mathMode = .safe
         let library=try device.makeLibrary(source:String(contentsOf:source,encoding:.utf8),options:options)
         edit=try device.makeComputePipelineState(function:library.makeFunction(name:"editPreview")!)
+        localEdit=try device.makeComputePipelineState(function:library.makeFunction(name:"localLighting")!)
         histogramPipeline=try device.makeComputePipelineState(function:library.makeFunction(name:"histogram")!)
         let desc=MTLRenderPipelineDescriptor();desc.vertexFunction=library.makeFunction(name:"imageVertex")
         desc.fragmentFunction=library.makeFunction(name:"imageFragment");desc.colorAttachments[0].pixelFormat = .rgba16Float
@@ -141,9 +154,32 @@ final class MetalPreviewRenderer: NSObject, MTKViewDelegate {
                     if self.textureCachePhoto != packet.key { self.textureCache.removeAll();self.textureCachePhoto=packet.key }
                     if let cached=self.textureCache[key] { loaded=cached }
                     else {
-                        let t=try self.texture(width:packet.width,height:packet.height,data:Data(contentsOf:URL(fileURLWithPath:path),options:.mappedIfSafe))
+                        let basePath=hdr ? (packet.base_hdr ?? path):(packet.base_sdr ?? path)
+                        let t=try self.texture(width:packet.width,height:packet.height,data:Data(contentsOf:URL(fileURLWithPath:basePath),options:.mappedIfSafe))
                         let scene=try self.textureCache.values.first?.scene ?? self.texture(width:packet.width,height:packet.height,data:Data(contentsOf:URL(fileURLWithPath:packet.scene),options:.mappedIfSafe))
-                        loaded=TextureFrame(texture:t,scene:scene,packet:packet)
+                        var localFrame=TextureFrame(texture:t,scene:scene,packet:packet)
+                        if let shared=self.textureCache.values.first {
+                            localFrame.maskArray=shared.maskArray;localFrame.maskSlots=shared.maskSlots;localFrame.maskSizes=shared.maskSizes
+                        } else if let masks=packet.local_masks,!masks.isEmpty {
+                            let entries=masks.sorted {$0.key<$1.key}
+                            guard entries.count<=8,let first=entries.first?.value,first.width>0,first.height>0,max(first.width,first.height)<=1536 else { throw NSError(domain:"Preview",code:5) }
+                            let width=entries.map { $0.value.width }.max()!,height=entries.map { $0.value.height }.max()!
+                            let desc=MTLTextureDescriptor.texture2DDescriptor(pixelFormat:.r32Float,width:width,height:height,mipmapped:false)
+                            desc.textureType = .type2DArray;desc.arrayLength=8;desc.storageMode = .shared;desc.usage = .shaderRead
+                            guard let array=self.device.makeTexture(descriptor:desc) else { throw NSError(domain:"Preview",code:6) }
+                            for (slot,entry) in entries.enumerated() {
+                                let m=entry.value,data=try Data(contentsOf:URL(fileURLWithPath:m.path))
+                                guard m.width>0,m.height>0,max(m.width,m.height)<=1536,data.count==m.width*m.height*4 else { throw NSError(domain:"Preview",code:7) }
+                                if m.width != width || m.height != height {
+                                    Data(count:width*height*4).withUnsafeBytes { array.replace(region:MTLRegionMake2D(0,0,width,height),mipmapLevel:0,slice:slot,withBytes:$0.baseAddress!,bytesPerRow:width*4,bytesPerImage:width*height*4) }
+                                }
+                                data.withUnsafeBytes { array.replace(region:MTLRegionMake2D(0,0,m.width,m.height),mipmapLevel:0,slice:slot,withBytes:$0.baseAddress!,bytesPerRow:m.width*4,bytesPerImage:m.width*m.height*4) }
+                                localFrame.maskSlots[entry.key]=slot
+                                localFrame.maskSizes[entry.key]=SIMD2(UInt32(m.width),UInt32(m.height))
+                            }
+                            localFrame.maskArray=array
+                        }
+                        loaded=localFrame
                         self.textureCache[key]=loaded
                     }
                 } else {
@@ -160,7 +196,7 @@ final class MetalPreviewRenderer: NSObject, MTKViewDelegate {
                     guard self.generation==wanted else { return }
                     self.frame=loaded
                     self.anchorParameters=loaded.packet.map { PreviewMath.parameters($0,$0.anchor_recipe) } ?? [Float](repeating:0,count:40)
-                    do { self.output=try self.texture(width:loaded.texture.width,height:loaded.texture.height,data:nil) }
+                    do { self.output=try self.texture(width:loaded.texture.width,height:loaded.texture.height,data:nil);self.globalOutput=nil }
                     catch { self.readouts?.failure=error.localizedDescription;return }
                     self.view?.layoutPhoto();self.view?.centerIfNeeded();self.invalidate()
                 }
@@ -196,17 +232,26 @@ final class MetalPreviewRenderer: NSObject, MTKViewDelegate {
         let id=requestedKey,wanted=generation,inputTime=lastInputTime,selectedHDR=hdr
         let packet=frame.packet
         let compatible=packet.map { $0.anchor_recipe.style==recipe.style && $0.anchor_recipe.white_balance==recipe.white_balance } ?? false
-        let interactive=compatible && packet!.anchor_recipe != recipe && kind == "preview"
+        let globalInteractive=compatible && packet!.anchor_recipe.withoutLocal != recipe.withoutLocal && kind == "preview"
+        let interactive=globalInteractive || (compatible && packet!.anchor_recipe.local_adjustments != recipe.local_adjustments && kind=="preview")
+        let useLocal=packet?.version==2 && !recipe.local_adjustments.isEmpty && kind=="preview"
+        if useLocal && globalOutput==nil {
+            do { globalOutput=try texture(width:output.width,height:output.height,data:nil) }
+            catch { inFlight=false;readouts?.failure=error.localizedDescription;return }
+        }
         var current=packet.map { PreviewMath.parameters($0,recipe.normalized()) } ?? anchorParameters
         var anchor=anchorParameters
         var matrix=packet.map { PreviewMath.whiteBalance(anchor:$0.anchor_recipe,current:recipe) } ?? matrix_identity_float3x3
-        var flags=SIMD2<UInt32>(hdr ? 1:0,interactive ? 1:0)
+        var flags=SIMD2<UInt32>(hdr ? 1:0,globalInteractive ? 1:0)
         let changed=id != completedKey
         if changed,let compute=command.makeComputeCommandEncoder() {
-            compute.setComputePipelineState(edit);compute.setTexture(frame.scene,index:0);compute.setTexture(frame.texture,index:1);compute.setTexture(output,index:2)
+            compute.setComputePipelineState(edit);compute.setTexture(frame.scene,index:0);compute.setTexture(frame.texture,index:1);compute.setTexture(useLocal ? globalOutput:output,index:2)
             compute.setBytes(&current,length:current.count*4,index:0);compute.setBytes(&anchor,length:anchor.count*4,index:1)
             compute.setBytes(&matrix,length:MemoryLayout<simd_float3x3>.stride,index:2);compute.setBytes(&flags,length:8,index:3)
             compute.dispatchThreads(MTLSize(width:output.width,height:output.height,depth:1),threadsPerThreadgroup:MTLSize(width:16,height:16,depth:1));compute.endEncoding()
+        }
+        if changed,useLocal,let globalOutput {
+            encodeLocal(command,input:globalOutput,output:output,regions:recipe.local_adjustments,maskArray:frame.maskArray,slots:frame.maskSlots,maskSizes:frame.maskSizes,hdr:hdr,strength:recipe.hdr_strength)
         }
         let updateHistogram=(id != readouts?.histogramFrameID) && (CACurrentMediaTime()-lastHistogram >= 0.1 || !interactive || hdr != readouts?.hdr)
         if updateHistogram {
@@ -237,10 +282,13 @@ final class MetalPreviewRenderer: NSObject, MTKViewDelegate {
         }
         let captured=capture
         drawable.addPresentedHandler { [weak self] drawable in
+            // CAMetalLayer may recycle the drawable before the main queue
+            // handles this callback. Snapshot its timestamp here.
+            let presentedTime=drawable.presentedTime
             DispatchQueue.main.async {
                 guard let self,self.generation==wanted,self.lastPresentedInput != inputTime else { return }
                 self.lastPresentedInput=inputTime
-                self.readouts?.presented.append((inputTime,drawable.presentedTime))
+                self.readouts?.presented.append((inputTime,presentedTime))
                 if (self.readouts?.presented.count ?? 0)>10000 { self.readouts?.presented.removeFirst(1000) }
             }
         }
@@ -273,6 +321,22 @@ final class MetalPreviewRenderer: NSObject, MTKViewDelegate {
         }
         command.present(drawable);command.commit()
     }
+    func encodeLocal(_ command:MTLCommandBuffer,input:MTLTexture,output:MTLTexture,regions:[LocalAdjustment],maskArray:MTLTexture?,slots:[String:Int],maskSizes:[String:SIMD2<UInt32>]=[:],hdr:Bool,strength:Double) {
+        var records=[Float]()
+        for r in regions.sorted(by:{$0.id<$1.id}).prefix(8) {
+            records += [Float(r.center_x),Float(r.center_y),Float(r.radius_x),Float(r.radius_y),
+                        Float(r.rotation * .pi/180),Float(r.mode=="smart" && slots[r.id]==nil ? 0:r.ev),Float(slots[r.id] ?? 0),r.mode=="smart" ? 1:0]
+        }
+        let count=records.count/8
+        records += [Float](repeating:0,count:64-records.count)
+        var info=SIMD4<Float>(Float(count),hdr ? Float(1+(1000/203.0-1)*strength):1,0,0)
+        var sizes=[SIMD2<UInt32>](repeating:SIMD2(UInt32(maskArray?.width ?? 1),UInt32(maskArray?.height ?? 1)),count:8)
+        for (id,size) in maskSizes { if let slot=slots[id],slot<8 { sizes[slot]=size } }
+        guard let compute=command.makeComputeCommandEncoder() else { return }
+        compute.setComputePipelineState(localEdit);compute.setTexture(input,index:0);compute.setTexture(maskArray ?? emptyMasks,index:1);compute.setTexture(output,index:2)
+        compute.setBytes(&records,length:256,index:0);compute.setBytes(&info,length:16,index:1);compute.setBytes(&sizes,length:64,index:2)
+        compute.dispatchThreads(MTLSize(width:output.width,height:output.height,depth:1),threadsPerThreadgroup:MTLSize(width:16,height:16,depth:1));compute.endEncoding()
+    }
     func samplePointer() {
         // Text and histogram refresh at 10 Hz while image presentation keeps
         // its independent 30 Hz budget. Always publish the last pointer too.
@@ -296,6 +360,8 @@ final class MetalPreviewRenderer: NSObject, MTKViewDelegate {
 }
 
 final class PreviewMetalView: MTKView {
+    let localOverlay=LocalOverlay()
+    var localInteraction=LocalInteraction() { didSet { localOverlay.interaction=localInteraction } }
     var renderer:MetalPreviewRenderer?
     var nativeSize=false
     var photoScale=SIMD2<Float>(1,1)
@@ -323,6 +389,7 @@ final class PreviewMetalView: MTKView {
         colorPixelFormat = .rgba16Float;framebufferOnly=false;isPaused=true;enableSetNeedsDisplay=true
         clearColor=MTLClearColor(red:0.00854,green:0.00854,blue:0.00854,alpha:1)
         updateDisplayRange()
+        localOverlay.panOwner=self;addSubview(localOverlay)
     }
     func updateDisplayRange() {
         guard let renderer,let metal=layer as? CAMetalLayer else { return }
@@ -347,6 +414,9 @@ final class PreviewMetalView: MTKView {
         let fit=nativeSize ? 1/backing:min(bounds.width/image.width,bounds.height/image.height)
         let scale=SIMD2(Float(image.width*fit/bounds.width),Float(image.height*fit/bounds.height))
         if photoScale != scale { photoScale=scale;renderer.invalidate() }
+        localOverlay.frame=bounds
+        localOverlay.photoSize=image
+        localOverlay.photoRect=NSRect(x:(bounds.width-image.width*fit)/2,y:(bounds.height-image.height*fit)/2,width:image.width*fit,height:image.height*fit)
     }
     func centerIfNeeded() {
         guard centerOnLoad,let scroll=enclosingScrollView else { return }
@@ -391,6 +461,7 @@ struct InteractivePhotoView:NSViewRepresentable {
     let clipping:UInt32
     let readouts:PhotoReadouts
     var inputTime:Double? = nil
+    var local:LocalInteraction = LocalInteraction()
     final class Coordinator {
         var renderer:MetalPreviewRenderer?
         var latest:InteractivePhotoView?
@@ -436,6 +507,7 @@ struct InteractivePhotoView:NSViewRepresentable {
         let selectedHDR=hdr && (scroll.window?.screen?.maximumPotentialExtendedDynamicRangeColorComponentValue ?? 1)>1
         if context.coordinator.reset != viewReset { scroll.magnification=1;context.coordinator.reset=viewReset;canvas.centerOnLoad=true }
         canvas.nativeSize=nativeSize
+        canvas.localInteraction=local
         let kind=result["exported"] != nil ? "export":(result["full"] as? Bool == true ? "full":"preview")
         renderer.load(result,hdr:selectedHDR)
         renderer.update(recipe:recipe,hdr:selectedHDR,clipping:clipping,kind:kind,inputTime:inputTime);canvas.layoutPhoto()
